@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   LogOut,
   RotateCcw,
+  Truck,
   Users,
   Workflow,
 } from "lucide-react"
@@ -176,6 +177,9 @@ export function TopBar() {
           </NavLink>
           {isAnyAdmin && (
             <>
+              <NavLink to="/movement" className={link}>
+                <Truck className="size-4" /> Movement
+              </NavLink>
               <NavLink to="/modules" className={link}>
                 <Blocks className="size-4" /> Modules
               </NavLink>

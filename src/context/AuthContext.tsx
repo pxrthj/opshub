@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { api } from "@/api"
-import { readSession } from "@/api/session"
+import { readSession, writeSession } from "@/api/session"
 import type { PublicUser } from "@/lib/types"
 
 interface AuthContextValue {
@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setUser(await api.raw.get<PublicUser>("/api/auth/me"))
     } catch {
+      writeSession(null)
       setUser(null)
     }
   }, [])

@@ -1,9 +1,23 @@
+import { SEED_USERS } from "@/data/seed"
 import { ROLES } from "@/lib/roles"
-import type { Database, PublicUser, Role, SiteStats, SiteSummary, User } from "@/lib/types"
+import type {
+  Database,
+  GoodsMovementStats,
+  GoodsMovementTrail,
+  MovementStage,
+  PublicUser,
+  Role,
+  SiteStats,
+  SiteSummary,
+  SupplyChainFlow,
+  SupplyChainTier,
+  User,
+} from "@/lib/types"
 import { uid } from "@/lib/utils"
 import { resetDb } from "../db"
 import { badRequest, conflict, forbidden, notFound, unauthorized } from "../errors"
 import { register, type Ctx } from "../router"
+
 import { writeSession } from "../session"
 import { stockSiteOf } from "./helpers"
 
@@ -15,21 +29,41 @@ export function publicUser(u: User): PublicUser {
 
 export function computeStats(db: Database, siteId: string): SiteStats {
   const data = db.data[siteId]
-  const cfg = db.sites[siteId].live
+  const cfg = db.sites[siteId]?.live
+  if (!data || !cfg) {
+    return {
+      siteId,
+      pendingRequests: 0,
+      lowStock: 0,
+      totalItems: 0,
+      stockValue: 0,
+      assignments: 0,
+      openRepairs: 0,
+      fixedRepairs: 0,
+      consumptionUnits: 0,
+      returnsCount: 0,
+    }
+  }
   const stockId = stockSiteOf(cfg)
   const hasInv = cfg.modules.includes("inventory")
   const inv = hasInv ? (db.data[stockId]?.inventory ?? []) : []
+  const requests = data.requests ?? []
+  const assignments = data.assignments ?? []
+  const repairs = data.repairs ?? []
+  const consumption = data.consumption ?? []
+  const returns = data.returns ?? []
+
   return {
     siteId,
-    pendingRequests: data.requests.filter((r) => r.status === "Pending").length,
+    pendingRequests: requests.filter((r) => r.status === "Pending").length,
     lowStock: inv.filter((i) => i.qty < i.reorderLevel).length,
     totalItems: inv.length,
     stockValue: inv.reduce((s, i) => s + i.qty * i.unitPrice, 0),
-    assignments: data.assignments.length,
-    openRepairs: data.repairs.filter((r) => r.status === "Received" || r.status === "In Repair").length,
-    fixedRepairs: data.repairs.filter((r) => r.status === "Fixed").length,
-    consumptionUnits: data.consumption.reduce((s, c) => s + c.qty, 0),
-    returnsCount: data.returns.length,
+    assignments: assignments.length,
+    openRepairs: repairs.filter((r) => r.status === "Received" || r.status === "In Repair").length,
+    fixedRepairs: repairs.filter((r) => r.status === "Fixed").length,
+    consumptionUnits: consumption.reduce((s, c) => s + c.qty, 0),
+    returnsCount: returns.length,
   }
 }
 
@@ -51,9 +85,19 @@ register(
     auth: false,
     handler: ({ db, body }) => {
       const email = String(body.email ?? "").trim().toLowerCase()
-      const user = db.users.find((u) => u.email.toLowerCase() === email)
-      // Mock login: plain comparison. The real backend compares a bcrypt hash and sets an HTTP-only cookie.
-      if (!user || user.password !== body.password) throw unauthorized("Invalid email or password")
+      const password = String(body.password ?? "")
+      let user = db.users.find((u) => u.email.toLowerCase() === email)
+
+      // Fallback: if user is in SEED_USERS but not in db.users (e.g. stale localStorage)
+      if (!user) {
+        const seedMatch = SEED_USERS.find((u) => u.email.toLowerCase() === email)
+        if (seedMatch) {
+          db.users.push(seedMatch)
+          user = seedMatch
+        }
+      }
+
+      if (!user || user.password !== password) throw unauthorized("Invalid email or password")
       writeSession({ userId: user.id, at: new Date().toISOString() })
       return publicUser(user)
     },
@@ -163,6 +207,177 @@ register(
         target.roles = next
       }
       return publicUser(target)
+    },
+  },
+
+  // ---------------------------------------------------------------- goods movement & audit
+  {
+    method: "GET",
+    path: "/api/hub/goods-movement",
+    handler: (ctx) => {
+      requireAnyAdmin(ctx)
+      const { db } = ctx
+      const trails: GoodsMovementTrail[] = []
+
+      for (const [siteId, record] of Object.entries(db.sites)) {
+        const config = record.live
+        const sData = db.data[siteId]
+        if (!sData) continue
+
+        const requests = sData.requests ?? []
+        const assignments = sData.assignments ?? []
+        const consumptions = sData.consumption ?? []
+        const returnsList = sData.returns ?? []
+        const repairsList = sData.repairs ?? []
+
+        for (const req of requests) {
+          const assignment = assignments.find((a) => a.requestId === req.id || a.id === req.assignmentId)
+          const consumption = assignment ? consumptions.filter((c) => c.assignmentId === assignment.id) : []
+          const returns = returnsList.filter(
+            (r) => (assignment && r.refId === assignment.id) || (req.repairJobId && r.refId === req.repairJobId),
+          )
+          const repairJob = req.repairJobId ? repairsList.find((r) => r.id === req.repairJobId) : undefined
+
+          const totalQtyRequested = req.lines?.reduce((s, l) => s + (Number(l.qty) || 0), 0) ?? 0
+          const totalConsumed = consumption.reduce((s, c) => s + (Number(c.qty) || 0), 0)
+          const totalReturned = returns.reduce((s, r) => s + (Number(r.qty) || 0), 0)
+
+          let stage: MovementStage = "Awaiting Approval"
+          if (req.type === "repair") {
+            if (repairJob?.returned || totalReturned > 0) stage = "Returned / Restocked"
+            else if (repairJob?.status === "Fixed") stage = "Approved & Dispatched"
+            else if (repairJob?.status === "In Repair" || repairJob?.status === "Received") stage = "In Field"
+            else if (req.status === "Rejected") stage = "Request Rejected"
+            else if (req.status === "Pending") stage = "Awaiting Approval"
+            else stage = "Approved & Dispatched"
+          } else {
+            if (req.status === "Pending") stage = "Awaiting Approval"
+            else if (req.status === "Rejected") stage = "Request Rejected"
+            else if (totalReturned > 0) stage = "Returned / Restocked"
+            else if (totalConsumed >= totalQtyRequested && totalQtyRequested > 0) stage = "Fully Consumed"
+            else if (totalConsumed > 0) stage = "In Field"
+            else if (req.status === "Assigned" || assignment) stage = "Approved & Dispatched"
+            else stage = "Approved & Dispatched"
+          }
+
+          // Determine the Supply Chain Tier and Flow
+          // Tier 1: Central Stores (cs-001) - Master Inventory (Top of chain)
+          // Tier 2: Distribution Centre (ds-003) - Regional Mid-tier
+          // Tier 3: Service Centre (sc-002) - Service & Repair (Bottom of chain)
+          let sourceTier: SupplyChainTier = "Tier 1: Central Store"
+          let destinationTier: SupplyChainTier = "Tier 2: Distribution Centre"
+          let supplyChainFlow: SupplyChainFlow = "Tier 1 ➔ Tier 2"
+          let sourceSiteId = assignment?.stockSiteId || stockSiteOf(config)
+          let sourceSiteName = db.sites[sourceSiteId]?.live.name || "Central Stores"
+          const destinationSiteId = siteId
+          const destinationSiteName = config.name
+
+          if (siteId === "sc-002" || config.slug === "service-centre") {
+            // Service Centre is at the bottom of the supply chain (Tier 3), requesting products from Distribution (Tier 2)
+            sourceTier = "Tier 2: Distribution Centre"
+            destinationTier = "Tier 3: Service Centre"
+            supplyChainFlow = "Tier 2 ➔ Tier 3"
+            sourceSiteId = "ds-003"
+            sourceSiteName = db.sites["ds-003"]?.live.name || "Distribution"
+          } else if (siteId === "ds-003" || config.slug === "distribution") {
+            if (req.requestedBy === "u_lineman" || req.requestedBy === "u_ganesh") {
+              sourceTier = "Tier 2: Distribution Centre"
+              destinationTier = "Tier 2: Distribution Centre"
+              supplyChainFlow = "Internal / Field"
+              sourceSiteId = "ds-003"
+              sourceSiteName = "Distribution Regional Store"
+            } else {
+              sourceTier = "Tier 1: Central Store"
+              destinationTier = "Tier 2: Distribution Centre"
+              supplyChainFlow = "Tier 1 ➔ Tier 2"
+              sourceSiteId = "cs-001"
+              sourceSiteName = db.sites["cs-001"]?.live.name || "Central Stores"
+            }
+          }
+
+          trails.push({
+            id: req.id,
+            code: req.code,
+            type: req.type,
+            siteId,
+            siteName: config.name,
+            siteSlug: config.slug,
+            siteColor: config.theme.primary,
+            sourceSiteId,
+            sourceSiteName,
+            sourceTier,
+            destinationSiteId,
+            destinationSiteName,
+            destinationTier,
+            supplyChainFlow,
+            requestedBy: req.requestedBy,
+            requestedByName: req.requestedByName,
+            requestedAt: req.createdAt,
+            purpose: req.purpose,
+            priority: (req.priority as "Normal" | "Urgent" | "Low") || "Normal",
+            status: req.status,
+            stage,
+            decidedBy: req.decidedBy,
+            decidedAt: req.decidedAt,
+            decisionComment: req.decisionComment,
+            items: (req.lines ?? []).map((l) => ({
+              itemId: l.itemId,
+              itemName: l.itemName,
+              unit: l.unit,
+              qty: l.qty,
+            })),
+            totalQtyRequested,
+            assignment: assignment
+              ? {
+                  id: assignment.id,
+                  code: assignment.code,
+                  dispatchedAt: assignment.createdAt,
+                  dispatchedBy: assignment.createdBy,
+                  sourceWarehouseId: sourceSiteId,
+                  sourceWarehouseName: sourceSiteName,
+                  assigneeName: assignment.assigneeName,
+                  lines: assignment.lines,
+                }
+              : undefined,
+            consumption,
+            totalConsumed,
+            returns,
+            totalReturned,
+            repair: req.repair
+              ? {
+                  meterId: req.repair.meterId,
+                  meterType: req.repair.meterType,
+                  fault: req.repair.fault,
+                  status: repairJob?.status,
+                  jobCode: repairJob?.code,
+                  technician: repairJob?.technician,
+                  returned: repairJob?.returned,
+                }
+              : undefined,
+          })
+        }
+      }
+
+      // Sort newest first
+      trails.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+
+      const stats: GoodsMovementStats = {
+        totalTracked: trails.length,
+        pendingApprovals: trails.filter((t) => t.status === "Pending").length,
+        activeDispatches: trails.filter((t) => t.stage === "Approved & Dispatched" || t.stage === "In Field").length,
+        completedMovements: trails.filter((t) => t.stage === "Fully Consumed" || t.stage === "Returned / Restocked").length,
+        totalUnitsRequested: trails.reduce((s, t) => s + t.totalQtyRequested, 0),
+        totalUnitsDispatched: trails.reduce(
+          (s, t) => s + (t.assignment ? t.assignment.lines.reduce((sub, l) => sub + l.qty, 0) : 0),
+          0,
+        ),
+        totalUnitsConsumed: trails.reduce((s, t) => s + t.totalConsumed, 0),
+        totalUnitsReturned: trails.reduce((s, t) => s + t.totalReturned, 0),
+        tier1To2Count: trails.filter((t) => t.supplyChainFlow === "Tier 1 ➔ Tier 2").length,
+        tier2To3Count: trails.filter((t) => t.supplyChainFlow === "Tier 2 ➔ Tier 3").length,
+      }
+
+      return { trails, stats }
     },
   },
 )

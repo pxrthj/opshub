@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom"
-import { AlertTriangle, ArrowRight, Building2, CheckCircle2, ClipboardList, Settings2, Wrench, type LucideIcon } from "lucide-react"
+import { AlertTriangle, ArrowRight, Building2, CheckCircle2, ClipboardList, Settings2, Truck, Wrench, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { EmptyState } from "@/components/EmptyState"
@@ -94,7 +94,7 @@ function OfficeCard({ s }: { s: SiteSummary }) {
 
 export function HubHome() {
   const { user } = useAuth()
-  const { sites, loading } = useHub()
+  const { sites, loading, isAnyAdmin } = useHub()
   const todos = todosFor(sites)
 
   return (
@@ -114,6 +114,38 @@ export function HubHome() {
         <EmptyState icon={Building2} title="You don't have access to any office yet" description="Ask an Admin to add you to one." />
       ) : (
         <>
+          {isAnyAdmin && (
+            <section className="mb-10">
+              <div className="flex flex-col justify-between gap-4 rounded-2xl border border-blue-200 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 p-6 text-white shadow-sm sm:flex-row sm:items-center">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-blue-500/20 text-blue-300">
+                      <Truck className="size-4" />
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-blue-300">
+                      Central Admin Oversight
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold tracking-tight text-white">
+                    Movement of Goods & Chain of Custody
+                  </h3>
+                  <p className="max-w-2xl text-sm text-slate-300">
+                    Track the complete movement lifecycle from requester submission and manager approval, to warehouse stock release, field installation, and restock returns.
+                  </p>
+                </div>
+                <Button
+                  asChild
+                  size="lg"
+                  className="shrink-0 bg-blue-600 font-semibold text-white hover:bg-blue-500 shadow-xs"
+                >
+                  <Link to="/movement">
+                    Inspect Movement <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              </div>
+            </section>
+          )}
+
           <section className="mb-10">
             <h2 className="mb-3 text-sm font-semibold tracking-wide text-slate-500 uppercase">Waiting for you</h2>
             {todos.length === 0 ? (

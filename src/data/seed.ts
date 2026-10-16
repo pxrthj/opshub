@@ -33,6 +33,7 @@ function daysAgo(d: number, hour = 10) {
 }
 
 export const SEED_USERS: User[] = [
+  // 1 Administrator (across all sites)
   {
     id: "u_admin",
     email: "admin@opshub.demo",
@@ -41,13 +42,33 @@ export const SEED_USERS: User[] = [
     title: "Platform Administrator",
     roles: { [SITE_IDS.central]: "Admin", [SITE_IDS.service]: "Admin", [SITE_IDS.distribution]: "Admin" },
   },
+
+  // Central Stores (Tier 1): 1 Manager + 1 Member
+  {
+    id: "u_store",
+    email: "storekeeper@opshub.demo",
+    password: "store123",
+    name: "Meena Kulkarni",
+    title: "Central Storekeeper",
+    roles: { [SITE_IDS.central]: "Manager" },
+  },
+  {
+    id: "u_clerk",
+    email: "clerk@opshub.demo",
+    password: "clerk123",
+    name: "Pooja Gaikwad",
+    title: "Store Inventory Clerk",
+    roles: { [SITE_IDS.central]: "Member" },
+  },
+
+  // Distribution (Tier 2): 1 Manager + 1 Member
   {
     id: "u_engineer",
     email: "engineer@opshub.demo",
     password: "eng123",
     name: "Rahul Patil",
-    title: "Junior Engineer",
-    roles: { [SITE_IDS.distribution]: "Manager", [SITE_IDS.service]: "Manager" },
+    title: "Distribution Section Engineer",
+    roles: { [SITE_IDS.distribution]: "Manager" },
   },
   {
     id: "u_lineman",
@@ -57,37 +78,41 @@ export const SEED_USERS: User[] = [
     title: "Lineman, Pune Rural",
     roles: { [SITE_IDS.distribution]: "Member" },
   },
+
+  // Service Centre (Tier 3): 1 Manager + 1 Member
   {
-    id: "u_store",
-    email: "storekeeper@opshub.demo",
-    password: "store123",
-    name: "Meena Kulkarni",
-    title: "Storekeeper",
-    roles: { [SITE_IDS.central]: "Manager" },
+    id: "u_service_mgr",
+    email: "service_manager@opshub.demo",
+    password: "scman123",
+    name: "Anjali Joshi",
+    title: "Service Centre Manager",
+    roles: { [SITE_IDS.service]: "Manager" },
   },
   {
-    id: "u_clerk",
-    email: "clerk@opshub.demo",
-    password: "clerk123",
-    name: "Pooja Gaikwad",
-    title: "Store Clerk",
-    roles: { [SITE_IDS.central]: "Member" },
+    id: "u_vikas",
+    email: "technician@opshub.demo",
+    password: "tech123",
+    name: "Vikas Shinde",
+    title: "Senior Meter Technician",
+    roles: { [SITE_IDS.service]: "Member" },
   },
+
+  // Cross-Site Members (2 people who are members of multiple sites)
   {
     id: "u_ganesh",
     email: "ganesh@opshub.demo",
     password: "demo123",
     name: "Ganesh More",
-    title: "Lineman, Baramati",
-    roles: { [SITE_IDS.distribution]: "Member" },
+    title: "Multi-Site Field & Meter Support",
+    roles: { [SITE_IDS.distribution]: "Member", [SITE_IDS.service]: "Member" },
   },
   {
-    id: "u_vikas",
-    email: "vikas@opshub.demo",
+    id: "u_suresh",
+    email: "logistics@opshub.demo",
     password: "demo123",
-    name: "Vikas Shinde",
-    title: "Meter Technician",
-    roles: { [SITE_IDS.service]: "Member" },
+    name: "Suresh Pawar",
+    title: "Inter-Office Logistics Assistant",
+    roles: { [SITE_IDS.central]: "Member", [SITE_IDS.distribution]: "Member" },
   },
 ]
 
@@ -109,20 +134,20 @@ const centralStores = buildConfigFromCanvas(
     siteId: SITE_IDS.central,
     slug: "central-stores",
     name: "Central Stores",
-    description: "Main warehouse for meters, cables, transformers and line hardware.",
+    description: "Top tier of the supply chain. Holds master inventory for meters, cables, transformers and supplies Distribution Centres.",
     theme: { primary: "#1e40af", accent: "#dbeafe", background: "#f4f7fd", radius: 0.4, sidebar: "solid" },
     workflow: {
       stockSourceSiteId: null,
       autoAssignOnApproval: true,
       requireRejectComment: true,
       allowRepairRequests: false,
-      allowMaterialRequests: true,
+      allowMaterialRequests: false,
       maxQtyPerLine: 1000,
       lowStockAlerts: true,
     },
   }),
-  [node("n_inv", "inventory", 80, 170), node("n_ana", "analytics", 420, 60), node("n_rep", "reports", 420, 280)],
-  [edge("n_inv", "n_ana"), edge("n_inv", "n_rep")],
+  [node("n_inv", "inventory", 80, 170), node("n_apr", "approval", 320, 170), node("n_ana", "analytics", 560, 60), node("n_rep", "reports", 560, 280)],
+  [edge("n_inv", "n_apr"), edge("n_inv", "n_ana"), edge("n_inv", "n_rep")],
 )
 
 const serviceCentre = buildConfigFromCanvas(
@@ -130,14 +155,14 @@ const serviceCentre = buildConfigFromCanvas(
     siteId: SITE_IDS.service,
     slug: "service-centre",
     name: "Service Centre",
-    description: "Repairs faulty smart meters and returns them to stores.",
+    description: "Bottom tier of the supply chain. Requests products only from Distribution Centres and repairs faulty smart meters.",
     theme: { primary: "#ea580c", accent: "#ffedd5", background: "#fffaf5", radius: 0.9, sidebar: "light" },
     workflow: {
-      stockSourceSiteId: SITE_IDS.central,
-      autoAssignOnApproval: false,
+      stockSourceSiteId: SITE_IDS.distribution,
+      autoAssignOnApproval: true,
       requireRejectComment: true,
       allowRepairRequests: true,
-      allowMaterialRequests: false,
+      allowMaterialRequests: true,
       maxQtyPerLine: 50,
       lowStockAlerts: false,
     },
@@ -156,7 +181,7 @@ const distribution = buildConfigFromCanvas(
     siteId: SITE_IDS.distribution,
     slug: "distribution",
     name: "Distribution",
-    description: "Issues material from Central Stores to field teams and tracks consumption.",
+    description: "Mid-tier of the supply chain. Requests products from Central Stores and fulfills product requests from Service Centres and field teams.",
     theme: { primary: "#15803d", accent: "#dcfce7", background: "#f5fbf6", radius: 0.65, sidebar: "tinted" },
     workflow: {
       stockSourceSiteId: SITE_IDS.central,
@@ -239,6 +264,18 @@ const CENTRAL_INVENTORY: InventoryItem[] = [
   inv("itm_lugs", "Lugs & Connectors Kit", "Spares", "Sets", 30, 450, 40),
 ]
 
+export const DISTRIBUTION_INVENTORY: InventoryItem[] = [
+  inv("itm_sp_meter", "Single Phase Smart Meter", "Meters", "Nos", 150, 2400, 30),
+  inv("itm_tp_meter", "Three Phase Smart Meter", "Meters", "Nos", 35, 6800, 15),
+  inv("itm_meter_box", "Meter Box (SMC) Single Phase", "Meters", "Nos", 90, 380, 25),
+  inv("itm_service_wire", "Service Wire 2C x 10 sq mm", "Cables & Wires", "Metres", 1500, 42, 400),
+  inv("itm_pin_ins", "Pin Insulator 11 kV", "Line Hardware", "Nos", 220, 145, 50),
+  inv("itm_stay", "Stay Set Complete", "Line Hardware", "Sets", 40, 980, 15),
+  inv("itm_mcb32", "MCB 32A Double Pole", "Protection", "Nos", 85, 310, 20),
+  inv("itm_earth_rod", "Earthing Rod GI 3 m", "Earthing", "Nos", 35, 650, 20),
+  inv("itm_lugs", "Lugs & Connectors Kit", "Spares", "Sets", 18, 450, 10),
+]
+
 const itemName = (id: string) => CENTRAL_INVENTORY.find((i) => i.id === id)!
 const line = (itemId: string, qty: number) => {
   const i = itemName(itemId)
@@ -246,6 +283,49 @@ const line = (itemId: string, qty: number) => {
 }
 
 const DIST_REQUESTS: MaterialRequest[] = [
+  {
+    id: "rq_dc1",
+    code: "REQ-DS-0101",
+    type: "material",
+    lines: [line("itm_sp_meter", 100), line("itm_service_wire", 1000)],
+    purpose: "Bulk inventory replenishment from Central Stores",
+    priority: "Urgent",
+    requestedBy: "u_engineer",
+    requestedByName: "Rahul Patil",
+    createdAt: daysAgo(25),
+    status: "Assigned",
+    decidedBy: "Meena Kulkarni",
+    decidedAt: daysAgo(24),
+    decisionComment: "Dispatched 100 Smart Meters and 1000m cable to Distribution warehouse",
+    assignmentId: "as_c1",
+  },
+  {
+    id: "rq_dc2",
+    code: "REQ-DS-0102",
+    type: "material",
+    lines: [line("itm_tp_meter", 20), line("itm_meter_box", 50)],
+    purpose: "Commercial feeder hardware replenishment from Central Stores",
+    priority: "Normal",
+    requestedBy: "u_engineer",
+    requestedByName: "Rahul Patil",
+    createdAt: daysAgo(12),
+    status: "Assigned",
+    decidedBy: "Meena Kulkarni",
+    decidedAt: daysAgo(11),
+    assignmentId: "as_c2",
+  },
+  {
+    id: "rq_dc3",
+    code: "REQ-DS-0103",
+    type: "material",
+    lines: [line("itm_pin_ins", 80), line("itm_disc_ins", 40)],
+    purpose: "Pre-monsoon insulator buffer stock request to Central Stores",
+    priority: "Normal",
+    requestedBy: "u_engineer",
+    requestedByName: "Rahul Patil",
+    createdAt: daysAgo(2),
+    status: "Pending",
+  },
   {
     id: "rq_d1",
     code: "REQ-DS-1001",
@@ -408,11 +488,16 @@ const asg = (
   createdBy: "Rahul Patil",
 })
 
+const CENTRAL_ASSIGNMENTS: Assignment[] = [
+  asg("as_c1", "ASN-CS-401", DIST_REQUESTS.find((r) => r.id === "rq_dc1")!, 24),
+  asg("as_c2", "ASN-CS-402", DIST_REQUESTS.find((r) => r.id === "rq_dc2")!, 11),
+]
+
 const DIST_ASSIGNMENTS: Assignment[] = [
-  asg("as_d1", "ASN-DS-501", DIST_REQUESTS[0], 20),
-  asg("as_d2", "ASN-DS-502", DIST_REQUESTS[1], 17),
-  asg("as_d3", "ASN-DS-503", DIST_REQUESTS[3], 11),
-  asg("as_d4", "ASN-DS-504", DIST_REQUESTS[4], 9),
+  asg("as_d1", "ASN-DS-501", DIST_REQUESTS.find((r) => r.id === "rq_d1")!, 20),
+  asg("as_d2", "ASN-DS-502", DIST_REQUESTS.find((r) => r.id === "rq_d2")!, 17),
+  asg("as_d3", "ASN-DS-503", DIST_REQUESTS.find((r) => r.id === "rq_d4")!, 11),
+  asg("as_d4", "ASN-DS-504", DIST_REQUESTS.find((r) => r.id === "rq_d5")!, 9),
 ]
 
 const cons = (
@@ -456,7 +541,7 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
         requestedByName: "Vikas Shinde",
         createdAt: daysAgo(d as number),
         status: "Approved",
-        decidedBy: "Rahul Patil",
+        decidedBy: "Anjali Joshi",
         decidedAt: daysAgo((d as number) - 1),
         repairJobId: rj as string,
       }) as MaterialRequest,
@@ -499,9 +584,52 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     requestedByName: "Vikas Shinde",
     createdAt: daysAgo(10),
     status: "Rejected",
-    decidedBy: "Rahul Patil",
+    decidedBy: "Anjali Joshi",
     decidedAt: daysAgo(9),
     decisionComment: "Meter under OEM warranty — send back to vendor.",
+  },
+  {
+    id: "rq_sc1",
+    code: "REQ-SC-3001",
+    type: "material",
+    lines: [line("itm_sp_meter", 5), line("itm_meter_box", 10)],
+    purpose: "Replacement meters & enclosures requested from Distribution",
+    priority: "Normal",
+    requestedBy: "u_vikas",
+    requestedByName: "Vikas Shinde",
+    createdAt: daysAgo(14),
+    status: "Assigned",
+    decidedBy: "Rahul Patil",
+    decidedAt: daysAgo(13),
+    decisionComment: "Issued from Distribution regional store",
+    assignmentId: "as_sc1",
+  },
+  {
+    id: "rq_sc2",
+    code: "REQ-SC-3002",
+    type: "material",
+    lines: [line("itm_tp_meter", 2)],
+    purpose: "Testing & replacement stock requested from Distribution",
+    priority: "Urgent",
+    requestedBy: "u_vikas",
+    requestedByName: "Vikas Shinde",
+    createdAt: daysAgo(1),
+    status: "Pending",
+  },
+]
+
+const SERVICE_ASSIGNMENTS: Assignment[] = [
+  {
+    id: "as_sc1",
+    code: "ASN-DS-601",
+    requestId: "rq_sc1",
+    requestCode: "REQ-SC-3001",
+    assigneeId: "u_vikas",
+    assigneeName: "Vikas Shinde",
+    lines: [line("itm_sp_meter", 5), line("itm_meter_box", 10)],
+    stockSiteId: SITE_IDS.distribution,
+    createdAt: daysAgo(13),
+    createdBy: "Rahul Patil",
   },
 ]
 
@@ -565,7 +693,7 @@ export function emptySiteData(): SiteData {
 export function createSeedDatabase(): Database {
   const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
   return {
-    schema: 1,
+    schema: 3,
     users: clone(SEED_USERS),
     sites: {
       [SITE_IDS.central]: siteRecord(clone(centralStores)),
@@ -573,15 +701,21 @@ export function createSeedDatabase(): Database {
       [SITE_IDS.distribution]: siteRecord(clone(distribution)),
     },
     data: {
-      [SITE_IDS.central]: { ...emptySiteData(), inventory: clone(CENTRAL_INVENTORY) },
+      [SITE_IDS.central]: {
+        ...emptySiteData(),
+        inventory: clone(CENTRAL_INVENTORY),
+        assignments: clone(CENTRAL_ASSIGNMENTS),
+      },
       [SITE_IDS.service]: {
         ...emptySiteData(),
         requests: clone(SERVICE_REQUESTS),
         repairs: clone(SERVICE_REPAIRS),
         returns: clone(SERVICE_RETURNS),
+        assignments: clone(SERVICE_ASSIGNMENTS),
       },
       [SITE_IDS.distribution]: {
         ...emptySiteData(),
+        inventory: clone(DISTRIBUTION_INVENTORY),
         requests: clone(DIST_REQUESTS),
         assignments: clone(DIST_ASSIGNMENTS),
         consumption: clone(DIST_CONSUMPTION),

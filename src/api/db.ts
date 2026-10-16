@@ -1,10 +1,11 @@
-import { createSeedDatabase } from "@/data/seed"
+import { createSeedDatabase, SEED_USERS } from "@/data/seed"
 import type { Database } from "@/lib/types"
 
 // The "database": one JSON document in localStorage, with data keyed by siteId.
 // In the real backend this becomes Postgres tables that all carry a site_id column.
 
-const DB_KEY = "opshub.db.v2"
+export const CURRENT_SCHEMA = 3
+const DB_KEY = "opshub.db.v3"
 
 export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value))
@@ -12,10 +13,34 @@ export function clone<T>(value: T): T {
 
 export function loadDb(): Database {
   try {
+    // Cleanup older legacy versions if any
+    try {
+      localStorage.removeItem("opshub.db.v1")
+      localStorage.removeItem("opshub.db.v2")
+    } catch {
+      // ignore
+    }
+
     const raw = localStorage.getItem(DB_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Database
-      if (parsed && parsed.schema === 1 && parsed.sites && parsed.data) return parsed
+      if (parsed && parsed.schema === CURRENT_SCHEMA && parsed.sites && parsed.data) {
+        // Ensure all seed users exist with their latest credentials and roles
+        const userMap = new Map(parsed.users.map((u) => [u.email.toLowerCase(), u]))
+        let changed = false
+        for (const su of SEED_USERS) {
+          const existing = userMap.get(su.email.toLowerCase())
+          if (!existing || existing.password !== su.password || JSON.stringify(existing.roles) !== JSON.stringify(su.roles)) {
+            userMap.set(su.email.toLowerCase(), su)
+            changed = true
+          }
+        }
+        if (changed || parsed.users.length !== userMap.size) {
+          parsed.users = Array.from(userMap.values())
+          saveDb(parsed)
+        }
+        return parsed
+      }
     }
   } catch {
     // corrupted storage — fall through to seed
@@ -34,6 +59,11 @@ export function saveDb(db: Database) {
 }
 
 export function resetDb(): Database {
+  try {
+    localStorage.removeItem("opshub.session")
+  } catch {
+    // ignore
+  }
   const seeded = createSeedDatabase()
   saveDb(seeded)
   return seeded

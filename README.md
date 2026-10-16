@@ -29,10 +29,14 @@ Recharts, ExcelJS (in-browser), lucide-react. State is React Context + `useState
 | Email | Password | Roles (per site) |
 |---|---|---|
 | admin@opshub.demo | admin123 | Admin on all 3 units |
-| engineer@opshub.demo | eng123 | Manager on Distribution + Service Centre |
-| lineman@opshub.demo | line123 | Member on Distribution only |
 | storekeeper@opshub.demo | store123 | Manager on Central Stores only |
-| clerk@opshub.demo | clerk123 | Member on Central Stores (extra — shows the Member view of Reports) |
+| clerk@opshub.demo | clerk123 | Member on Central Stores only |
+| engineer@opshub.demo | eng123 | Manager on Distribution only |
+| lineman@opshub.demo | line123 | Member on Distribution only |
+| service_manager@opshub.demo | scman123 | Manager on Service Centre only |
+| technician@opshub.demo | tech123 | Member on Service Centre only |
+| ganesh@opshub.demo | demo123 | Member on Distribution & Service Centre (Multi-site) |
+| logistics@opshub.demo | demo123 | Member on Central Stores & Distribution (Multi-site) |
 
 Roles: Public < Member < Manager < Admin. Roles are **per site**; no role on a site = no access.
 

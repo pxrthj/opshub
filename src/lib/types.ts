@@ -329,3 +329,90 @@ export interface BuilderState {
   versions: SiteVersion[]
   events: DeployEvent[]
 }
+
+export type MovementStage =
+  | "Awaiting Approval"
+  | "Request Rejected"
+  | "Approved & Dispatched"
+  | "In Field"
+  | "Fully Consumed"
+  | "Returned / Restocked"
+
+export type SupplyChainTier =
+  | "Tier 1: Central Store"
+  | "Tier 2: Distribution Centre"
+  | "Tier 3: Service Centre"
+
+export type SupplyChainFlow = "Tier 1 ➔ Tier 2" | "Tier 2 ➔ Tier 3" | "Internal / Field"
+
+export interface GoodsMovementTrail {
+  id: string
+  code: string
+  type: "material" | "repair"
+  siteId: string
+  siteName: string
+  siteSlug: string
+  siteColor: string
+  sourceSiteId: string
+  sourceSiteName: string
+  sourceTier: SupplyChainTier
+  destinationSiteId: string
+  destinationSiteName: string
+  destinationTier: SupplyChainTier
+  supplyChainFlow: SupplyChainFlow
+  requestedBy: string
+  requestedByName: string
+  requestedAt: string
+  purpose: string
+  priority: "Normal" | "Urgent" | "Low"
+  status: "Pending" | "Approved" | "Rejected" | "Assigned"
+  stage: MovementStage
+  decidedBy?: string
+  decidedAt?: string
+  decisionComment?: string
+  items: Array<{
+    itemId: string
+    itemName: string
+    unit: string
+    qty: number
+  }>
+  totalQtyRequested: number
+  assignment?: {
+    id: string
+    code: string
+    dispatchedAt: string
+    dispatchedBy: string
+    sourceWarehouseId: string
+    sourceWarehouseName: string
+    assigneeName: string
+    lines: AssignmentLine[]
+  }
+  consumption: ConsumptionRecord[]
+  totalConsumed: number
+  returns: ReturnRecord[]
+  totalReturned: number
+  repair?: {
+    meterId: string
+    meterType: string
+    fault: string
+    status?: RepairStatus
+    jobCode?: string
+    technician?: string
+    returned?: boolean
+  }
+}
+
+export interface GoodsMovementStats {
+  totalTracked: number
+  pendingApprovals: number
+  activeDispatches: number
+  completedMovements: number
+  totalUnitsRequested: number
+  totalUnitsDispatched: number
+  totalUnitsConsumed: number
+  totalUnitsReturned: number
+  tier1To2Count: number
+  tier2To3Count: number
+}
+
+
