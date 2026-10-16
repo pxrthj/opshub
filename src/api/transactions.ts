@@ -39,7 +39,9 @@ export function assignMaterialTransaction(
 ): Assignment {
   const { siteId, stockSiteId, request, actor } = args
   const store = stockData(db, stockSiteId)
-  const site = db.data[siteId]
+  const destSiteId = request.originSiteId || siteId
+  const destSite = db.data[destSiteId] || db.data[siteId]
+  const dispatchSite = db.data[stockSiteId]
   const storeName = db.sites[stockSiteId]?.live.name ?? stockSiteId
 
   // Merge duplicate lines for the same item so the check is exact.
@@ -65,9 +67,12 @@ export function assignMaterialTransaction(
     item.qty -= qty
     item.updatedAt = now
   }
+
+  if (!destSite.assignments) destSite.assignments = []
+  const prefixSiteId = stockSiteId || siteId
   const assignment: Assignment = {
     id: uid("as"),
-    code: nextCode(site.assignments, "ASN-" + siteCodePrefix(db, siteId), 500),
+    code: nextCode(destSite.assignments, "ASN-" + siteCodePrefix(db, prefixSiteId), 500),
     requestId: request.id,
     requestCode: request.code,
     assigneeId: request.requestedBy,
@@ -77,7 +82,16 @@ export function assignMaterialTransaction(
     createdAt: now,
     createdBy: actor.name,
   }
-  site.assignments.unshift(assignment)
+  destSite.assignments.unshift(assignment)
+
+  // Also record in dispatching site if different, so supplier warehouse has manifest
+  if (dispatchSite && dispatchSite !== destSite) {
+    if (!dispatchSite.assignments) dispatchSite.assignments = []
+    if (!dispatchSite.assignments.some((a) => a.id === assignment.id)) {
+      dispatchSite.assignments.unshift(assignment)
+    }
+  }
+
   request.status = "Assigned"
   request.assignmentId = assignment.id
   return assignment

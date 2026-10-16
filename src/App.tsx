@@ -11,6 +11,7 @@ import { HubHome } from "@/pages/HubHome"
 import { UsersPage } from "@/pages/UsersPage"
 import { ModuleCatalogue } from "@/pages/ModuleCatalogue"
 import { BuilderIndex } from "@/pages/BuilderIndex"
+import { GoodsMovementPage } from "@/pages/GoodsMovementPage"
 import { NotFound } from "@/pages/NotFound"
 import { SiteRenderer } from "@/renderer/SiteRenderer"
 import { BuilderPage } from "@/builder/BuilderPage"
@@ -63,6 +64,7 @@ export default function App() {
               <Route element={<HubLayout />}>
                 <Route index element={<HubHome />} />
                 <Route path="users" element={<UsersPage />} />
+                <Route path="movement" element={<GoodsMovementPage />} />
                 <Route path="modules" element={<ModuleCatalogue />} />
                 <Route path="builder" element={<BuilderIndex />} />
                 <Route path="*" element={<NotFound />} />

@@ -1,3 +1,4 @@
+import { SEED_USERS } from "@/data/seed"
 import { roleAtLeast } from "@/lib/roles"
 import type { Database, ModuleId, Role, SiteConfig, SiteRecord, User } from "@/lib/types"
 import { getModuleDef } from "@/modules/definitions"
@@ -94,7 +95,14 @@ function buildContext(
   body: unknown,
 ): Ctx {
   const session = readSession()
-  const user = session ? (db.users.find((u) => u.id === session.userId) ?? null) : null
+  let user = session ? (db.users.find((u) => u.id === session.userId) ?? null) : null
+  if (!user && session) {
+    const seedUser = SEED_USERS.find((u) => u.id === session.userId)
+    if (seedUser) {
+      db.users.push(seedUser)
+      user = seedUser
+    }
+  }
   if (route.auth !== false && !user) throw unauthorized()
 
   const ctx = { db, params, query, body: body ?? {}, user } as Ctx

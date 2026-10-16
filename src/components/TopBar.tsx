@@ -1,7 +1,17 @@
 import { useState } from "react"
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Blocks, Check, ChevronsUpDown, LayoutGrid, LogOut, RotateCcw, Users, Workflow } from "lucide-react"
+import {
+  Blocks,
+  Check,
+  ChevronsUpDown,
+  LayoutGrid,
+  LogOut,
+  RotateCcw,
+  Truck,
+  Users,
+  Workflow,
+} from "lucide-react"
 import { api } from "@/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -167,6 +177,9 @@ export function TopBar() {
           </NavLink>
           {isAnyAdmin && (
             <>
+              <NavLink to="/movement" className={link}>
+                <Truck className="size-4" /> Movement
+              </NavLink>
               <NavLink to="/modules" className={link}>
                 <Blocks /> Modules
               </NavLink>

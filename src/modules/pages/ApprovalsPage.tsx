@@ -104,13 +104,19 @@ export function ApprovalsPage() {
                 <Card key={r.id} className={cn("gap-3 p-4", failures[r.id] && "ring-2 ring-red-300")}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold">{r.code}</span>
                         {r.priority === "Urgent" && <StatusBadge status="Urgent" />}
+                        {r.originSiteName && r.originSiteId !== config.siteId && (
+                          <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-800">
+                            From: {r.originSiteName}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 text-sm">{r.purpose}</p>
                       <p className="text-xs text-muted-foreground">
-                        {r.requestedByName} · {formatDateTime(r.createdAt)}
+                        {r.requestedByName}
+                        {r.originSiteName && r.originSiteId !== config.siteId ? ` (${r.originSiteName})` : ""} · {formatDateTime(r.createdAt)}
                       </p>
                     </div>
                     <StatusBadge status={r.status} />
@@ -205,7 +211,12 @@ export function ApprovalsPage() {
                 <TableRow key={r.id}>
                   <TableCell className="pl-4 text-xs font-semibold">{r.code}</TableCell>
                   <TableCell className="max-w-xs truncate">{requestSummary(r)}</TableCell>
-                  <TableCell>{r.requestedByName}</TableCell>
+                  <TableCell>
+                    <span>{r.requestedByName}</span>
+                    {r.originSiteName && r.originSiteId !== config.siteId && (
+                      <span className="block text-[10px] text-muted-foreground">From: {r.originSiteName}</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={r.status} />
                   </TableCell>

@@ -46,9 +46,15 @@ function assertOwnInventory(ctx: Ctx) {
 }
 
 function findRequest(ctx: Ctx) {
-  const req = data(ctx).requests.find((r) => r.id === ctx.params.id)
-  if (!req) throw notFound("Request not found")
-  return req
+  // Check local site first
+  let req = data(ctx).requests.find((r) => r.id === ctx.params.id)
+  if (req) return req
+  // Check cross-site requests targeted at or originating from this site
+  for (const sData of Object.values(ctx.db.data)) {
+    const found = (sData.requests ?? []).find((r) => r.id === ctx.params.id)
+    if (found) return found
+  }
+  throw notFound("Request not found")
 }
 
 register(
@@ -175,7 +181,37 @@ register(
     minRole: "Member",
     module: "request",
     handler: (ctx) => {
-      const list = data(ctx).requests
+      const siteId = ctx.siteId
+      const d = data(ctx)
+      const seen = new Set<string>()
+      const list: MaterialRequest[] = []
+
+      // 1. Local requests originated here
+      for (const r of d.requests ?? []) {
+        if (!seen.has(r.id)) {
+          seen.add(r.id)
+          list.push(r)
+        }
+      }
+
+      // 2. If manager or admin, include incoming requests targeted at this site from other units
+      if (isManager(ctx)) {
+        for (const [sId, sData] of Object.entries(ctx.db.data)) {
+          if (sId === siteId) continue
+          for (const r of sData.requests ?? []) {
+            const isTargeted = r.targetSiteId === siteId
+            const isDefaultStockSource =
+              !r.targetSiteId && r.type === "material" && ctx.db.sites[sId]?.live.workflow.stockSourceSiteId === siteId
+            if (isTargeted || isDefaultStockSource) {
+              if (!seen.has(r.id)) {
+                seen.add(r.id)
+                list.push(r)
+              }
+            }
+          }
+        }
+      }
+
       const scope = ctx.query.scope
       const visible = isManager(ctx) && scope !== "mine" ? list : list.filter((r) => r.requestedBy === ctx.user!.id)
       return [...visible].sort(byNewest)
@@ -203,6 +239,9 @@ register(
       const values = normalizeValues(fields, body)
 
       const d = data(ctx)
+      const targetSiteId = type === "material" && wf.stockSourceSiteId ? wf.stockSourceSiteId : ctx.siteId
+      const targetSiteName = ctx.db.sites[targetSiteId]?.live.name || "Stores"
+
       const req: MaterialRequest = {
         ...values,
         id: uid("rq"),
@@ -214,6 +253,10 @@ register(
         requestedByName: ctx.user!.name,
         createdAt: new Date().toISOString(),
         status: "Pending",
+        originSiteId: ctx.siteId,
+        originSiteName: ctx.config.name,
+        targetSiteId,
+        targetSiteName,
       }
       if (type === "material") {
         const rawLines = (body.lines ?? []) as { itemId: string; qty: number }[]
@@ -234,7 +277,17 @@ register(
         req.repair = { meterId: String(r.meterId).trim().toUpperCase(), meterType: String(r.meterType || "Single Phase Smart Meter"), fault: String(r.fault) }
         if (!req.purpose) req.purpose = `Repair ${req.repair.meterId}`
       }
+
       d.requests.unshift(req)
+
+      // Also deliver request into target supplier site's queue so supplier manager receives it immediately
+      if (targetSiteId !== ctx.siteId && ctx.db.data[targetSiteId]) {
+        if (!ctx.db.data[targetSiteId].requests) ctx.db.data[targetSiteId].requests = []
+        if (!ctx.db.data[targetSiteId].requests.some((r) => r.id === req.id)) {
+          ctx.db.data[targetSiteId].requests.unshift(req)
+        }
+      }
+
       return req
     },
   },
@@ -251,10 +304,19 @@ register(
       req.decidedAt = new Date().toISOString()
       req.decisionComment = String(ctx.body.comment ?? "").trim() || undefined
 
+      // The stock source site is the target site that supplies the goods
+      const stockSiteId = req.targetSiteId || (isLinkedInventory(ctx.config) ? stockSiteOf(ctx.config) : ctx.siteId)
+      const originSiteId = req.originSiteId || ctx.siteId
+
       let assignmentCode: string | undefined
       if (req.type === "material" && ctx.enabled.has("assignment") && ctx.config.workflow.autoAssignOnApproval) {
-        // Throws (and the whole approval is rolled back) if any line is short.
-        const a = assignMaterialTransaction(ctx.db, { siteId: ctx.siteId, stockSiteId: stockSiteOf(ctx.config), request: req, actor: ctx.user! })
+        // Throws (and whole approval is rolled back) if any line is short.
+        const a = assignMaterialTransaction(ctx.db, {
+          siteId: originSiteId,
+          stockSiteId,
+          request: req,
+          actor: ctx.user!,
+        })
         assignmentCode = a.code
       }
       let repairCode: string | undefined
@@ -277,6 +339,21 @@ register(
         req.repairJobId = job.id
         repairCode = job.code
       }
+
+      // Synchronize updated request state to all sites in db.data
+      for (const sData of Object.values(ctx.db.data)) {
+        for (const r of sData.requests ?? []) {
+          if (r.id === req.id) {
+            r.status = req.status
+            r.decidedBy = req.decidedBy
+            r.decidedAt = req.decidedAt
+            r.decisionComment = req.decisionComment
+            r.assignmentId = req.assignmentId
+            r.repairJobId = req.repairJobId
+          }
+        }
+      }
+
       return { request: req, assignmentCode, repairCode }
     },
   },
@@ -294,6 +371,19 @@ register(
       req.decidedBy = ctx.user!.name
       req.decidedAt = new Date().toISOString()
       req.decisionComment = comment || undefined
+
+      // Synchronize updated request state to all sites in db.data
+      for (const sData of Object.values(ctx.db.data)) {
+        for (const r of sData.requests ?? []) {
+          if (r.id === req.id) {
+            r.status = req.status
+            r.decidedBy = req.decidedBy
+            r.decidedAt = req.decidedAt
+            r.decisionComment = req.decisionComment
+          }
+        }
+      }
+
       return req
     },
   },
@@ -306,7 +396,25 @@ register(
       const req = findRequest(ctx)
       if (req.status !== "Approved") throw conflict(`${req.code} must be Approved before assigning (it is ${req.status})`)
       if (req.type !== "material") throw badRequest("Only material requests can be assigned")
-      return assignMaterialTransaction(ctx.db, { siteId: ctx.siteId, stockSiteId: stockSiteOf(ctx.config), request: req, actor: ctx.user! })
+      const stockSiteId = req.targetSiteId || (isLinkedInventory(ctx.config) ? stockSiteOf(ctx.config) : ctx.siteId)
+      const originSiteId = req.originSiteId || ctx.siteId
+      const a = assignMaterialTransaction(ctx.db, {
+        siteId: originSiteId,
+        stockSiteId,
+        request: req,
+        actor: ctx.user!,
+      })
+
+      for (const sData of Object.values(ctx.db.data)) {
+        for (const r of sData.requests ?? []) {
+          if (r.id === req.id) {
+            r.status = req.status
+            r.assignmentId = req.assignmentId
+          }
+        }
+      }
+
+      return a
     },
   },
 
