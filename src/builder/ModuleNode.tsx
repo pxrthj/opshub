@@ -4,7 +4,7 @@ import { AlertTriangle, Cable, CheckCircle2, Zap } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import type { ModuleId } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { getModuleDef, PORT_LABELS, requirementLabel } from "@/modules/definitions"
+import { getModuleDef, PORT_LABELS } from "@/modules/definitions"
 
 export type ModuleNodeData = {
   moduleId: ModuleId
@@ -72,8 +72,8 @@ export const ModuleNode = memo(function ModuleNode({ id, data, selected }: NodeP
           <def.icon className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm leading-tight font-semibold text-slate-900">{def.name}</p>
-          <p className="text-xs text-slate-500">{def.category}</p>
+          <p className="truncate text-sm leading-tight font-semibold text-foreground">{def.name}</p>
+          <p className="text-xs text-muted-foreground">{def.category}</p>
         </div>
 
         {/* Quick Wire Button on Node */}
@@ -85,7 +85,7 @@ export const ModuleNode = memo(function ModuleNode({ id, data, selected }: NodeP
               data.onStartWire?.(id)
             }}
             title="Start wire connection from this module"
-            className="flex items-center gap-0.5 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shadow-xs hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700 transition-colors"
+            className="flex items-center gap-0.5 rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground shadow-xs hover:border-amber-400 hover:bg-amber-500/10 hover:text-amber-600 transition-colors"
           >
             <Zap className="size-3 text-amber-500" />
             <span>Wire</span>
@@ -94,22 +94,22 @@ export const ModuleNode = memo(function ModuleNode({ id, data, selected }: NodeP
       </div>
 
       <div className="space-y-1 px-3 py-2 text-xs">
-        <div className="flex justify-between gap-2 text-slate-500">
-          <span>in: {def.inputs.length ? def.inputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</span>
+        <div className="flex justify-between gap-2 text-muted-foreground">
+          <span>In: {def.inputs.length ? def.inputs.map((p) => PORT_LABELS[p]).join(", ") : "None (Start)"}</span>
         </div>
-        <div className="flex justify-between gap-2 text-slate-500">
-          <span>out: {def.outputs.length ? def.outputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</span>
+        <div className="flex justify-between gap-2 text-muted-foreground">
+          <span>Out: {def.outputs.length ? def.outputs.map((p) => PORT_LABELS[p]).join(", ") : "None (End)"}</span>
         </div>
         {bad ? (
           <div className="flex items-start gap-1 pt-0.5 font-medium text-red-700">
             <AlertTriangle className="mt-px size-3 shrink-0" />
             <span>{data.issues[0]}</span>
           </div>
-        ) : def.requires.length ? (
-          <div className="flex items-center gap-1 pt-0.5 text-emerald-700">
-            <CheckCircle2 className="size-3" /> needs {def.requires.map(requirementLabel).join(" + ")}
+        ) : (
+          <div className="flex items-center gap-1 pt-0.5 font-medium text-emerald-700">
+            <CheckCircle2 className="size-3" /> Ready
           </div>
-        ) : null}
+        )}
       </div>
 
       {/* Output Handle (Terminal) */}

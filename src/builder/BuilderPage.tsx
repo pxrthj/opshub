@@ -328,7 +328,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { id, type: "module", position: pos, data: { moduleId, issues: [], accent }, selected: true }])
       const missing = def.requires.filter((r) => !(Array.isArray(r) ? r.some((x) => onCanvas.has(x)) : onCanvas.has(r)))
       toast.info(`Added ${def.name}`, {
-        description: missing.length ? `Now connect it after ${missing.map(requirementLabel).join(" and ")}.` : def.requires.length ? `Connect it after ${def.requires.map(requirementLabel).join(" and ")}.` : "Drag from its right handle to connect it.",
+        description: missing.length ? `Connect after ${missing.map(requirementLabel).join(" or ")}.` : "Connect the handles to wire it in.",
       })
     },
     [nodes, setNodes, accent, onCanvas],
@@ -518,7 +518,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Place connected modules in one click</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Quick-start templates</DropdownMenuLabel>
                 {PRESETS.map((p) => (
                   <DropdownMenuItem key={p.id} className="flex-col items-start gap-0.5 py-2" onClick={() => (nodes.length ? setPresetToApply(p) : applyPreset(p))}>
                     <span className="font-medium">{p.name}</span>
@@ -556,7 +556,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
           {/* ------------------------------------------------ palette */}
           <aside className="relative w-64 shrink-0 overflow-y-auto border-r bg-slate-50/80 p-3">
             <p className="mb-1 text-sm font-medium">Blocks</p>
-            <p className="mb-3 text-xs text-muted-foreground">Drag a block onto the board, then connect it.</p>
+            <p className="mb-3 text-xs text-muted-foreground">Drag onto the board, then connect handles.</p>
             <Card size="sm" className="mb-4 gap-1.5 px-3">
               <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                 <Lock className="size-3" /> Always included

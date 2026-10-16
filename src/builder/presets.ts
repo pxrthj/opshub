@@ -12,7 +12,7 @@ export const PRESETS: Preset[] = [
   {
     id: "inventory-starter",
     name: "Inventory Starter",
-    description: "Inventory → Analytics + Reports. A store with charts and Excel.",
+    description: "Warehouse stock tracking with charts and Excel reports.",
     nodes: [
       { key: "inv", moduleId: "inventory", x: 60, y: 160 },
       { key: "ana", moduleId: "analytics", x: 400, y: 60 },
@@ -25,8 +25,8 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "approval-chain",
-    name: "Approval Chain",
-    description: "Request → Approval → Material Assignment (+ Inventory) → My Materials + Consumption.",
+    name: "Request & Approval Flow",
+    description: "Material requests, manager sign-off, handout, and site usage.",
     nodes: [
       { key: "req", moduleId: "request", x: 30, y: 60 },
       { key: "apr", moduleId: "approval", x: 300, y: 60 },
@@ -45,8 +45,8 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "repair-shop",
-    name: "Repair Shop",
-    description: "Request → Approval → PCB Repair → Returns. Faulty meters in, fixed meters back to stores.",
+    name: "Meter Repair Workshop",
+    description: "Workbench for fixing smart meters and restocking returns.",
     nodes: [
       { key: "req", moduleId: "request", x: 40, y: 150 },
       { key: "apr", moduleId: "approval", x: 320, y: 150 },

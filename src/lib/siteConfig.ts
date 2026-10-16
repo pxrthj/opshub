@@ -109,9 +109,9 @@ export function validateCanvas(nodes: CanvasNode[], edges: CanvasEdge[]): Canvas
     const up = ancestors(node.id, nodes, edges)
     for (const req of def.requires) {
       if (!requirementSatisfied(req, present)) {
-        issues.push({ nodeId: node.id, message: `${def.name} needs ${requirementLabel(req)} on the canvas.` })
+        issues.push({ nodeId: node.id, message: `Add ${requirementLabel(req)} to the board.` })
       } else if (!requirementSatisfied(req, up)) {
-        issues.push({ nodeId: node.id, message: `${def.name} must be connected after ${requirementLabel(req)}.` })
+        issues.push({ nodeId: node.id, message: `Connect after ${requirementLabel(req)}.` })
       }
     }
   }
@@ -142,16 +142,16 @@ export function connectionError(
 ): string | null {
   const s = getModuleDef(sourceModule)
   const t = getModuleDef(targetModule)
-  if (sourceId === targetId) return "A module can't connect to itself."
-  if (edges.some((e) => e.source === sourceId && e.target === targetId)) return "These modules are already connected."
-  if (t.inputs.length === 0) return `${t.name} is a starting module — it doesn't take any input.`
-  if (s.outputs.length === 0) return `${s.name} is an end module — it has no outputs to connect.`
+  if (sourceId === targetId) return "Cannot connect a block to itself."
+  if (edges.some((e) => e.source === sourceId && e.target === targetId)) return "Already connected."
+  if (t.inputs.length === 0) return `${t.name} does not receive input.`
+  if (s.outputs.length === 0) return `${s.name} does not send output.`
   const shared = s.outputs.filter((o) => t.inputs.includes(o))
   if (shared.length === 0) {
-    const needs = t.requires.length ? t.requires.map(requirementLabel).join(" and ") : t.inputs.map((i) => PORT_LABELS[i]).join(" / ")
-    return `${t.name} needs ${needs} first — ${s.name} outputs ${s.outputs.map((o) => PORT_LABELS[o]).join(", ")}, but ${t.name} accepts ${t.inputs.map((i) => PORT_LABELS[i]).join(" or ")}.`
+    const needs = t.requires.length ? t.requires.map(requirementLabel).join(" or ") : t.inputs.map((i) => PORT_LABELS[i]).join(" / ")
+    return `Cannot connect directly. ${t.name} needs ${needs} first.`
   }
-  if (createsCycle(sourceId, targetId, edges)) return "That connection would create a loop in the workflow."
+  if (createsCycle(sourceId, targetId, edges)) return "This connection would create an infinite loop."
   return null
 }
 

@@ -10,7 +10,7 @@ onto a canvas; every site has its own theme, pages, workflow and data.
 | Service Centre | `/s/service-centre` | orange | Request → Approval → PCB Repair → Returns |
 | Distribution | `/s/distribution` | green | Request → Approval → Material Assignment (+ linked Inventory) → My Materials, Consumption |
 
-There is **no backend**. All data is mock data in the browser (React state + `localStorage`, key `opshub.db.v2`),
+There is **no backend**. All data is mock data in the browser (React state + `localStorage`, key `opshub.db.v3`),
 so it survives a refresh. Use **user menu → Reset data** to restore the seed.
 
 ## How to run
@@ -24,39 +24,53 @@ npm run build    # type-check + production build
 Stack: React 19 + Vite + TypeScript, Tailwind CSS v4 + shadcn/ui, React Router, React Flow (`@xyflow/react`),
 Recharts, ExcelJS (in-browser), lucide-react. State is React Context + `useState` only.
 
-## Sample accounts (also on the login page — click to fill)
+## Sample accounts (also on the login page — click a name to sign in)
 
-| Email | Password | Roles (per site) |
+Every office has one login for each level. **All passwords are `demo123`.**
+
+| Office | Admin | Manager | Member |
+|---|---|---|---|
+| Central Stores (Tier 1) | stores.admin@plexus.demo (Anil) | stores.manager@plexus.demo (Meena) | stores.member@plexus.demo (Pooja) |
+| Distribution (Tier 2) | dist.admin@plexus.demo (Priya) | dist.manager@plexus.demo (Rahul) | dist.member@plexus.demo (Sunil) |
+| Service Centre (Tier 3) | service.admin@plexus.demo (Kavita) | service.manager@plexus.demo (Anjali) | service.member@plexus.demo (Vikas) |
+
+People who work across offices:
+
+| Email | Name | Access |
 |---|---|---|
-| admin@opshub.demo | admin123 | Admin on all 3 units |
-| storekeeper@opshub.demo | store123 | Manager on Central Stores only |
-| clerk@opshub.demo | clerk123 | Member on Central Stores only |
-| engineer@opshub.demo | eng123 | Manager on Distribution only |
-| lineman@opshub.demo | line123 | Member on Distribution only |
-| service_manager@opshub.demo | scman123 | Manager on Service Centre only |
-| technician@opshub.demo | tech123 | Member on Service Centre only |
-| ganesh@opshub.demo | demo123 | Member on Distribution & Service Centre (Multi-site) |
-| logistics@opshub.demo | demo123 | Member on Central Stores & Distribution (Multi-site) |
+| admin@plexus.demo | Aarti Deshmukh | Admin on all 3 offices (sees Goods Movement) |
+| ganesh@plexus.demo | Ganesh More | Member on Distribution + Service Centre |
+| logistics@plexus.demo | Suresh Pawar | Member on Central Stores + Distribution |
 
-Roles: Public < Member < Manager < Admin. Roles are **per site**; no role on a site = no access.
+Sign-in also accepts the same names with `@opshub.demo`.
+
+- **Member** does the work: asks for material, records usage, logs repairs.
+- **Manager** approves requests, edits stock and downloads Excel.
+- **Admin** also uses the Builder, manages users and uploads Excel.
+
+Roles: Public < Member < Manager < Admin. Roles are **per office**; no role in an office = no access to it.
 
 ## Demo script
 
-1. **Log in as admin.** The site switcher (top bar) lists all 3 units; the home page shows a short "Waiting for you" list (approvals, low stock, repairs) and one big card per office.
-2. **Switch Service Centre ↔ Central Stores.** Colours, sidebar style, corner radius, menus, pages and data all change — it is the same renderer reading a different config.
-3. **Builder:** Hub → Distribution → *Builder* (`/builder/ds-003`).
-   - Drag **Return Management** from the palette onto the canvas. It turns red (requirements missing) and *Save/Publish are blocked*.
-   - Try connecting *Inventory → Return Management*: blocked with a toast explaining why.
-   - Connect *Material Assignment → Return Management* (drag from the right handle to the left handle).
-   - **Preview** → the site renders from the draft under a "Preview mode" banner with a new **Returns** menu.
-   - **Back to builder → Publish** → v2 is live. Open the site: Returns is there.
-   - **History → Rollback** on v1 → Returns disappears again (`/s/distribution/returns` shows "not enabled").
-4. **Workflow + all-or-nothing stock:**
-   - Log in as **lineman** → Distribution → Requests → *New request*: 20 × Single Phase Smart Meter.
-   - Log in as **engineer** → Distribution → Approvals → *Approve & assign*. Central Stores stock drops **500 → 480** (visible in Distribution's linked Inventory page, or as admin in Central Stores) and an assignment appears under Assignments / My Materials.
-   - Raise a request for e.g. 600 meters and approve it: you get a clear "Insufficient stock — nothing was changed" error; stock, request status and assignments are untouched.
-5. **Excel:** Central Stores → Reports. Export works for Manager/Admin (storekeeper/admin). As **clerk** (Member) the buttons are disabled with a tooltip. **Import** (Admin only): choose an `.xlsx` (e.g. the export you just downloaded, edited) → preview table with New/Update/Error per row → confirm.
-6. **Isolation:** log in as **lineman**. The switcher shows only Distribution. Typing `/s/central-stores` or `/builder/ds-003` shows **Access denied**; so does `/s/distribution/approvals` (needs Manager).
+1. **Log in as `dist.admin`.** The home page shows your office. Open **Distribution**: green theme, its own menu and data. Log out and sign in as `service.admin` and then `stores.admin` to see the other offices — different colours, menus, pages and data, all drawn by the same renderer.
+2. **Builder** (as `dist.admin` → *Change this office*, or `/builder/ds-003`):
+   - Drag **Return Management** onto the board. It turns red (something it needs is missing) and *Save/Publish are blocked*.
+   - Try connecting *Inventory → Return Management*: blocked with a message explaining why.
+   - Connect *Material Assignment → Return Management* (right dot to left dot).
+   - **Preview** → the draft appears under a "Preview mode" banner with a new **Returns** menu.
+   - **Back to builder → Publish** → v2 is live. **History → Rollback** on v1 removes Returns again (skip the rollback if you want to try returns in step 4).
+3. **Request → approve → stock:**
+   - `dist.member` → Requests → *New request*: 20 × Single Phase Smart Meter.
+   - `dist.manager` → Approve requests → *Approve & hand over*. Central Stores stock drops **500 → 480**, and the lineman now has the material under **My material**.
+   - Ask for 900 meters and approve it: "Insufficient stock — nothing was changed". Stock and the request stay as they were.
+4. **Use and return:** as `dist.member` → My material → *Record usage* 15, then *Return unused* 5.
+5. **Repairs:** `service.member` asks for a repair → `service.manager` approves → `service.member` sets the job to **Fixed** and returns it → Central Stores stock goes up by 1.
+6. **Excel:** `stores.manager` can download from Excel reports; `stores.member` sees the buttons disabled with a tooltip; `stores.admin` can also upload a stock sheet (with a preview first).
+7. **Isolation:** sign in as `dist.member`. The switcher shows only Distribution. `/s/central-stores`, `/builder/ds-003` and `/s/distribution/approvals` all show **Access denied**.
+
+## About the sample data
+
+A 3-tier supply chain: Central Stores (25 stock items) supplies Distribution (its own field stock), which works alongside the Service Centre. There are 13 Distribution and 5 Service Centre requests across every status, some handed-out material with usage, and 8 repair jobs. Admins can follow every item end to end on the **Goods Movement** page.
 
 ## Architecture
 

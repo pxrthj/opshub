@@ -1,109 +1,61 @@
 import { useState, type FormEvent } from "react"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
-import { ArrowRight, Loader2, RotateCcw, ShieldCheck } from "lucide-react"
+import { AlertCircle, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
+import { resetDb } from "@/api/db"
+import { Alert, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Spinner } from "@/components/ui/spinner"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Logo } from "@/components/Logo"
 import { useAuth } from "@/context/AuthContext"
-import { resetDb } from "@/api/db"
+import { DEMO_PASSWORD } from "@/data/seed"
 import { errorMessage } from "@/lib/useAsync"
-import { cn } from "@/lib/utils"
 
-interface SampleAccount {
+interface Account {
   email: string
-  password: string
   name: string
-  title: string
-  tier: string
-  role: string
-  badgeVariant?: "default" | "secondary" | "outline"
-  badgeClass?: string
+  note?: string
 }
 
-const SAMPLE_ACCOUNTS: SampleAccount[] = [
+const LEVELS = ["Admin", "Manager", "Member"] as const
+
+// One row per office, one sign-in per level. Every account uses the same password.
+const OFFICE_ACCOUNTS: { office: string; people: Account[] }[] = [
   {
-    email: "admin@opshub.demo",
-    password: "admin123",
-    name: "Aarti Deshmukh",
-    title: "Platform Administrator",
-    tier: "All Sites",
-    role: "Admin",
-    badgeClass: "bg-purple-100 text-purple-800 border-purple-200",
+    office: "Central Stores",
+    people: [
+      { email: "stores.admin@plexus.demo", name: "Anil Joshi" },
+      { email: "stores.manager@plexus.demo", name: "Meena Kulkarni" },
+      { email: "stores.member@plexus.demo", name: "Pooja Gaikwad" },
+    ],
   },
   {
-    email: "storekeeper@opshub.demo",
-    password: "store123",
-    name: "Meena Kulkarni",
-    title: "Central Storekeeper",
-    tier: "Tier 1: Central Stores",
-    role: "Manager",
-    badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
+    office: "Distribution",
+    people: [
+      { email: "dist.admin@plexus.demo", name: "Priya Nair" },
+      { email: "dist.manager@plexus.demo", name: "Rahul Patil" },
+      { email: "dist.member@plexus.demo", name: "Sunil Jadhav" },
+    ],
   },
   {
-    email: "clerk@opshub.demo",
-    password: "clerk123",
-    name: "Pooja Gaikwad",
-    title: "Store Inventory Clerk",
-    tier: "Tier 1: Central Stores",
-    role: "Member",
-    badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+    office: "Service Centre",
+    people: [
+      { email: "service.admin@plexus.demo", name: "Kavita Rao" },
+      { email: "service.manager@plexus.demo", name: "Anjali Joshi" },
+      { email: "service.member@plexus.demo", name: "Vikas Shinde" },
+    ],
   },
-  {
-    email: "engineer@opshub.demo",
-    password: "eng123",
-    name: "Rahul Patil",
-    title: "Distribution Section Engineer",
-    tier: "Tier 2: Distribution",
-    role: "Manager",
-    badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  },
-  {
-    email: "lineman@opshub.demo",
-    password: "line123",
-    name: "Sunil Jadhav",
-    title: "Lineman, Pune Rural",
-    tier: "Tier 2: Distribution",
-    role: "Member",
-    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  },
-  {
-    email: "service_manager@opshub.demo",
-    password: "scman123",
-    name: "Anjali Joshi",
-    title: "Service Centre Manager",
-    tier: "Tier 3: Service Centre",
-    role: "Manager",
-    badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
-  },
-  {
-    email: "technician@opshub.demo",
-    password: "tech123",
-    name: "Vikas Shinde",
-    title: "Senior Meter Technician",
-    tier: "Tier 3: Service Centre",
-    role: "Member",
-    badgeClass: "bg-orange-50 text-orange-700 border-orange-200",
-  },
-  {
-    email: "ganesh@opshub.demo",
-    password: "demo123",
-    name: "Ganesh More",
-    title: "Multi-Site Field & Meter Support",
-    tier: "Distribution + Service",
-    role: "Cross-Site Member",
-    badgeClass: "bg-amber-100 text-amber-800 border-amber-200",
-  },
-  {
-    email: "logistics@opshub.demo",
-    password: "demo123",
-    name: "Suresh Pawar",
-    title: "Inter-Office Logistics Assistant",
-    tier: "Central + Distribution",
-    role: "Cross-Site Member",
-    badgeClass: "bg-cyan-100 text-cyan-800 border-cyan-200",
-  },
+]
+
+// People who work across more than one office.
+const SPECIAL_ACCOUNTS: Account[] = [
+  { email: "admin@plexus.demo", name: "Aarti Deshmukh", note: "Admin · all offices" },
+  { email: "ganesh@plexus.demo", name: "Ganesh More", note: "Member · Distribution + Service Centre" },
+  { email: "logistics@plexus.demo", name: "Suresh Pawar", note: "Member · Central Stores + Distribution" },
 ]
 
 export function LoginPage() {
@@ -117,7 +69,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
 
   const from = (location.state as { from?: string } | null)?.from
-  if (ready && user) return <Navigate to={from && from !== "/login" ? from : "/"} replace />
+  const next = from && from !== "/login" ? from : "/"
+  if (ready && user) return <Navigate to={next} replace />
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -129,7 +82,7 @@ export function LoginPage() {
     setBusy(true)
     try {
       await login(email.trim(), password)
-      navigate(from && from !== "/login" ? from : "/", { replace: true })
+      navigate(next, { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -137,18 +90,18 @@ export function LoginPage() {
     }
   }
 
-  async function quickSignIn(acc: SampleAccount) {
+  /** One click signs straight in as that account. */
+  async function quickSignIn(a: Account) {
     setError(null)
-    setEmail(acc.email)
-    setPassword(acc.password)
-    setBusyAccount(acc.email)
+    setEmail(a.email)
+    setPassword(DEMO_PASSWORD)
+    setBusyAccount(a.email)
     try {
-      await login(acc.email, acc.password)
-      toast.success(`Signed in as ${acc.name}`)
-      navigate(from && from !== "/login" ? from : "/", { replace: true })
+      await login(a.email, DEMO_PASSWORD)
+      toast.success(`Signed in as ${a.name}`)
+      navigate(next, { replace: true })
     } catch (err) {
       setError(errorMessage(err))
-      toast.error(`Login failed: ${errorMessage(err)}`)
     } finally {
       setBusyAccount(null)
     }
@@ -157,115 +110,98 @@ export function LoginPage() {
   function handleReset() {
     resetDb()
     setError(null)
-    toast.success("Database and sample accounts reset to default")
+    toast.success("Data reset to the starting sample data")
   }
 
+  const disabled = busy || !!busyAccount
+  const accountButton = (a: Account, label: string) => (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-auto px-2 py-1 font-normal whitespace-normal"
+      disabled={disabled}
+      onClick={() => quickSignIn(a)}
+      title={a.email}
+    >
+      {busyAccount === a.email && <Spinner />}
+      {label}
+    </Button>
+  )
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 font-sans">
-      <div className="w-full max-w-md">
-        <Logo className="mb-6 justify-center" />
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
+      <div className="w-full max-w-md space-y-6">
+        <Logo size="lg" className="justify-center" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">Sign in</CardTitle>
+            <CardDescription>Multi-site operations for the electricity utility</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle />
+                  <AlertTitle>{error}</AlertTitle>
+                </Alert>
+              )}
+              <Button type="submit" className="w-full" disabled={disabled}>
+                {busy && <Spinner />}
+                Sign in
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">Sign in to OpsHub</h1>
-              <p className="mt-0.5 text-xs text-muted-foreground">Electricity Utility Multi-Site Operations</p>
-            </div>
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <ShieldCheck className="size-5" />
-            </div>
-          </div>
-
-          <form onSubmit={submit} className="mt-5 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-medium">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="username"
-                placeholder="e.g. admin@opshub.demo"
-                className="h-10 text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-medium">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="h-10 text-sm"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            {error && <p className="rounded-md bg-destructive/10 p-2 text-xs font-medium text-destructive">{error}</p>}
-            <Button type="submit" className="h-10 w-full font-medium" disabled={busy || !!busyAccount}>
-              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Sign in
+            <p className="text-xs text-muted-foreground">Sample accounts — click a name to sign in</p>
+            <Button type="button" variant="link" size="sm" className="h-auto px-0 text-xs text-muted-foreground" onClick={handleReset}>
+              <RotateCcw /> Reset data
             </Button>
-          </form>
-        </div>
-
-        <div className="mt-6">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">Sample Accounts (1-Click Instant Sign In)</p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              title="Reset demo data if login is stuck"
-            >
-              <RotateCcw className="size-3" /> Reset demo data
-            </button>
           </div>
-
-          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {SAMPLE_ACCOUNTS.map((a) => {
-              const isSelected = email === a.email
-              const isLoggingIn = busyAccount === a.email
-
-              return (
-                <button
-                  key={a.email}
-                  type="button"
-                  onClick={() => quickSignIn(a)}
-                  disabled={busy || !!busyAccount}
-                  className={cn(
-                    "group flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 disabled:opacity-50",
-                    isSelected && "bg-muted/40",
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-foreground group-hover:text-primary">
-                        {a.name}
-                      </span>
-                      <span className={cn("inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-none", a.badgeClass)}>
-                        {a.role}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="truncate">{a.title}</span>
-                      <span>·</span>
-                      <span className="shrink-0 font-medium text-foreground/80">{a.tier}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-primary">
-                    {isLoggingIn ? (
-                      <Loader2 className="size-4 animate-spin text-primary" />
-                    ) : (
-                      <span className="flex items-center gap-1 opacity-70 group-hover:opacity-100">
-                        Sign in <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </span>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+          <Card className="py-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4">Office</TableHead>
+                  {LEVELS.map((l) => (
+                    <TableHead key={l}>{l}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {OFFICE_ACCOUNTS.map((row) => (
+                  <TableRow key={row.office}>
+                    <TableCell className="pl-4 font-medium">{row.office}</TableCell>
+                    {row.people.map((p) => (
+                      <TableCell key={p.email} className="px-1">
+                        {accountButton(p, p.name.split(" ")[0])}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+          <Card className="gap-0 py-1">
+            {SPECIAL_ACCOUNTS.map((a) => (
+              <div key={a.email} className="flex items-center justify-between gap-3 px-2">
+                {accountButton(a, a.name)}
+                <span className="pr-2 text-xs text-muted-foreground">{a.note}</span>
+              </div>
+            ))}
+          </Card>
+          <p className="text-xs text-muted-foreground">Password for every account: {DEMO_PASSWORD}</p>
         </div>
       </div>
     </div>

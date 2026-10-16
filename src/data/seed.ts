@@ -32,88 +32,45 @@ function daysAgo(d: number, hour = 10) {
   return t.toISOString()
 }
 
+/** Every account uses this password so it is easy to remember in a demo. */
+export const DEMO_PASSWORD = "demo123"
+
+function person(id: string, email: string, name: string, title: string, roles: User["roles"]): User {
+  return { id, email: `${email}@plexus.demo`, password: DEMO_PASSWORD, name, title, roles }
+}
+
+// Each office has one Admin, one Manager and one Member. User ids are kept stable because
+// requests, assignments and cross-site routing refer to them.
 export const SEED_USERS: User[] = [
-  // 1 Administrator (across all sites)
-  {
-    id: "u_admin",
-    email: "admin@plexus.demo",
-    password: "admin123",
-    name: "Aarti Deshmukh",
-    title: "Platform Administrator",
-    roles: { [SITE_IDS.central]: "Admin", [SITE_IDS.service]: "Admin", [SITE_IDS.distribution]: "Admin" },
-  },
+  // Central Stores (Tier 1)
+  person("u_cs_admin", "stores.admin", "Anil Joshi", "Admin, Central Stores", { [SITE_IDS.central]: "Admin" }),
+  person("u_store", "stores.manager", "Meena Kulkarni", "Central Storekeeper", { [SITE_IDS.central]: "Manager" }),
+  person("u_clerk", "stores.member", "Pooja Gaikwad", "Store Inventory Clerk", { [SITE_IDS.central]: "Member" }),
 
-  // Central Stores (Tier 1): 1 Manager + 1 Member
-  {
-    id: "u_store",
-    email: "storekeeper@opshub.demo",
-    password: "store123",
-    name: "Meena Kulkarni",
-    title: "Central Storekeeper",
-    roles: { [SITE_IDS.central]: "Manager" },
-  },
-  {
-    id: "u_clerk",
-    email: "clerk@opshub.demo",
-    password: "clerk123",
-    name: "Pooja Gaikwad",
-    title: "Store Inventory Clerk",
-    roles: { [SITE_IDS.central]: "Member" },
-  },
+  // Distribution (Tier 2)
+  person("u_ds_admin", "dist.admin", "Priya Nair", "Admin, Distribution", { [SITE_IDS.distribution]: "Admin" }),
+  person("u_engineer", "dist.manager", "Rahul Patil", "Distribution Section Engineer", { [SITE_IDS.distribution]: "Manager" }),
+  person("u_lineman", "dist.member", "Sunil Jadhav", "Lineman, Pune Rural", { [SITE_IDS.distribution]: "Member" }),
 
-  // Distribution (Tier 2): 1 Manager + 1 Member
-  {
-    id: "u_engineer",
-    email: "engineer@plexus.demo",
-    password: "eng123",
-    name: "Rahul Patil",
-    title: "Distribution Section Engineer",
-    roles: { [SITE_IDS.distribution]: "Manager" },
-  },
-  {
-    id: "u_lineman",
-    email: "lineman@plexus.demo",
-    password: "line123",
-    name: "Sunil Jadhav",
-    title: "Lineman, Pune Rural",
-    roles: { [SITE_IDS.distribution]: "Member" },
-  },
+  // Service Centre (Tier 3)
+  person("u_sc_admin", "service.admin", "Kavita Rao", "Admin, Service Centre", { [SITE_IDS.service]: "Admin" }),
+  person("u_service_mgr", "service.manager", "Anjali Joshi", "Service Centre Manager", { [SITE_IDS.service]: "Manager" }),
+  person("u_vikas", "service.member", "Vikas Shinde", "Senior Meter Technician", { [SITE_IDS.service]: "Member" }),
 
-  // Service Centre (Tier 3): 1 Manager + 1 Member
-  {
-    id: "u_service_mgr",
-    email: "service_manager@opshub.demo",
-    password: "scman123",
-    name: "Anjali Joshi",
-    title: "Service Centre Manager",
-    roles: { [SITE_IDS.service]: "Manager" },
-  },
-  {
-    id: "u_vikas",
-    email: "technician@opshub.demo",
-    password: "tech123",
-    name: "Vikas Shinde",
-    title: "Senior Meter Technician",
-    roles: { [SITE_IDS.service]: "Member" },
-  },
-
-  // Cross-Site Members (2 people who are members of multiple sites)
-  {
-    id: "u_ganesh",
-    email: "ganesh@plexus.demo",
-    password: "demo123",
-    name: "Ganesh More",
-    title: "Multi-Site Field & Meter Support",
-    roles: { [SITE_IDS.distribution]: "Member", [SITE_IDS.service]: "Member" },
-  },
-  {
-    id: "u_suresh",
-    email: "logistics@opshub.demo",
-    password: "demo123",
-    name: "Suresh Pawar",
-    title: "Inter-Office Logistics Assistant",
-    roles: { [SITE_IDS.central]: "Member", [SITE_IDS.distribution]: "Member" },
-  },
+  // Special accounts
+  person("u_admin", "admin", "Aarti Deshmukh", "Platform Administrator (all offices)", {
+    [SITE_IDS.central]: "Admin",
+    [SITE_IDS.service]: "Admin",
+    [SITE_IDS.distribution]: "Admin",
+  }),
+  person("u_ganesh", "ganesh", "Ganesh More", "Field & Meter Support (Distribution + Service Centre)", {
+    [SITE_IDS.distribution]: "Member",
+    [SITE_IDS.service]: "Member",
+  }),
+  person("u_suresh", "logistics", "Suresh Pawar", "Logistics Assistant (Central Stores + Distribution)", {
+    [SITE_IDS.central]: "Member",
+    [SITE_IDS.distribution]: "Member",
+  }),
 ]
 
 // ---------------------------------------------------------------- site configs
@@ -718,7 +675,7 @@ export function createSeedDatabase(): Database {
     SERVICE_REQUESTS.find((r) => r.id === "rq_sc2")!,
   ]
   return {
-    schema: 4,
+    schema: 5,
     users: clone(SEED_USERS),
     sites: {
       [SITE_IDS.central]: siteRecord(clone(centralStores)),
