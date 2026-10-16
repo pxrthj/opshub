@@ -19,8 +19,6 @@ const PAGE_ORDER: ModuleId[] = [
   "approval",
   "assignment",
   "assignment-frontend",
-  "consumption",
-  "returns",
   "pcb-repair",
   "analytics",
   "reports",

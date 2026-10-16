@@ -11,14 +11,12 @@ export type ModuleId =
   | "approval"
   | "assignment"
   | "assignment-frontend"
-  | "consumption"
-  | "returns"
   | "pcb-repair"
   | "analytics"
   | "reports"
 
 /** Typed ports used by the builder to validate connections. */
-export type PortType = "stock" | "request" | "approved" | "assignment" | "usage" | "repair" | "stock-return"
+export type PortType = "stock" | "request" | "approved" | "assignment" | "repair"
 
 export type FieldType = "text" | "number" | "select" | "date" | "calculated"
 
@@ -194,31 +192,6 @@ export interface Assignment {
   createdBy: string
 }
 
-export interface ConsumptionRecord {
-  id: string
-  assignmentId: string
-  itemId: string
-  itemName: string
-  qty: number
-  location: string
-  date: string
-  recordedBy: string
-}
-
-export interface ReturnRecord {
-  id: string
-  source: "assignment" | "repair"
-  refId: string
-  refCode: string
-  itemId: string
-  itemName: string
-  qty: number
-  condition: "Unused" | "Repaired"
-  stockSiteId: string
-  date: string
-  returnedBy: string
-}
-
 export type RepairStatus = "Received" | "In Repair" | "Fixed" | "Scrapped"
 
 export interface RepairJob {
@@ -233,7 +206,6 @@ export interface RepairJob {
   receivedAt: string
   updatedAt: string
   requestId?: string
-  returned?: boolean
   [custom: string]: unknown
 }
 
@@ -241,8 +213,6 @@ export interface SiteData {
   inventory: InventoryItem[]
   requests: MaterialRequest[]
   assignments: Assignment[]
-  consumption: ConsumptionRecord[]
-  returns: ReturnRecord[]
   repairs: RepairJob[]
 }
 
@@ -262,8 +232,6 @@ export interface SiteStats {
   assignments: number
   openRepairs: number
   fixedRepairs: number
-  consumptionUnits: number
-  returnsCount: number
 }
 
 export interface SiteSummary {
@@ -275,20 +243,11 @@ export interface SiteSummary {
 
 // ---------- API view models ----------
 
-export interface AssignmentLineView extends AssignmentLine {
-  used: number
-  returned: number
-  remaining: number
-}
-
-export interface AssignmentView extends Omit<Assignment, "lines"> {
-  lines: AssignmentLineView[]
-}
-
 export interface AnalyticsData {
   stockSourceName: string
   stockByCategory: { category: string; qty: number; value: number }[]
-  timeline: { title: string; seriesA: string; seriesB: string; points: { label: string; a: number; b: number }[] }
+  /** seriesB is optional: stores without requests chart a single series. */
+  timeline: { title: string; seriesA: string; seriesB?: string; points: { label: string; a: number; b?: number }[] }
   statusSplit: { title: string; data: { name: string; value: number }[] }
 }
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { CircuitBoard, Loader2, Pencil, Plus, Search } from "lucide-react"
+import { CircuitBoard, Pencil, Plus, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
 import { StatusBadge, statusLabel } from "@/components/StatusBadge"
@@ -17,7 +19,7 @@ import { validateValues, type FieldErrors } from "@/lib/fields"
 import { fieldsFor } from "@/lib/siteConfig"
 import type { RepairJob, RepairStatus } from "@/lib/types"
 import { toastError, useAsync } from "@/lib/useAsync"
-import { cn, formatDate } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
 import { DynamicForm, formatFieldValue } from "@/renderer/DynamicForm"
 
 const STATUSES: RepairStatus[] = ["Received", "In Repair", "Fixed", "Scrapped"]
@@ -82,31 +84,23 @@ export function RepairsPage() {
           </Button>
         }
       />
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {STATUSES.map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(filter === s ? "All" : s)}
-            className={cn(
-              "rounded-[var(--radius)] border bg-card px-4 py-3 text-left transition hover:border-primary/40",
-              filter === s && "border-primary ring-2 ring-primary/20",
-            )}
-          >
-            <StatusBadge status={s} />
-            <p className="mt-2 text-2xl font-semibold tabular-nums">{counts[s] ?? 0}</p>
-          </button>
-        ))}
-      </div>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+          <TabsList>
+            <TabsTrigger value="All">
+              All <span className="text-muted-foreground tabular-nums">{data?.length ?? 0}</span>
+            </TabsTrigger>
+            {STATUSES.map((st) => (
+              <TabsTrigger key={st} value={st}>
+                {statusLabel(st)} <span className="text-muted-foreground tabular-nums">{counts[st] ?? 0}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <div className="relative w-full max-w-xs">
           <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="bg-card pl-8" placeholder="Search meter ID, fault, technician" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        {filter !== "All" && (
-          <Button variant="ghost" size="sm" onClick={() => setFilter("All")}>
-            Clear "{filter}" filter
-          </Button>
-        )}
       </div>
       {loading && !data ? (
         <TableSkeleton />
@@ -130,12 +124,12 @@ export function RepairsPage() {
               {list.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="pl-4">
-                    <div className="font-mono text-xs font-semibold">{r.code}</div>
+                    <div className="text-xs font-semibold">{r.code}</div>
                     <div className="text-xs text-muted-foreground">rcvd {formatDate(r.receivedAt)}</div>
                     <div className="text-xs text-muted-foreground">upd {formatDate(r.updatedAt)}</div>
                   </TableCell>
                   {tableFields.map((f) => (
-                    <TableCell key={f.key} className={f.key === "meterId" ? "font-mono text-sm font-medium" : "max-w-[200px] text-sm whitespace-normal"}>
+                    <TableCell key={f.key} className={f.key === "meterId" ? "text-sm font-medium" : "max-w-[200px] text-sm whitespace-normal"}>
                       {f.key === "technician" && !r.technician ? <span className="text-muted-foreground italic">Unassigned</span> : formatFieldValue(f, r[f.key])}
                     </TableCell>
                   ))}
@@ -206,7 +200,7 @@ export function RepairsPage() {
               Cancel
             </Button>
             <Button onClick={save} disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />}
+              {busy && <Spinner />}
               {editing?.job ? "Save" : "Log job"}
             </Button>
           </DialogFooter>

@@ -36,10 +36,10 @@ export const ModuleNode = memo(function ModuleNode({ data, selected }: NodeProps
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm leading-tight font-semibold text-slate-900">{def.name}</p>
-          <p className="text-[11px] text-slate-500">{def.category}</p>
+          <p className="text-xs text-slate-500">{def.category}</p>
         </div>
       </div>
-      <div className="space-y-1 px-3 py-2 text-[11px]">
+      <div className="space-y-1 px-3 py-2 text-xs">
         <div className="flex justify-between gap-2 text-slate-500">
           <span>in: {def.inputs.length ? def.inputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</span>
         </div>

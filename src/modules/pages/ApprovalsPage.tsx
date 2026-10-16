@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { AlertOctagon, Check, CheckCheck, Package, Wrench, X } from "lucide-react"
+import { AlertOctagon, Check, CheckCheck, Wrench, X } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -84,7 +85,7 @@ export function ApprovalsPage() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mb-4">
         <TabsList>
           <TabsTrigger value="pending">
-            Waiting <span className="ml-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">{pending.length}</span>
+            Waiting <span className="ml-1 rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">{pending.length}</span>
           </TabsTrigger>
           <TabsTrigger value="history">Decided ({history.length})</TabsTrigger>
         </TabsList>
@@ -104,7 +105,7 @@ export function ApprovalsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold">{r.code}</span>
+                        <span className="text-sm font-semibold">{r.code}</span>
                         {r.priority === "Urgent" && <StatusBadge status="Urgent" />}
                       </div>
                       <p className="mt-0.5 text-sm">{r.purpose}</p>
@@ -115,49 +116,49 @@ export function ApprovalsPage() {
                     <StatusBadge status={r.status} />
                   </div>
                   {r.type === "material" ? (
-                    <div className="overflow-hidden rounded-[var(--radius)] border">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50 text-xs text-muted-foreground">
-                          <tr>
-                            <th className="px-3 py-1.5 text-left font-medium">Item</th>
-                            <th className="px-3 py-1.5 text-right font-medium">Requested</th>
-                            {willAssign && <th className="px-3 py-1.5 text-right font-medium">In stock</th>}
-                          </tr>
-                        </thead>
-                        <tbody>
+                    <div className="overflow-hidden rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Item</TableHead>
+                            <TableHead className="text-right">Asked for</TableHead>
+                            {willAssign && <TableHead className="text-right">In stock</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {r.lines.map((l) => {
                             const s = stockOf(l.itemId)
                             const ok = (s?.qty ?? 0) >= l.qty
                             return (
-                              <tr key={l.itemId} className="border-t">
-                                <td className="px-3 py-1.5">
-                                  <Package className="mr-1.5 inline size-3.5 text-primary" />
-                                  {l.itemName}
-                                </td>
-                                <td className="px-3 py-1.5 text-right tabular-nums">
+                              <TableRow key={l.itemId}>
+                                <TableCell>{l.itemName}</TableCell>
+                                <TableCell className="text-right tabular-nums">
                                   {l.qty.toLocaleString("en-IN")} {l.unit}
-                                </td>
+                                </TableCell>
                                 {willAssign && (
-                                  <td className={cn("px-3 py-1.5 text-right font-medium tabular-nums", ok ? "text-emerald-700" : "text-red-600")}>
-                                    {s ? s.qty.toLocaleString("en-IN") : "—"} {ok ? "✓" : "✗"}
-                                  </td>
+                                  <TableCell className={cn("text-right font-medium tabular-nums", ok ? "text-emerald-700" : "text-red-600")}>
+                                    {s ? s.qty.toLocaleString("en-IN") : "—"}
+                                  </TableCell>
                                 )}
-                              </tr>
+                              </TableRow>
                             )
                           })}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 rounded-[var(--radius)] border bg-muted/30 px-3 py-2 text-sm">
-                      <Wrench className="size-4 text-primary" /> {requestSummary(r)} <span className="text-muted-foreground">· {r.repair?.meterType}</span>
-                    </div>
+                    <Alert>
+                      <Wrench />
+                      <AlertDescription>
+                        {requestSummary(r)} · {r.repair?.meterType}
+                      </AlertDescription>
+                    </Alert>
                   )}
                   {(failures[r.id] || short) && (
-                    <div className="flex gap-2 rounded-[var(--radius)] bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">
-                      <AlertOctagon className="size-4 shrink-0" />
-                      <span>{failures[r.id] || "Not enough stock for this request."}</span>
-                    </div>
+                    <Alert variant="destructive">
+                      <AlertOctagon />
+                      <AlertDescription>{failures[r.id] || "Not enough stock for this request."}</AlertDescription>
+                    </Alert>
                   )}
                   <div className="flex justify-end gap-2">
                     <Button
@@ -202,7 +203,7 @@ export function ApprovalsPage() {
             <TableBody>
               {history.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="pl-4 font-mono text-xs font-semibold">{r.code}</TableCell>
+                  <TableCell className="pl-4 text-xs font-semibold">{r.code}</TableCell>
                   <TableCell className="max-w-xs truncate">{requestSummary(r)}</TableCell>
                   <TableCell>{r.requestedByName}</TableCell>
                   <TableCell>

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react"
+import { Card } from "@/components/ui/card"
+import { Kbd } from "@/components/ui/kbd"
+import { Spinner } from "@/components/ui/spinner"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
   addEdge,
@@ -16,21 +19,7 @@ import {
   type Edge,
 } from "@xyflow/react"
 import { toast } from "sonner"
-import {
-  ArrowLeft,
-  CheckCircle2,
-  ChevronDown,
-  Eye,
-  GripVertical,
-  History,
-  Loader2,
-  Lock,
-  Plus,
-  Rocket,
-  Save,
-  Sparkles,
-  Undo2,
-} from "lucide-react"
+import { ArrowLeft, CheckCircle2, ChevronDown, Eye, GripVertical, History, Lock, Plus, Rocket, Save, Sparkles, Undo2 } from "lucide-react"
 import { api, ApiError } from "@/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -96,7 +85,7 @@ export function BuilderPage() {
   if (state.status === "loading")
     return (
       <div className="flex flex-1 items-center justify-center text-slate-500">
-        <Loader2 className="mr-2 size-5 animate-spin" /> Loading builder…
+        <Spinner className="mr-2 size-5" /> Loading builder…
       </div>
     )
   if (state.status === "error")
@@ -318,7 +307,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
           <span className="size-3 rounded-full" style={{ background: accent }} />
           <div className="mr-2">
             <p className="text-sm leading-tight font-semibold">Builder · {config.name || "Untitled"}</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Live v{builder.liveVersion}
               {builder.draftSavedAt && ` · draft saved ${formatDateTime(builder.draftSavedAt)} by ${builder.draftSavedBy}`}
             </p>
@@ -368,13 +357,13 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               </Link>
             </Button>
             <Button variant="outline" size="sm" onClick={() => saveDraft()} disabled={!!busy}>
-              {busy === "save" ? <Loader2 className="animate-spin" /> : <Save />} Save Draft
+              {busy === "save" ? <Spinner /> : <Save />} Save Draft
             </Button>
             <Button variant="outline" size="sm" onClick={preview} disabled={!!busy}>
-              {busy === "preview" ? <Loader2 className="animate-spin" /> : <Eye />} Preview
+              {busy === "preview" ? <Spinner /> : <Eye />} Preview
             </Button>
             <Button size="sm" onClick={() => ensureValid("publish") && setPublishOpen(true)} disabled={!!busy}>
-              {busy === "publish" ? <Loader2 className="animate-spin" /> : <Rocket />} Publish
+              {busy === "publish" ? <Spinner /> : <Rocket />} Publish
             </Button>
           </div>
         </div>
@@ -382,35 +371,36 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
         <div className="flex min-h-0 flex-1">
           {/* ------------------------------------------------ palette */}
           <aside className="relative w-64 shrink-0 overflow-y-auto border-r bg-slate-50/80 p-3">
-            <p className="mb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Blocks</p>
-            <p className="mb-3 text-xs text-slate-500">Drag a block onto the board, then connect it.</p>
-            <div className="mb-4 rounded-lg border bg-white p-2">
-              <p className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+            <p className="mb-1 text-sm font-medium">Blocks</p>
+            <p className="mb-3 text-xs text-muted-foreground">Drag a block onto the board, then connect it.</p>
+            <Card size="sm" className="mb-4 gap-1.5 px-3">
+              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                 <Lock className="size-3" /> Always included
               </p>
               {MODULE_DEFINITIONS.filter((m) => m.core).map((m) => (
-                <div key={m.id} className="flex items-center gap-2 py-1 text-xs text-slate-600">
+                <div key={m.id} className="flex items-center gap-2 text-xs">
                   <m.icon className="size-3.5" /> {m.name}
                 </div>
               ))}
-            </div>
+            </Card>
             {paletteGroups.map((g) => (
               <div key={g} className="mb-3">
-                <p className="mb-1.5 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{g}</p>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">{g}</p>
                 <div className="space-y-1.5">
                   {MODULE_DEFINITIONS.filter((m) => m.category === g).map((m) => {
                     const used = onCanvas.has(m.id)
                     return (
-                      <div
+                      <Card
                         key={m.id}
+                        size="sm"
                         draggable={!used}
                         onDragStart={(e) => {
                           e.dataTransfer.setData(DND_TYPE, m.id)
                           e.dataTransfer.effectAllowed = "move"
                         }}
                         className={cn(
-                          "group flex items-center gap-2 rounded-lg border bg-white px-2 py-2 text-sm shadow-xs transition",
-                          used ? "cursor-default opacity-55" : "cursor-grab hover:border-slate-400 hover:shadow-sm active:cursor-grabbing",
+                          "group flex-row items-center gap-2 px-2 transition",
+                          used ? "cursor-default opacity-55" : "cursor-grab hover:shadow-md active:cursor-grabbing",
                         )}
                         title={m.description}
                       >
@@ -419,8 +409,8 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                           <m.icon className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] leading-tight font-medium">{m.name}</p>
-                          <p className="truncate text-[10.5px] text-slate-500">{m.requires.length ? `needs ${m.requires.map(requirementLabel).join(" + ")}` : "no requirements"}</p>
+                          <p className="truncate text-sm leading-tight font-medium">{m.name}</p>
+                          <p className="truncate text-xs text-slate-500">{m.requires.length ? `needs ${m.requires.map(requirementLabel).join(" + ")}` : "no requirements"}</p>
                         </div>
                         {used ? (
                           <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
@@ -429,7 +419,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                             <Plus />
                           </Button>
                         )}
-                      </div>
+                      </Card>
                     )
                   })}
                 </div>
@@ -465,8 +455,8 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                 </div>
               </div>
             )}
-            <div className="pointer-events-none absolute top-3 left-3 rounded-md bg-white/90 px-2.5 py-1.5 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
-              Select a block and press <kbd className="rounded bg-slate-100 px-1">Del</kbd> to remove it
+            <div className="pointer-events-none absolute top-3 left-3 rounded-md bg-white/90 px-2.5 py-1.5 text-xs text-slate-500 shadow-sm ring-1 ring-slate-200">
+              Select a block and press <Kbd>Del</Kbd> to remove it
             </div>
           </div>
 

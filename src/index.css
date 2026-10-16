@@ -128,3 +128,11 @@
     @apply font-sans;
     }
 }
+/* One font everywhere: third-party widgets (toasts, builder canvas, charts) ship their own font stacks. */
+[data-sonner-toaster],
+[data-sonner-toast],
+.react-flow,
+.recharts-wrapper,
+.recharts-text {
+  font-family: 'Geist Variable', sans-serif;
+}

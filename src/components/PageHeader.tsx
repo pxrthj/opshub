@@ -15,7 +15,7 @@ export function PageHeader({
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 items-start gap-3">
         {icon && (
-          <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-[var(--radius)] bg-primary/10 text-primary [&_svg]:size-5">
+          <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary [&_svg]:size-5">
             {icon}
           </div>
         )}

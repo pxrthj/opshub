@@ -78,7 +78,7 @@ export function DashboardPage() {
     lists.push(
       <ListCard key="req" title="Latest requests" to={`${basePath}/requests`}>
         {requests.slice(0, 5).map((r) => (
-          <div key={r.id} className="flex items-center justify-between gap-3 rounded-[var(--radius)] border px-3 py-2">
+          <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{r.purpose}</p>
               <p className="text-xs text-muted-foreground">
@@ -108,7 +108,7 @@ export function DashboardPage() {
     lists.push(
       <ListCard key="rep" title="Repair bench" to={`${basePath}/repairs`}>
         {repairs.slice(0, 5).map((r) => (
-          <div key={r.id} className="flex items-center justify-between gap-3 rounded-[var(--radius)] border px-3 py-2">
+          <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
                 <span className="font-mono">{r.meterId}</span> · {r.fault}

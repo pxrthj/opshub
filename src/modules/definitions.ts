@@ -6,12 +6,10 @@ import {
   ClipboardList,
   CircuitBoard,
   FileSpreadsheet,
-  Gauge,
   HardHat,
   LayoutDashboard,
   PackageCheck,
   ShieldCheck,
-  Undo2,
   Users,
 } from "lucide-react"
 import type { FieldDef, ModuleId, PortType, Role, WorkflowSettings } from "@/lib/types"
@@ -98,10 +96,6 @@ const REPAIR_FIELDS: FieldDef[] = [
   { key: "partsUsed", label: "Parts Used", type: "text", builtin: true },
   { key: "partsCost", label: "Parts Cost (₹)", type: "number", min: 0 },
   { key: "labourHours", label: "Labour Hours", type: "number", min: 0 },
-]
-
-const CONSUMPTION_FIELDS: FieldDef[] = [
-  { key: "location", label: "Site / Location", type: "text", required: true, builtin: true, showInTable: true },
 ]
 
 export const MODULE_DEFINITIONS: ModuleDefinition[] = [
@@ -207,13 +201,12 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
     outputs: ["assignment"],
     defaultFields: [],
     settings: ["autoAssignOnApproval"],
-    page: { path: "assignments", label: "Handed-out material", minRole: "Manager" },
   },
   {
     id: "assignment-frontend",
     name: "Assignment Frontend",
     short: "My Materials",
-    description: "Field-team view of the material issued to them, with remaining balance.",
+    description: "Field-team view of the material handed to them.",
     icon: HardHat,
     category: "Field",
     core: false,
@@ -223,36 +216,6 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
     defaultFields: [],
     settings: [],
     page: { path: "my-materials", label: "My material", minRole: "Member" },
-  },
-  {
-    id: "consumption",
-    name: "Consumption Tracking",
-    short: "Consumption",
-    description: "Record quantity actually used per assignment. Remaining = assigned − used − returned.",
-    icon: Gauge,
-    category: "Field",
-    core: false,
-    requires: ["assignment"],
-    inputs: ["assignment"],
-    outputs: ["usage"],
-    defaultFields: CONSUMPTION_FIELDS,
-    settings: [],
-    page: { path: "consumption", label: "Usage log", minRole: "Member" },
-  },
-  {
-    id: "returns",
-    name: "Return Management",
-    short: "Returns",
-    description: "Return unused or repaired items to stock. Stock goes back up.",
-    icon: Undo2,
-    category: "Field",
-    core: false,
-    requires: [["assignment", "pcb-repair"]],
-    inputs: ["assignment", "repair"],
-    outputs: ["stock-return"],
-    defaultFields: [],
-    settings: [],
-    page: { path: "returns", label: "Returns", minRole: "Member" },
   },
   {
     id: "pcb-repair",
@@ -278,7 +241,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
     category: "Insights",
     core: false,
     requires: ["inventory"],
-    inputs: ["stock", "usage"],
+    inputs: ["stock"],
     outputs: [],
     defaultFields: [],
     settings: [],
@@ -326,9 +289,7 @@ export const PORT_LABELS: Record<PortType, string> = {
   request: "Requests",
   approved: "Approved requests",
   assignment: "Assignments",
-  usage: "Usage",
   repair: "Repair jobs",
-  "stock-return": "Stock returns",
 }
 
 export const SETTING_LABELS: Record<keyof WorkflowSettings, { label: string; help: string }> = {

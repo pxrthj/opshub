@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { AlertTriangle, Boxes, Link2, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react"
+import { AlertTriangle, Boxes, Link2, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -157,11 +160,11 @@ export function InventoryPage() {
           </SelectContent>
         </Select>
         {alerts && (
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <Label className="cursor-pointer font-normal">
             <Switch checked={lowOnly} onCheckedChange={setLowOnly} />
             Low stock only
-            <span className="rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700">{lowCount}</span>
-          </label>
+            <Badge variant="destructive">{lowCount}</Badge>
+          </Label>
         )}
         <span className="ml-auto text-sm text-muted-foreground">
           {items.length} of {data?.items.length ?? 0} items
@@ -232,16 +235,16 @@ export function InventoryPage() {
                       {low ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-red-200 ring-inset">
-                              <AlertTriangle className="size-3" /> Low stock
-                            </span>
+                            <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                              <AlertTriangle /> Low stock
+                            </Badge>
                           </TooltipTrigger>
                           <TooltipContent>
                             Qty {i.qty} is below reorder level {i.reorderLevel}
                           </TooltipContent>
                         </Tooltip>
                       ) : (
-                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200 ring-inset">In stock</span>
+                        <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">In stock</Badge>
                       )}
                     </TableCell>
                     {(canEdit || canDelete) && (
@@ -297,7 +300,7 @@ export function InventoryPage() {
               Cancel
             </Button>
             <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="animate-spin" />}
+              {saving && <Spinner />}
               {editing?.id ? "Save changes" : "Add item"}
             </Button>
           </DialogFooter>

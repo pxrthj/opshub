@@ -5,10 +5,7 @@ import { DashboardPage } from "./pages/DashboardPage"
 import { InventoryPage } from "./pages/InventoryPage"
 import { RequestsPage } from "./pages/RequestsPage"
 import { ApprovalsPage } from "./pages/ApprovalsPage"
-import { AssignmentsPage } from "./pages/AssignmentsPage"
 import { MyMaterialsPage } from "./pages/MyMaterialsPage"
-import { ConsumptionPage } from "./pages/ConsumptionPage"
-import { ReturnsPage } from "./pages/ReturnsPage"
 import { RepairsPage } from "./pages/RepairsPage"
 import { AnalyticsPage } from "./pages/AnalyticsPage"
 import { ReportsPage } from "./pages/ReportsPage"
@@ -26,10 +23,7 @@ export const PAGE_COMPONENTS: Partial<Record<ModuleId, ComponentType>> = {
   inventory: InventoryPage,
   request: RequestsPage,
   approval: ApprovalsPage,
-  assignment: AssignmentsPage,
   "assignment-frontend": MyMaterialsPage,
-  consumption: ConsumptionPage,
-  returns: ReturnsPage,
   "pcb-repair": RepairsPage,
   analytics: AnalyticsPage,
   reports: ReportsPage,

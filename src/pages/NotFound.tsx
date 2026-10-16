@@ -1,21 +1,23 @@
 import { Compass } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
 export function NotFound({ message = "We couldn't find that page.", backTo = "/", backLabel = "Back to home" }: { message?: string; backTo?: string; backLabel?: string }) {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center p-6">
-      <div className="max-w-md text-center">
-        <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-          <Compass className="size-7" />
-        </div>
-        <p className="text-xs font-semibold tracking-widest text-slate-500 uppercase">Error 404</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">Page not found</h1>
-        <p className="mt-2 text-sm text-slate-600">{message}</p>
-        <Button asChild className="mt-6">
+    <Empty className="min-h-[60vh]">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Compass />
+        </EmptyMedia>
+        <EmptyTitle>Page not found</EmptyTitle>
+        <EmptyDescription>{message}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button asChild>
           <Link to={backTo}>{backLabel}</Link>
         </Button>
-      </div>
-    </div>
+      </EmptyContent>
+    </Empty>
   )
 }

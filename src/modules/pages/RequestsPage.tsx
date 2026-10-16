@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { ClipboardList, Loader2, Plus, Trash2, Wrench, Package } from "lucide-react"
+import { ClipboardList, Plus, Trash2, Wrench, Package, AlertCircle, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -21,7 +23,6 @@ import type { FieldDef, InventoryItem, MaterialRequest, RequestStatus } from "@/
 import { errorMessage, toastError, useAsync } from "@/lib/useAsync"
 import { cn, formatDateTime } from "@/lib/utils"
 import { DynamicForm, formatFieldValue } from "@/renderer/DynamicForm"
-import { getModuleDef } from "@/modules/definitions"
 
 const STATUSES: ("All" | RequestStatus)[] = ["All", "Pending", "Approved", "Assigned", "Rejected"]
 
@@ -149,7 +150,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
                         value={l.qty}
                         onChange={(e) => setLines(lines.map((x, i) => (i === idx ? { ...x, qty: e.target.value } : x)))}
                       />
-                      {item && <p className={cn("mt-1 text-[11px]", over ? "text-amber-600" : "text-muted-foreground")}>{over ? "More than in stock" : item.unit}</p>}
+                      {item && <p className={cn("mt-1 text-xs", over ? "text-amber-600" : "text-muted-foreground")}>{over ? "More than in stock" : item.unit}</p>}
                     </div>
                     <Button variant="ghost" size="icon" disabled={lines.length === 1} onClick={() => setLines(lines.filter((_, i) => i !== idx))} aria-label="Remove line">
                       <Trash2 />
@@ -200,14 +201,19 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
             </div>
           )}
           <DynamicForm fields={formFields} values={values} errors={errors} onChange={setValues} />
-          {formError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">{formError}</p>}
+          {formError && (
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertTitle>{formError}</AlertTitle>
+            </Alert>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy}>
-            {busy && <Loader2 className="animate-spin" />}
+            {busy && <Spinner />}
             Submit request
           </Button>
         </DialogFooter>
@@ -244,9 +250,10 @@ export function RequestsPage() {
         }
       />
       {!hasApproval && (
-        <div className="mb-4 rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-          The {getModuleDef("approval").name} module is not enabled, so requests stay Pending until an Admin adds it in the Builder.
-        </div>
+        <Alert className="mb-4">
+          <Info />
+          <AlertDescription>Approvals are switched off here, so requests will keep waiting until an Admin turns them on.</AlertDescription>
+        </Alert>
       )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs value={status} onValueChange={(v) => setStatus(v as typeof status)}>
@@ -302,7 +309,7 @@ export function RequestsPage() {
               {list.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="pl-4">
-                    <div className="font-mono text-xs font-semibold">{r.code}</div>
+                    <div className="text-xs font-semibold">{r.code}</div>
                     <div className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</div>
                   </TableCell>
                   <TableCell className="max-w-xs">
