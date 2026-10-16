@@ -47,7 +47,7 @@ Roles: Public < Member < Manager < Admin. Roles are **per site**; no role on a s
 
 ## Demo script
 
-1. **Log in as admin.** The site switcher (top bar) lists all 3 units; the hub shows a card per unit with live stats plus an "All units summary".
+1. **Log in as admin.** The site switcher (top bar) lists all 3 units; the home page shows a short "Waiting for you" list (approvals, low stock, repairs) and one big card per office.
 2. **Switch Service Centre ↔ Central Stores.** Colours, sidebar style, corner radius, menus, pages and data all change — it is the same renderer reading a different config.
 3. **Builder:** Hub → Distribution → *Builder* (`/builder/ds-003`).
    - Drag **Return Management** from the palette onto the canvas. It turns red (requirements missing) and *Save/Publish are blocked*.
