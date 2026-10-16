@@ -17,7 +17,7 @@ export type ModuleNodeData = {
 }
 export type ModuleFlowNode = Node<ModuleNodeData, "module">
 
-/** Custom React Flow node with PSPICE wire terminals, wire mode glows, and quick wire trigger. */
+/** Custom React Flow node with wire terminals, wire mode glows, and quick wire trigger. */
 export const ModuleNode = memo(function ModuleNode({ id, data, selected }: NodeProps<ModuleFlowNode>) {
   const def = getModuleDef(data.moduleId)
   const bad = data.issues.length > 0
@@ -35,7 +35,7 @@ export const ModuleNode = memo(function ModuleNode({ id, data, selected }: NodeP
       )}
       style={{ ["--node-accent" as string]: data.accent }}
     >
-      {/* PSPICE Wire Mode Status Badges */}
+      {/* Wire Mode Status Badges */}
       {isSource && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-md animate-pulse whitespace-nowrap">
           <Zap className="size-3 fill-current" /> Wiring Source
@@ -84,7 +84,7 @@ export const ModuleNode = memo(function ModuleNode({ id, data, selected }: NodeP
               e.stopPropagation()
               data.onStartWire?.(id)
             }}
-            title="Start wire connection from this module (PSpice mode)"
+            title="Start wire connection from this module"
             className="flex items-center gap-0.5 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 shadow-xs hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700 transition-colors"
           >
             <Zap className="size-3 text-amber-500" />

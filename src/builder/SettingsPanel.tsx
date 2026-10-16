@@ -205,7 +205,7 @@ export function SettingsPanel({
                     onClick={() => onStartWire(node.id)}
                     className="text-[10px] font-medium text-amber-700 hover:underline flex items-center gap-0.5"
                   >
-                    ⚡ PSPICE Mode
+                    ⚡ Wire Mode
                   </button>
                 )}
               </p>

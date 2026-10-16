@@ -151,7 +151,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
   const selected = nodes.find((n) => n.selected)
   const selectedCanvasNode = selected ? (canvasNodes.find((n) => n.id === selected.id) ?? null) : null
 
-  // ------------------------------------------------------------ PSPICE Wiring Mode
+  // ------------------------------------------------------------ Wiring Mode
   const [wireMode, setWireMode] = useState(false)
   const [wireSourceId, setWireSourceId] = useState<string | null>(null)
   const [wireStyle, setWireStyle] = useState<"orthogonal" | "bezier">("orthogonal")
@@ -187,7 +187,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       setWireSourceId(nodeId)
       const node = nodes.find((n) => n.id === nodeId)
       const name = node ? getModuleDef(node.data.moduleId).name : "Module"
-      toast.info(`⚡ Wire Tool Active: ${name}`, {
+      toast.info(`⚡ Wire Tool: ${name}`, {
         description: "Click any destination module to place the wire (or Esc to cancel).",
       })
     },
@@ -209,7 +209,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
         setWireMode((prev) => {
           const next = !prev
           if (!next) setWireSourceId(null)
-          toast.info(next ? "⚡ Wire Tool (PSPICE Mode) Active: Click source, then target" : "Wire Tool turned off")
+          toast.info(next ? "⚡ Wire Tool Active: Click source, then target" : "Wire Tool turned off")
           return next
         })
       } else if (e.key === "Escape") {
@@ -468,7 +468,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
           )}
           {issues.length > 0 && <Badge variant="destructive">{issues.length} issue{issues.length > 1 ? "s" : ""}</Badge>}
 
-          {/* Wire Mode & Style Controls (PSpice-like) */}
+          {/* Wire Mode & Style Controls */}
           <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
             <Button
               variant={wireMode ? "default" : "ghost"}
@@ -477,7 +477,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                 setWireMode((v) => {
                   const next = !v
                   if (!next) setWireSourceId(null)
-                  toast.info(next ? "⚡ Wire Tool (PSPICE Mode) Active: Click source block, then destination block" : "Wire Tool turned off")
+                  toast.info(next ? "⚡ Wire Tool Active: Click source block, then destination block" : "Wire Tool turned off")
                   return next
                 })
               }}
@@ -487,7 +487,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                   ? "bg-amber-600 text-white shadow-sm ring-2 ring-amber-400 hover:bg-amber-700"
                   : "text-slate-700 hover:bg-white hover:text-slate-900",
               )}
-              title="PSPICE Wire Tool (Shortcut: W) — click source, then target to connect"
+              title="Wire Tool (Shortcut: W) — click source, then target to connect"
             >
               <Zap className={cn("size-3.5", wireMode ? "animate-pulse fill-current text-white" : "text-amber-500")} />
               {wireMode ? "Wire Mode Active (W)" : "Wire Tool (W)"}
@@ -498,10 +498,10 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               size="sm"
               onClick={() => {
                 setWireStyle((s) => (s === "orthogonal" ? "bezier" : "orthogonal"))
-                toast.info(`Wires set to ${wireStyle === "orthogonal" ? "Smooth Curved" : "PSPICE Orthogonal (Stepped)"}`)
+                toast.info(`Wires set to ${wireStyle === "orthogonal" ? "Smooth Curved" : "Orthogonal (Stepped)"}`)
               }}
               className="h-8 gap-1 px-2 text-xs text-slate-600 hover:bg-white hover:text-slate-900"
-              title="Toggle wire routing style (PSPICE Orthogonal vs Smooth Curve)"
+              title="Toggle wire routing style (Orthogonal vs Smooth Curve)"
             >
               <Cable className="size-3.5 text-slate-500" />
               <span>{wireStyle === "orthogonal" ? "Orthogonal" : "Curved"}</span>
@@ -610,7 +610,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
 
           {/* ------------------------------------------------ canvas */}
           <div ref={wrapper} className={cn("relative min-w-0 flex-1", wireMode && "cursor-crosshair")} onDragOver={(e) => (e.preventDefault(), (e.dataTransfer.dropEffect = "move"))} onDrop={onDrop}>
-            {/* PSPICE Wire Tool Active Banner */}
+            {/* Wire Tool Active Banner */}
             {wireMode && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 rounded-full border border-amber-300 bg-amber-50/95 px-4 py-2 shadow-lg backdrop-blur ring-2 ring-amber-400/40 animate-in fade-in zoom-in-95 duration-150">
                 <span className="flex size-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs">
@@ -619,7 +619,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                 <div className="text-xs">
                   {!wireSourceId ? (
                     <span className="font-semibold text-amber-900">
-                      PSPICE Wire Tool: <span className="font-normal text-amber-800">Click any block to start wire.</span>
+                      Wire Tool Active: <span className="font-normal text-amber-800">Click any block to start wire.</span>
                     </span>
                   ) : (
                     <span className="font-semibold text-amber-900">
@@ -667,7 +667,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               </div>
             )}
             <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-white/90 px-2.5 py-1.5 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200 flex items-center gap-2">
-              <span>Press <kbd className="rounded bg-slate-100 px-1 font-semibold">W</kbd> for PSPICE Wire Tool</span>
+              <span>Press <kbd className="rounded bg-slate-100 px-1 font-semibold">W</kbd> for Wire Tool</span>
               <span>·</span>
               <span>Select wire/block and press <kbd className="rounded bg-slate-100 px-1 font-semibold">Del</kbd> to remove</span>
             </div>
