@@ -12,11 +12,11 @@ import { useAuth } from "@/context/AuthContext"
 import { errorMessage } from "@/lib/useAsync"
 
 const SAMPLE_ACCOUNTS = [
-  { email: "admin@opshub.demo", password: "admin123", name: "Aarti Deshmukh", role: "Admin · all offices" },
-  { email: "engineer@opshub.demo", password: "eng123", name: "Rahul Patil", role: "Manager · Distribution, Service Centre" },
-  { email: "lineman@opshub.demo", password: "line123", name: "Sunil Jadhav", role: "Member · Distribution" },
-  { email: "storekeeper@opshub.demo", password: "store123", name: "Meena Kulkarni", role: "Manager · Central Stores" },
-  { email: "clerk@opshub.demo", password: "clerk123", name: "Pooja Gaikwad", role: "Member · Central Stores" },
+  { email: "admin@plexus.demo", password: "admin123", name: "Aarti Deshmukh", role: "Admin · all offices" },
+  { email: "engineer@plexus.demo", password: "eng123", name: "Rahul Patil", role: "Manager · Distribution, Service Centre" },
+  { email: "lineman@plexus.demo", password: "line123", name: "Sunil Jadhav", role: "Member · Distribution" },
+  { email: "storekeeper@plexus.demo", password: "store123", name: "Meena Kulkarni", role: "Manager · Central Stores" },
+  { email: "clerk@plexus.demo", password: "clerk123", name: "Pooja Gaikwad", role: "Member · Central Stores" },
 ]
 
 export function LoginPage() {
@@ -52,7 +52,7 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
       <div className="w-full max-w-sm space-y-6">
-        <Logo className="justify-center" />
+        <Logo size="lg" className="justify-center" />
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Sign in</CardTitle>

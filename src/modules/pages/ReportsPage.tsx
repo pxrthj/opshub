@@ -71,7 +71,7 @@ export function ReportsPage() {
       await exportWorkbook(sets, {
         filename: `${config.slug}-${ids.length > 1 ? "all-reports" : ids[0]}-${stamp}.xlsx`,
         siteName: config.name,
-        author: user?.name ?? "OpsHub",
+        author: user?.name ?? "Plexus",
         color: config.theme.primary,
       })
       toast.success("Excel file downloaded", { description: `${sets.map((s) => `${s.label} (${s.rows.length} rows)`).join(", ")}` })

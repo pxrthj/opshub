@@ -35,7 +35,7 @@ function daysAgo(d: number, hour = 10) {
 export const SEED_USERS: User[] = [
   {
     id: "u_admin",
-    email: "admin@opshub.demo",
+    email: "admin@plexus.demo",
     password: "admin123",
     name: "Aarti Deshmukh",
     title: "Platform Administrator",
@@ -43,7 +43,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u_engineer",
-    email: "engineer@opshub.demo",
+    email: "engineer@plexus.demo",
     password: "eng123",
     name: "Rahul Patil",
     title: "Junior Engineer",
@@ -51,7 +51,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u_lineman",
-    email: "lineman@opshub.demo",
+    email: "lineman@plexus.demo",
     password: "line123",
     name: "Sunil Jadhav",
     title: "Lineman, Pune Rural",
@@ -59,7 +59,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u_store",
-    email: "storekeeper@opshub.demo",
+    email: "storekeeper@plexus.demo",
     password: "store123",
     name: "Meena Kulkarni",
     title: "Storekeeper",
@@ -67,7 +67,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u_clerk",
-    email: "clerk@opshub.demo",
+    email: "clerk@plexus.demo",
     password: "clerk123",
     name: "Pooja Gaikwad",
     title: "Store Clerk",
@@ -75,7 +75,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u_ganesh",
-    email: "ganesh@opshub.demo",
+    email: "ganesh@plexus.demo",
     password: "demo123",
     name: "Ganesh More",
     title: "Lineman, Baramati",
@@ -83,7 +83,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u_vikas",
-    email: "vikas@opshub.demo",
+    email: "vikas@plexus.demo",
     password: "demo123",
     name: "Vikas Shinde",
     title: "Meter Technician",

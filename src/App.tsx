@@ -19,7 +19,7 @@ import { DeployHistoryPage } from "@/builder/DeployHistoryPage"
 function FullScreenLoader() {
   return (
     <div className="flex h-screen items-center justify-center text-slate-500">
-      <Spinner className="mr-2 size-5" /> Loading OpsHub…
+      <Spinner className="mr-2 size-5" /> Loading Plexus…
     </div>
   )
 }

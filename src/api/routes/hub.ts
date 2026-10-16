@@ -1,5 +1,5 @@
-import { ROLES } from "@/lib/roles"
-import type { Database, PublicUser, Role, SiteStats, SiteSummary, User } from "@/lib/types"
+import { ROLES, roleAtLeast } from "@/lib/roles"
+import type { AppNotification, Database, NotificationPriority, PublicUser, Role, SiteStats, SiteSummary, User } from "@/lib/types"
 import { uid } from "@/lib/utils"
 import { resetDb } from "../db"
 import { badRequest, conflict, forbidden, notFound, unauthorized } from "../errors"
@@ -51,7 +51,13 @@ register(
     auth: false,
     handler: ({ db, body }) => {
       const email = String(body.email ?? "").trim().toLowerCase()
-      const user = db.users.find((u) => u.email.toLowerCase() === email)
+      const altEmail = email.includes("@plexus.demo")
+        ? email.replace("@plexus.demo", "@opshub.demo")
+        : email.replace("@opshub.demo", "@plexus.demo")
+      const user = db.users.find((u) => {
+        const ue = u.email.toLowerCase()
+        return ue === email || ue === altEmail
+      })
       // Mock login: plain comparison. The real backend compares a bcrypt hash and sets an HTTP-only cookie.
       if (!user || user.password !== body.password) throw unauthorized("Invalid email or password")
       writeSession({ userId: user.id, at: new Date().toISOString() })
@@ -81,6 +87,226 @@ register(
       Object.values(db.sites)
         .filter((s) => user!.roles[s.siteId])
         .map((s) => ({ config: s.live, role: user!.roles[s.siteId], liveVersion: s.liveVersion, stats: computeStats(db, s.siteId) })),
+  },
+  {
+    method: "GET",
+    path: "/api/hub/notifications",
+    handler: ({ db, user }): AppNotification[] => {
+      if (!user) return []
+      const notifications: AppNotification[] = []
+      const userRoles = user.roles
+      const isAnyAdmin = Object.values(userRoles).includes("Admin")
+
+      function formatTimeAgo(isoDate: string): string {
+        const diff = Date.now() - new Date(isoDate).getTime()
+        const mins = Math.floor(diff / 60000)
+        if (mins < 1) return "Just now"
+        if (mins < 60) return `${mins}m ago`
+        const hours = Math.floor(mins / 60)
+        if (hours < 24) return `${hours}h ago`
+        const days = Math.floor(hours / 24)
+        if (days === 1) return "Yesterday"
+        return `${days}d ago`
+      }
+
+      for (const [siteId, siteRecord] of Object.entries(db.sites)) {
+        const role = userRoles[siteId]
+        if (!role && !isAnyAdmin) continue
+
+        const cfg = siteRecord.live
+        const data = db.data[siteId]
+        if (!data) continue
+
+        const effectiveRole = role ?? (isAnyAdmin ? "Admin" : null)
+        if (!effectiveRole) continue
+
+        const has = (m: string) => cfg.modules.includes(m as never)
+
+        // 1. MEMBER NOTIFICATIONS
+        if (data.requests) {
+          for (const req of data.requests) {
+            if (req.requestedBy === user.id) {
+              if (req.status === "Approved" || req.status === "Assigned") {
+                notifications.push({
+                  id: `req-app-${req.id}-${req.status}`,
+                  priority: "medium",
+                  category: "approval",
+                  title: `Request ${req.code} Approved`,
+                  message: `Your request for ${req.lines?.map((l) => `${l.qty}x ${l.itemName}`).join(", ") || req.purpose} was approved.`,
+                  siteId,
+                  siteName: cfg.name,
+                  siteSlug: cfg.slug,
+                  timestamp: req.decidedAt || req.createdAt,
+                  timeAgo: formatTimeAgo(req.decidedAt || req.createdAt),
+                  link: `/s/${cfg.slug}/requests`,
+                })
+              } else if (req.status === "Rejected") {
+                notifications.push({
+                  id: `req-rej-${req.id}`,
+                  priority: "urgent",
+                  category: "request",
+                  title: `Request ${req.code} Rejected`,
+                  message: req.decisionComment ? `Reason: "${req.decisionComment}"` : "Your request was declined.",
+                  siteId,
+                  siteName: cfg.name,
+                  siteSlug: cfg.slug,
+                  timestamp: req.decidedAt || req.createdAt,
+                  timeAgo: formatTimeAgo(req.decidedAt || req.createdAt),
+                  link: `/s/${cfg.slug}/requests`,
+                })
+              }
+            }
+          }
+        }
+
+        if (data.assignments) {
+          for (const asn of data.assignments) {
+            if (asn.assigneeId === user.id) {
+              notifications.push({
+                id: `asn-${asn.id}`,
+                priority: "medium",
+                category: "assignment",
+                title: `Materials Issued: ${asn.code}`,
+                message: `${asn.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ")} ready for field work.`,
+                siteId,
+                siteName: cfg.name,
+                siteSlug: cfg.slug,
+                timestamp: asn.createdAt,
+                timeAgo: formatTimeAgo(asn.createdAt),
+                link: `/s/${cfg.slug}/my-materials`,
+              })
+            }
+          }
+        }
+
+        if (data.repairs && has("pcb-repair") && roleAtLeast(effectiveRole, "Member")) {
+          for (const rep of data.repairs) {
+            if (rep.technician === user.name && rep.status !== "Fixed" && rep.status !== "Scrapped") {
+              notifications.push({
+                id: `rep-${rep.id}`,
+                priority: "medium",
+                category: "repair",
+                title: `Bench Assignment: Meter ${rep.meterId}`,
+                message: `Fault: ${rep.fault} (Current status: ${rep.status}).`,
+                siteId,
+                siteName: cfg.name,
+                siteSlug: cfg.slug,
+                timestamp: rep.updatedAt || rep.receivedAt,
+                timeAgo: formatTimeAgo(rep.updatedAt || rep.receivedAt),
+                link: `/s/${cfg.slug}/repairs`,
+              })
+            }
+          }
+        }
+
+        // 2. MANAGER NOTIFICATIONS
+        if (roleAtLeast(effectiveRole, "Manager")) {
+          if (data.requests && has("approval")) {
+            const pending = data.requests.filter((r) => r.status === "Pending")
+            for (const req of pending) {
+              notifications.push({
+                id: `pend-${req.id}`,
+                priority: "urgent",
+                category: "approval",
+                title: `Approval Needed: ${req.code}`,
+                message: `${req.requestedByName} requested ${req.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ") || req.purpose}.`,
+                siteId,
+                siteName: cfg.name,
+                siteSlug: cfg.slug,
+                timestamp: req.createdAt,
+                timeAgo: formatTimeAgo(req.createdAt),
+                link: `/s/${cfg.slug}/approvals`,
+              })
+            }
+          }
+
+          const stockId = stockSiteOf(cfg)
+          const inv = db.data[stockId]?.inventory ?? []
+          if (has("inventory") && !cfg.workflow.stockSourceSiteId && inv.length > 0) {
+            for (const item of inv) {
+              if (item.qty <= 0) {
+                notifications.push({
+                  id: `stockout-${item.id}`,
+                  priority: "urgent",
+                  category: "inventory",
+                  title: `Critical Out of Stock: ${item.name}`,
+                  message: `0 ${item.unit} remaining (Reorder threshold is ${item.reorderLevel}).`,
+                  siteId,
+                  siteName: cfg.name,
+                  siteSlug: cfg.slug,
+                  timestamp: item.updatedAt || new Date().toISOString(),
+                  timeAgo: formatTimeAgo(item.updatedAt || new Date().toISOString()),
+                  link: `/s/${cfg.slug}/inventory`,
+                })
+              } else if (item.qty < item.reorderLevel) {
+                notifications.push({
+                  id: `lowstock-${item.id}`,
+                  priority: "urgent",
+                  category: "inventory",
+                  title: `Low Stock Alert: ${item.name}`,
+                  message: `${item.qty} ${item.unit} left (Reorder threshold: ${item.reorderLevel}).`,
+                  siteId,
+                  siteName: cfg.name,
+                  siteSlug: cfg.slug,
+                  timestamp: item.updatedAt || new Date().toISOString(),
+                  timeAgo: formatTimeAgo(item.updatedAt || new Date().toISOString()),
+                  link: `/s/${cfg.slug}/inventory`,
+                })
+              }
+            }
+          }
+
+          if (data.repairs && has("pcb-repair")) {
+            const received = data.repairs.filter((r) => r.status === "Received")
+            for (const rep of received) {
+              notifications.push({
+                id: `rep-mgr-${rep.id}`,
+                priority: "medium",
+                category: "repair",
+                title: `Repair Inflow: Meter ${rep.meterId}`,
+                message: `Fault reported: ${rep.fault}. Awaiting technician.`,
+                siteId,
+                siteName: cfg.name,
+                siteSlug: cfg.slug,
+                timestamp: rep.receivedAt,
+                timeAgo: formatTimeAgo(rep.receivedAt),
+                link: `/s/${cfg.slug}/repairs`,
+              })
+            }
+          }
+        }
+
+        // 3. ADMIN NOTIFICATIONS
+        if (roleAtLeast(effectiveRole, "Admin")) {
+          if (siteRecord.draft) {
+            notifications.push({
+              id: `draft-${siteId}`,
+              priority: "medium",
+              category: "system",
+              title: `Unpublished Draft in ${cfg.name}`,
+              message: `Draft changes saved by ${siteRecord.draftSavedBy ?? "Admin"} are pending publish.`,
+              siteId,
+              siteName: cfg.name,
+              siteSlug: cfg.slug,
+              timestamp: siteRecord.draftSavedAt || new Date().toISOString(),
+              timeAgo: formatTimeAgo(siteRecord.draftSavedAt || new Date().toISOString()),
+              link: `/builder/${siteId}`,
+            })
+          }
+        }
+      }
+
+      // Sort: urgent first, then medium, then low; then newest first
+      const priorityWeight: Record<NotificationPriority, number> = { urgent: 0, medium: 1, low: 2 }
+      notifications.sort((a, b) => {
+        if (priorityWeight[a.priority] !== priorityWeight[b.priority]) {
+          return priorityWeight[a.priority] - priorityWeight[b.priority]
+        }
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      })
+
+      return notifications
+    },
   },
   {
     // Resolve a URL slug (or id) to a site. Any signed-in user may ask whether a site exists;

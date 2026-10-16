@@ -7,6 +7,7 @@ import {
   addEdge,
   Background,
   BackgroundVariant,
+  ConnectionLineType,
   Controls,
   MarkerType,
   MiniMap,
@@ -19,7 +20,22 @@ import {
   type Edge,
 } from "@xyflow/react"
 import { toast } from "sonner"
-import { ArrowLeft, CheckCircle2, ChevronDown, Eye, GripVertical, History, Lock, Plus, Rocket, Save, Sparkles, Undo2 } from "lucide-react"
+import {
+  ArrowLeft,
+  Cable,
+  CheckCircle2,
+  ChevronDown,
+  Eye,
+  GripVertical,
+  History,
+  Lock,
+  Plus,
+  Rocket,
+  Save,
+  Sparkles,
+  Undo2,
+  Zap,
+} from "lucide-react"
 import { api, ApiError } from "@/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -137,23 +153,150 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
   const selected = nodes.find((n) => n.selected)
   const selectedCanvasNode = selected ? (canvasNodes.find((n) => n.id === selected.id) ?? null) : null
 
+  // ------------------------------------------------------------ Wiring Mode
+  const [wireMode, setWireMode] = useState(false)
+  const [wireSourceId, setWireSourceId] = useState<string | null>(null)
+  const [wireStyle, setWireStyle] = useState<"orthogonal" | "bezier">("orthogonal")
+
+  const connectNodes = useCallback(
+    (sourceId: string, targetId: string) => {
+      const s = nodes.find((n) => n.id === sourceId)
+      const t = nodes.find((n) => n.id === targetId)
+      if (!s || !t) return false
+      const err = connectionError(s.data.moduleId, t.data.moduleId, s.id, t.id, canvasEdges)
+      if (err) {
+        toast.error("Wire connection not allowed", { description: err })
+        return false
+      }
+      setEdges((eds) => addEdge({ source: sourceId, target: targetId, id: `e_${sourceId}_${targetId}` }, eds))
+      toast.success(`⚡ Wired ${getModuleDef(s.data.moduleId).short} ➔ ${getModuleDef(t.data.moduleId).short}`)
+      return true
+    },
+    [nodes, canvasEdges, setEdges],
+  )
+
+  const disconnectEdge = useCallback(
+    (edgeId: string) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId))
+      toast.info("Wire disconnected")
+    },
+    [setEdges],
+  )
+
+  const startWire = useCallback(
+    (nodeId: string) => {
+      setWireMode(true)
+      setWireSourceId(nodeId)
+      const node = nodes.find((n) => n.id === nodeId)
+      const name = node ? getModuleDef(node.data.moduleId).name : "Module"
+      toast.info(`⚡ Wire Tool: ${name}`, {
+        description: "Click any destination module to place the wire (or Esc to cancel).",
+      })
+    },
+    [nodes],
+  )
+
+  const cancelWire = useCallback(() => {
+    setWireSourceId(null)
+    setWireMode(false)
+    toast.info("Wire mode closed")
+  }, [])
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
+      if (tag === "input" || tag === "textarea") return
+
+      if (e.key === "w" || e.key === "W") {
+        setWireMode((prev) => {
+          const next = !prev
+          if (!next) setWireSourceId(null)
+          toast.info(next ? "⚡ Wire Tool Active: Click source, then target" : "Wire Tool turned off")
+          return next
+        })
+      } else if (e.key === "Escape") {
+        if (wireSourceId) {
+          setWireSourceId(null)
+          toast.info("Wire source cancelled")
+        } else if (wireMode) {
+          setWireMode(false)
+          toast.info("Wire Mode closed")
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [wireSourceId, wireMode])
+
+  const compatibleTargetIds = useMemo(() => {
+    if (!wireSourceId) return new Set<string>()
+    const s = nodes.find((n) => n.id === wireSourceId)
+    if (!s) return new Set<string>()
+    const set = new Set<string>()
+    for (const t of nodes) {
+      if (t.id === wireSourceId) continue
+      if (connectionError(s.data.moduleId, t.data.moduleId, s.id, t.id, canvasEdges) === null) {
+        set.add(t.id)
+      }
+    }
+    return set
+  }, [wireSourceId, nodes, canvasEdges])
+
+  const onNodeClick = useCallback(
+    (_e: React.MouseEvent, clickedNode: ModuleFlowNode) => {
+      if (!wireMode) return
+
+      if (!wireSourceId) {
+        const def = getModuleDef(clickedNode.data.moduleId)
+        if (def.outputs.length === 0) {
+          toast.error(`${def.name} has no outputs to wire from`)
+          return
+        }
+        setWireSourceId(clickedNode.id)
+        toast.info(`⚡ Wire source: ${def.name}`, { description: "Click destination module to connect." })
+        return
+      }
+
+      if (wireSourceId === clickedNode.id) {
+        setWireSourceId(null)
+        toast.info("Wire source cleared")
+        return
+      }
+
+      const ok = connectNodes(wireSourceId, clickedNode.id)
+      if (ok) {
+        setWireSourceId(null)
+      }
+    },
+    [wireMode, wireSourceId, connectNodes],
+  )
+
   const displayNodes = useMemo(
     () =>
       nodes.map((n) => ({
         ...n,
-        data: { ...n.data, accent, issues: issues.filter((i) => i.nodeId === n.id).map((i) => i.message) },
+        data: {
+          ...n.data,
+          accent,
+          issues: issues.filter((i) => i.nodeId === n.id).map((i) => i.message),
+          isWireSource: wireSourceId === n.id,
+          isWireTarget: !!wireSourceId && compatibleTargetIds.has(n.id),
+          wireMode,
+          onStartWire: startWire,
+        },
       })),
-    [nodes, issues, accent],
+    [nodes, issues, accent, wireSourceId, compatibleTargetIds, wireMode, startWire],
   )
   const displayEdges = useMemo(
     () =>
       edges.map((e) => ({
         ...e,
+        type: wireStyle === "orthogonal" ? "smoothstep" : "default",
         animated: true,
-        style: { stroke: e.selected ? "#0f172a" : accent, strokeWidth: 2 },
+        style: { stroke: e.selected ? "#0f172a" : accent, strokeWidth: wireStyle === "orthogonal" ? 2.5 : 2 },
         markerEnd: { type: MarkerType.ArrowClosed, color: accent },
       })),
-    [edges, accent],
+    [edges, accent, wireStyle],
   )
 
   // ------------------------------------------------------------ canvas interactions
@@ -326,6 +469,47 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
             </Badge>
           )}
           {issues.length > 0 && <Badge variant="destructive">{issues.length} issue{issues.length > 1 ? "s" : ""}</Badge>}
+
+          {/* Wire Mode & Style Controls */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
+            <Button
+              variant={wireMode ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setWireMode((v) => {
+                  const next = !v
+                  if (!next) setWireSourceId(null)
+                  toast.info(next ? "⚡ Wire Tool Active: Click source block, then destination block" : "Wire Tool turned off")
+                  return next
+                })
+              }}
+              className={cn(
+                "h-8 gap-1.5 text-xs font-semibold transition-all",
+                wireMode
+                  ? "bg-amber-600 text-white shadow-sm ring-2 ring-amber-400 hover:bg-amber-700"
+                  : "text-slate-700 hover:bg-white hover:text-slate-900",
+              )}
+              title="Wire Tool (Shortcut: W) — click source, then target to connect"
+            >
+              <Zap className={cn("size-3.5", wireMode ? "animate-pulse fill-current text-white" : "text-amber-500")} />
+              {wireMode ? "Wire Mode Active (W)" : "Wire Tool (W)"}
+            </Button>
+            <div className="h-4 w-px bg-slate-200" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setWireStyle((s) => (s === "orthogonal" ? "bezier" : "orthogonal"))
+                toast.info(`Wires set to ${wireStyle === "orthogonal" ? "Smooth Curved" : "Orthogonal (Stepped)"}`)
+              }}
+              className="h-8 gap-1 px-2 text-xs text-slate-600 hover:bg-white hover:text-slate-900"
+              title="Toggle wire routing style (Orthogonal vs Smooth Curve)"
+            >
+              <Cable className="size-3.5 text-slate-500" />
+              <span>{wireStyle === "orthogonal" ? "Orthogonal" : "Curved"}</span>
+            </Button>
+          </div>
+
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -428,7 +612,35 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
           </aside>
 
           {/* ------------------------------------------------ canvas */}
-          <div ref={wrapper} className="relative min-w-0 flex-1" onDragOver={(e) => (e.preventDefault(), (e.dataTransfer.dropEffect = "move"))} onDrop={onDrop}>
+          <div ref={wrapper} className={cn("relative min-w-0 flex-1", wireMode && "cursor-crosshair")} onDragOver={(e) => (e.preventDefault(), (e.dataTransfer.dropEffect = "move"))} onDrop={onDrop}>
+            {/* Wire Tool Active Banner */}
+            {wireMode && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 rounded-full border border-amber-300 bg-amber-50/95 px-4 py-2 shadow-lg backdrop-blur ring-2 ring-amber-400/40 animate-in fade-in zoom-in-95 duration-150">
+                <span className="flex size-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs">
+                  <Zap className="size-3.5 fill-current animate-pulse" />
+                </span>
+                <div className="text-xs">
+                  {!wireSourceId ? (
+                    <span className="font-semibold text-amber-900">
+                      Wire Tool Active: <span className="font-normal text-amber-800">Click any block to start wire.</span>
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-amber-900">
+                      Wiring from <span className="underline">{nodes.find((n) => n.id === wireSourceId)?.data.moduleId ? getModuleDef(nodes.find((n) => n.id === wireSourceId)!.data.moduleId).name : "Module"}</span>:{" "}
+                      <span className="font-normal text-amber-800">Click any compatible green block to connect.</span>
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={cancelWire}
+                  className="rounded-full bg-amber-200/70 hover:bg-amber-300 px-2 py-0.5 text-[11px] font-semibold text-amber-900 transition-colors"
+                >
+                  Cancel (Esc)
+                </button>
+              </div>
+            )}
+
             <ReactFlow
               nodes={displayNodes}
               edges={displayEdges}
@@ -436,6 +648,8 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              connectionLineType={wireStyle === "orthogonal" ? ConnectionLineType.SmoothStep : ConnectionLineType.Bezier}
               deleteKeyCode={["Backspace", "Delete"]}
               fitView
               fitViewOptions={{ padding: 0.25 }}
@@ -455,8 +669,10 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                 </div>
               </div>
             )}
-            <div className="pointer-events-none absolute top-3 left-3 rounded-md bg-white/90 px-2.5 py-1.5 text-xs text-slate-500 shadow-sm ring-1 ring-slate-200">
-              Select a block and press <Kbd>Del</Kbd> to remove it
+            <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-2 rounded-md bg-white/90 px-2.5 py-1.5 text-xs text-slate-500 shadow-sm ring-1 ring-slate-200">
+              <span>Press <Kbd>W</Kbd> for Wire Tool</span>
+              <span>·</span>
+              <span>Select a wire or block and press <Kbd>Del</Kbd> to remove it</span>
             </div>
           </div>
 
@@ -470,6 +686,11 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               sites={sites}
               onRemoveNode={(id) => deleteElements({ nodes: [{ id }] })}
               onClose={() => setNodes((ns) => ns.map((n) => ({ ...n, selected: false })))}
+              canvasNodes={canvasNodes}
+              canvasEdges={canvasEdges}
+              onConnectNodes={connectNodes}
+              onDisconnectEdge={disconnectEdge}
+              onStartWire={startWire}
             />
           </aside>
         </div>
