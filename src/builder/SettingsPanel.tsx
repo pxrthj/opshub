@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import type { CanvasIssue } from "@/lib/siteConfig"
 import { mix, THEME_SWATCHES } from "@/lib/theme"
-import type { CanvasNode, FieldDef, SiteConfig, SiteSummary, WorkflowSettings } from "@/lib/types"
+import type { CanvasEdge, CanvasNode, FieldDef, SiteConfig, SiteSummary, WorkflowSettings } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { getModuleDef, PORT_LABELS, requirementLabel, SETTING_LABELS } from "@/modules/definitions"
 import { FieldEditor } from "./FieldEditor"
@@ -90,6 +90,11 @@ export function SettingsPanel({
   sites,
   onRemoveNode,
   onClose,
+  canvasNodes = [],
+  canvasEdges = [],
+  onConnectNodes,
+  onDisconnectEdge,
+  onStartWire,
 }: {
   config: SiteConfig
   setConfig: (c: SiteConfig) => void
@@ -98,12 +103,26 @@ export function SettingsPanel({
   sites: SiteSummary[]
   onRemoveNode: (id: string) => void
   onClose: () => void
+  canvasNodes?: CanvasNode[]
+  canvasEdges?: CanvasEdge[]
+  onConnectNodes?: (sourceId: string, targetId: string) => void
+  onDisconnectEdge?: (edgeId: string) => void
+  onStartWire?: (sourceId: string) => void
 }) {
   if (node) {
     const def = getModuleDef(node.moduleId)
     const nodeIssues = issues.filter((i) => i.nodeId === node.id)
     const fields: FieldDef[] = config.fields[node.moduleId] ?? def.defaultFields
     const hasFields = def.defaultFields.length > 0 || !!config.fields[node.moduleId]
+
+    // Wires connected to this node
+    const incomingEdges = canvasEdges.filter((e) => e.target === node.id)
+    const outgoingEdges = canvasEdges.filter((e) => e.source === node.id)
+    const nodeMap = new Map(canvasNodes.map((n) => [n.id, n]))
+
+    // Candidate nodes to connect to
+    const availableTargets = canvasNodes.filter((n) => n.id !== node.id && getModuleDef(n.moduleId).inputs.length > 0)
+
     return (
       <div className="space-y-5 p-4">
         <div className="flex items-start gap-3">
@@ -129,6 +148,100 @@ export function SettingsPanel({
             <dt className="text-slate-500">Page</dt>
             <dd>{def.page ? `${def.page.label} (/${def.page.path}) · ${def.page.minRole}+` : "No page"}</dd>
           </dl>
+
+          {/* Connected Wires */}
+          {(incomingEdges.length > 0 || outgoingEdges.length > 0) && (
+            <div className="mt-2 space-y-1.5 rounded-lg border bg-white p-2">
+              <p className="text-[11px] font-semibold text-slate-600">Active Wires</p>
+              {incomingEdges.map((e) => {
+                const src = nodeMap.get(e.source)
+                const srcDef = src ? getModuleDef(src.moduleId) : null
+                return (
+                  <div key={e.id} className="flex items-center justify-between gap-1 text-xs text-slate-700 bg-slate-50 px-2 py-1 rounded">
+                    <span className="truncate">⬅ {srcDef?.name ?? "Source"}</span>
+                    {onDisconnectEdge && (
+                      <button
+                        type="button"
+                        onClick={() => onDisconnectEdge(e.id)}
+                        className="text-red-500 hover:text-red-700 text-[10px] font-medium px-1 rounded hover:bg-red-50"
+                        title="Disconnect wire"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+              {outgoingEdges.map((e) => {
+                const tgt = nodeMap.get(e.target)
+                const tgtDef = tgt ? getModuleDef(tgt.moduleId) : null
+                return (
+                  <div key={e.id} className="flex items-center justify-between gap-1 text-xs text-slate-700 bg-slate-50 px-2 py-1 rounded">
+                    <span className="truncate">➔ {tgtDef?.name ?? "Target"}</span>
+                    {onDisconnectEdge && (
+                      <button
+                        type="button"
+                        onClick={() => onDisconnectEdge(e.id)}
+                        className="text-red-500 hover:text-red-700 text-[10px] font-medium px-1 rounded hover:bg-red-50"
+                        title="Disconnect wire"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Quick Connect / Wire Dropdown */}
+          {def.outputs.length > 0 && (
+            <div className="mt-2 space-y-1.5 rounded-lg border border-sky-100 bg-sky-50/60 p-2.5">
+              <p className="text-[11px] font-semibold text-sky-900 flex items-center justify-between">
+                <span>Quick Wire to Block</span>
+                {onStartWire && (
+                  <button
+                    type="button"
+                    onClick={() => onStartWire(node.id)}
+                    className="text-[10px] font-medium text-amber-700 hover:underline flex items-center gap-0.5"
+                  >
+                    ⚡ PSPICE Mode
+                  </button>
+                )}
+              </p>
+              {availableTargets.length === 0 ? (
+                <p className="text-[11px] text-slate-500">No other blocks with input ports on the board.</p>
+              ) : (
+                <div className="space-y-1">
+                  <Select
+                    value=""
+                    onValueChange={(tgtId) => {
+                      if (tgtId && onConnectNodes) {
+                        onConnectNodes(node.id, tgtId)
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 bg-white text-xs">
+                      <SelectValue placeholder="Choose block to wire..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTargets.map((tgt) => {
+                        const tDef = getModuleDef(tgt.moduleId)
+                        const alreadyConnected = outgoingEdges.some((e) => e.target === tgt.id)
+                        return (
+                          <SelectItem key={tgt.id} value={tgt.id} disabled={alreadyConnected}>
+                            {tDef.name} {alreadyConnected ? "(Already connected)" : ""}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-500">Pick a module to wire directly without mouse dragging.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {nodeIssues.length ? (
             <div className="space-y-1 rounded-lg bg-red-50 p-2.5 text-xs text-red-700 ring-1 ring-red-200">
               {nodeIssues.map((i) => (
