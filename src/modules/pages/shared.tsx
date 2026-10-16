@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
+import { Alert, AlertTitle } from "@/components/ui/alert"
+import { Progress } from "@/components/ui/progress"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -13,14 +16,9 @@ import { errorMessage } from "@/lib/useAsync"
 import { cn } from "@/lib/utils"
 
 export function ProgressLine({ assigned, used, returned }: { assigned: number; used: number; returned: number }) {
-  const u = assigned ? (used / assigned) * 100 : 0
-  const r = assigned ? (returned / assigned) * 100 : 0
-  return (
-    <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
-      <div className="h-full bg-primary" style={{ width: `${u}%` }} title={`Used ${used}`} />
-      <div className="h-full bg-violet-400" style={{ width: `${r}%` }} title={`Returned ${returned}`} />
-    </div>
-  )
+  // share of the material that is used up or given back
+  const done = assigned ? Math.min(100, ((used + returned) / assigned) * 100) : 0
+  return <Progress value={done} className="h-2" title={`Used ${used}, returned ${returned} of ${assigned}`} />
 }
 
 /** Record consumption or a return against an assignment line. */
@@ -135,7 +133,7 @@ export function AssignmentActionDialog({
             </Select>
           </div>
           {line && (
-            <div className="grid grid-cols-4 gap-2 rounded-[var(--radius)] bg-muted/50 p-3 text-center text-xs">
+            <div className="grid grid-cols-4 gap-2 rounded-lg bg-muted/50 p-3 text-center text-xs">
               {[
                 ["Assigned", line.qty],
                 ["Used", line.used],
@@ -161,14 +159,19 @@ export function AssignmentActionDialog({
               </div>
             )}
           </div>
-          {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">{error}</p>}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertTitle>{error}</AlertTitle>
+            </Alert>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy}>
-            {busy && <Loader2 className="animate-spin" />}
+            {busy && <Spinner />}
             {mode === "usage" ? "Record usage" : "Return to stock"}
           </Button>
         </DialogFooter>

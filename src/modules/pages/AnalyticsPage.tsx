@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContai
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PageHeader } from "@/components/PageHeader"
 import { useSite } from "@/context/SiteContext"
 import { mix } from "@/lib/theme"
@@ -54,28 +55,28 @@ function ChartCard({ title, description, children, table }: { title: string; des
 
 function SimpleTable({ head, rows }: { head: string[]; rows: (string | number)[][] }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b text-left text-xs text-muted-foreground">
+    <Table>
+      <TableHeader>
+        <TableRow>
           {head.map((h, i) => (
-            <th key={h} className={i ? "py-1.5 text-right font-medium" : "py-1.5 font-medium"}>
+            <TableHead key={h} className={i ? "text-right" : undefined}>
               {h}
-            </th>
+            </TableHead>
           ))}
-        </tr>
-      </thead>
-      <tbody>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((r, i) => (
-          <tr key={i} className="border-b last:border-0">
+          <TableRow key={i}>
             {r.map((c, j) => (
-              <td key={j} className={j ? "py-1.5 text-right tabular-nums" : "py-1.5"}>
+              <TableCell key={j} className={j ? "text-right tabular-nums" : undefined}>
                 {c}
-              </td>
+              </TableCell>
             ))}
-          </tr>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }
 
@@ -95,7 +96,7 @@ export function AnalyticsPage() {
       {loading && !data ? (
         <div className="grid gap-6 lg:grid-cols-2">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-96 rounded-[var(--radius)]" />
+            <Skeleton key={i} className="h-96 rounded-lg" />
           ))}
         </div>
       ) : data ? (
@@ -156,7 +157,7 @@ export function AnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Key figures</CardTitle>
-              <CardDescription>Computed from this unit's data</CardDescription>
+              <CardDescription>From this office's data</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3">
               {[
@@ -167,10 +168,10 @@ export function AnalyticsPage() {
                 [data.timeline.seriesB + " (6 wks)", data.timeline.points.reduce((s, p) => s + p.b, 0)],
                 [data.statusSplit.data[0]?.name ?? "—", data.statusSplit.data[0]?.value ?? 0],
               ].map(([k, v]) => (
-                <div key={String(k)} className="rounded-[var(--radius)] border px-3 py-2.5">
-                  <p className="text-xs text-muted-foreground">{k}</p>
+                <Card key={String(k)} size="sm" className="gap-1 px-3">
+                  <CardDescription className="text-xs">{k}</CardDescription>
                   <p className="text-xl font-semibold tabular-nums">{v}</p>
-                </div>
+                </Card>
               ))}
             </CardContent>
           </Card>

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Label } from "@/components/ui/label"
 import { Calculator, Lock, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -108,16 +109,16 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
                 </Button>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
               <code className="rounded bg-slate-100 px-1">{f.key}</code>
               {f.type !== "calculated" && (
-                <label className="flex items-center gap-1">
+                <Label className="text-xs font-normal">
                   <Switch size="sm" checked={!!f.required} disabled={f.builtin && f.required} onCheckedChange={(v) => update(i, { required: v })} /> Required
-                </label>
+                </Label>
               )}
-              <label className="flex items-center gap-1">
+              <Label className="text-xs font-normal">
                 <Switch size="sm" checked={!!f.showInTable} onCheckedChange={(v) => update(i, { showInTable: v })} /> In table
-              </label>
+              </Label>
             </div>
             {f.type === "select" && <OptionsInput options={f.options ?? []} onCommit={(options) => update(i, { options })} />}
             {f.type === "calculated" && (
@@ -125,7 +126,7 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
                 <div className="relative">
                   <Calculator className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-slate-400" />
                   <Input
-                    className="h-7 pl-7 font-mono text-xs"
+                    className="h-7 pl-7 text-xs"
                     value={f.formula ?? ""}
                     onChange={(e) => update(i, { formula: e.target.value })}
                     placeholder="e.g. qty * unitPrice"
@@ -133,14 +134,14 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
                   />
                 </div>
                 {formulaErr ? (
-                  <p className="text-[11px] text-red-600">{formulaErr}</p>
+                  <p className="text-xs text-red-600">{formulaErr}</p>
                 ) : (
-                  <p className="text-[11px] text-emerald-700">
+                  <p className="text-xs text-emerald-700">
                     ✓ Valid · e.g. {numericFieldKeys(fields, f.key).filter((k) => (f.formula ?? "").includes(k)).map((k) => `${k}=${sample[k] ?? 0}`).join(", ")} →{" "}
                     {computeFormula(f.formula, sample).toLocaleString("en-IN")}
                   </p>
                 )}
-                <p className="text-[11px] text-slate-400">Allowed: + − × ÷ ( ) and {numericFieldKeys(fields, f.key).join(", ") || "no numeric fields yet"}</p>
+                <p className="text-xs text-slate-400">Allowed: + − × ÷ ( ) and {numericFieldKeys(fields, f.key).join(", ") || "no numeric fields yet"}</p>
               </div>
             )}
           </div>

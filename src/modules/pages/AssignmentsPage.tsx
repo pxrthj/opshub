@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { Loader2, PackageCheck, Search, Send } from "lucide-react"
+import { PackageCheck, Search, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -54,20 +55,20 @@ export function AssignmentsPage() {
       <PageHeader title="Handed-out material" icon={<PackageCheck />} description="Who has what, and how much is left." />
 
       {awaiting.length > 0 && (
-        <Card className="mb-6 border-sky-200 bg-sky-50/40">
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-base">Approved — awaiting assignment ({awaiting.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {awaiting.map((r) => (
-              <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-[var(--radius)] border bg-card px-3 py-2">
-                <span className="font-mono text-xs font-semibold">{r.code}</span>
+              <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-3 py-2">
+                <span className="text-xs font-semibold">{r.code}</span>
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {requestSummary(r)} <span className="text-muted-foreground">· {r.requestedByName}</span>
                 </span>
                 {errors[r.id] && <span className="w-full text-xs text-red-600 sm:order-last">{errors[r.id]}</span>}
                 <Button size="sm" onClick={() => assign(r)} disabled={busyId === r.id}>
-                  {busyId === r.id ? <Loader2 className="animate-spin" /> : <Send />} Assign now
+                  {busyId === r.id ? <Spinner /> : <Send />} Assign now
                 </Button>
               </div>
             ))}
@@ -110,7 +111,7 @@ export function AssignmentsPage() {
                       {i === 0 && (
                         <>
                           <TableCell rowSpan={a.lines.length} className="pl-4 align-top">
-                            <div className="font-mono text-xs font-semibold">{a.code}</div>
+                            <div className="text-xs font-semibold">{a.code}</div>
                             <div className="text-xs text-muted-foreground">
                               {a.requestCode} · {formatDateTime(a.createdAt)}
                             </div>

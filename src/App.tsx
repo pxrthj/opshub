@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom"
-import { Loader2 } from "lucide-react"
+import { Spinner } from "@/components/ui/spinner"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ThemeScope } from "@/components/ThemeScope"
@@ -19,7 +19,7 @@ import { DeployHistoryPage } from "@/builder/DeployHistoryPage"
 function FullScreenLoader() {
   return (
     <div className="flex h-screen items-center justify-center text-slate-500">
-      <Loader2 className="mr-2 size-5 animate-spin" /> Loading OpsHub…
+      <Spinner className="mr-2 size-5" /> Loading OpsHub…
     </div>
   )
 }

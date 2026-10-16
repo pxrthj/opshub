@@ -1,4 +1,5 @@
 import { Calculator } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -53,19 +54,13 @@ export function DynamicForm({
               {f.label}
               {f.required && f.type !== "calculated" && <span className="text-destructive">*</span>}
               {f.type === "calculated" && (
-                <span className="ml-1 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px font-mono text-[10px] font-normal text-primary">
-                  <Calculator className="size-3" /> = {f.formula}
-                </span>
+                <Badge variant="secondary" className="font-normal">
+                  <Calculator /> {f.formula}
+                </Badge>
               )}
             </Label>
             {f.type === "calculated" ? (
-              <div
-                id={id}
-                className="flex h-8 items-center rounded-lg border border-dashed border-primary/40 bg-primary/5 px-2.5 text-sm font-semibold text-primary tabular-nums"
-                aria-readonly
-              >
-                {formatFieldValue(f, computeFormula(f.formula, values))}
-              </div>
+              <Input id={id} readOnly tabIndex={-1} value={formatFieldValue(f, computeFormula(f.formula, values))} className="bg-muted font-medium tabular-nums" />
             ) : f.type === "select" ? (
               <Select value={raw ? String(raw) : undefined} onValueChange={(v) => set(f.key, v)} disabled={isDisabled}>
                 <SelectTrigger id={id} className="w-full" aria-invalid={!!err}>

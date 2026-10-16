@@ -1,7 +1,9 @@
 import { Link, useNavigate } from "react-router-dom"
 import { AlertTriangle, ArrowRight, Building2, CheckCircle2, ClipboardList, Settings2, Wrench, type LucideIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Alert, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/EmptyState"
 import { CardsSkeleton } from "@/components/TableSkeleton"
 import { useAuth } from "@/context/AuthContext"
@@ -9,6 +11,7 @@ import { useHub } from "@/context/HubContext"
 import { roleAtLeast } from "@/lib/roles"
 import { mix } from "@/lib/theme"
 import type { SiteSummary } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 function greeting() {
   const h = new Date().getHours()
@@ -67,27 +70,29 @@ function OfficeCard({ s }: { s: SiteSummary }) {
   const { config, role } = s
   const p = config.theme.primary
   return (
-    <Card className="gap-0 overflow-hidden py-0 transition-shadow hover:shadow-lg">
-      <div className="h-2" style={{ background: p }} />
-      <div className="flex flex-1 flex-col gap-4 p-6">
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="text-xl font-semibold text-slate-900">{config.name}</h2>
-          <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: mix("#ffffff", p, 0.12), color: mix(p, "#000000", 0.25) }}>
-            You are: {role}
-          </span>
-        </div>
-        <p className="text-slate-600">{config.description}</p>
-        <div className="mt-auto flex flex-col gap-2 pt-2">
-          <Button size="lg" className="h-11 w-full text-base text-white hover:opacity-90" style={{ background: p }} onClick={() => navigate(`/s/${config.slug}`)}>
-            Open {config.name} <ArrowRight />
-          </Button>
-          {role === "Admin" && (
-            <Link to={`/builder/${config.siteId}`} className="flex items-center justify-center gap-1.5 py-1 text-sm text-slate-500 hover:text-slate-900">
-              <Settings2 className="size-3.5" /> Change this office (Builder)
+    <Card className="overflow-hidden pt-0 transition-shadow hover:shadow-md">
+      <div className="h-1.5" style={{ background: p }} />
+      <CardHeader>
+        <CardTitle className="text-lg">{config.name}</CardTitle>
+        <CardDescription>{config.description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Badge variant="outline" style={{ background: mix("#ffffff", p, 0.1), color: mix(p, "#000000", 0.25), borderColor: mix("#ffffff", p, 0.3) }}>
+          You are: {role}
+        </Badge>
+      </CardContent>
+      <CardFooter className="mt-auto flex-col gap-2">
+        <Button size="lg" className="w-full text-white hover:opacity-90" style={{ background: p }} onClick={() => navigate(`/s/${config.slug}`)}>
+          Open {config.name} <ArrowRight />
+        </Button>
+        {role === "Admin" && (
+          <Button variant="ghost" size="sm" className="w-full text-muted-foreground" asChild>
+            <Link to={`/builder/${config.siteId}`}>
+              <Settings2 /> Change this office
             </Link>
-          )}
-        </div>
-      </div>
+          </Button>
+        )}
+      </CardFooter>
     </Card>
   )
 }
@@ -98,14 +103,12 @@ export function HubHome() {
   const todos = todosFor(sites)
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+    <div className="mx-auto max-w-5xl space-y-10">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">
           {greeting()}, {user?.name.split(" ")[0]}
         </h1>
-        <p className="mt-1 text-lg text-slate-500">
-          {sites.length === 1 ? "Here is your office." : "Pick an office to work in."}
-        </p>
+        <p className="mt-1 text-muted-foreground">{sites.length === 1 ? "Here is your office." : "Pick an office to work in."}</p>
       </div>
 
       {loading && !sites.length ? (
@@ -114,31 +117,36 @@ export function HubHome() {
         <EmptyState icon={Building2} title="You don't have access to any office yet" description="Ask an Admin to add you to one." />
       ) : (
         <>
-          <section className="mb-10">
-            <h2 className="mb-3 text-sm font-semibold tracking-wide text-slate-500 uppercase">Waiting for you</h2>
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground">Waiting for you</h2>
             {todos.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-                <CheckCircle2 className="size-5" /> Nothing needs your attention right now.
-              </div>
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+                <CheckCircle2 />
+                <AlertTitle>Nothing needs your attention right now.</AlertTitle>
+              </Alert>
             ) : (
-              <div className="divide-y overflow-hidden rounded-xl border bg-white">
+              <Card className="gap-0 py-1">
                 {todos.map((t) => (
-                  <Link key={t.key} to={t.to} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-slate-50">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full" style={{ background: mix("#ffffff", t.color, 0.12), color: t.color }}>
-                      <t.icon className="size-4.5" />
+                  <Link
+                    key={t.key}
+                    to={t.to}
+                    className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start gap-3 rounded-none px-4 py-3 font-normal whitespace-normal")}
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full" style={{ background: mix("#ffffff", t.color, 0.12), color: t.color }}>
+                      <t.icon />
                     </span>
-                    <span className="flex-1 text-slate-800">{t.text}</span>
-                    <span className="flex items-center gap-1 text-sm font-medium" style={{ color: t.color }}>
-                      {t.action} <ArrowRight className="size-4" />
+                    <span className="flex-1 text-left">{t.text}</span>
+                    <span className="flex items-center gap-1 font-medium" style={{ color: t.color }}>
+                      {t.action} <ArrowRight />
                     </span>
                   </Link>
                 ))}
-              </div>
+              </Card>
             )}
           </section>
 
-          <section>
-            <h2 className="mb-3 text-sm font-semibold tracking-wide text-slate-500 uppercase">Your offices</h2>
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground">Your offices</h2>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {sites.map((s) => (
                 <OfficeCard key={s.config.siteId} s={s} />

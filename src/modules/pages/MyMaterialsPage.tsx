@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { ClipboardList, Gauge, HardHat, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardDescription } from "@/components/ui/card"
 import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
 import { CardsSkeleton } from "@/components/TableSkeleton"
@@ -48,10 +48,10 @@ export function MyMaterialsPage() {
             ["Used", totals.used],
             ["With me", totals.remaining],
           ].map(([k, v]) => (
-            <div key={k} className="rounded-[var(--radius)] border bg-card px-3 py-2">
-              <p className="text-xs text-muted-foreground">{k}</p>
+            <Card key={k} size="sm" className="gap-1 px-3">
+              <CardDescription className="text-xs">{k}</CardDescription>
               <p className="text-xl font-semibold tabular-nums">{Number(v).toLocaleString("en-IN")}</p>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -65,7 +65,7 @@ export function MyMaterialsPage() {
             <Card key={a.id} className="gap-3 p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-mono text-sm font-semibold">{a.code}</p>
+                  <p className="text-sm font-semibold">{a.code}</p>
                   <p className="text-xs text-muted-foreground">
                     For {a.requestCode} · issued {formatDate(a.createdAt)} by {a.createdBy}
                   </p>

@@ -1,6 +1,7 @@
 import { ShieldX } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
 export function AccessDenied({
   title = "Access denied",
@@ -14,18 +15,19 @@ export function AccessDenied({
   backLabel?: string
 }) {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center p-6">
-      <div className="max-w-md text-center">
-        <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-red-50 text-red-600 ring-8 ring-red-50/60">
-          <ShieldX className="size-7" />
-        </div>
-        <p className="text-xs font-semibold tracking-widest text-red-600 uppercase">Error 403</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">{title}</h1>
-        <p className="mt-2 text-sm text-slate-600">{message}</p>
-        <Button asChild className="mt-6">
+    <Empty className="min-h-[60vh]">
+      <EmptyHeader>
+        <EmptyMedia variant="icon" className="bg-red-50 text-red-600">
+          <ShieldX />
+        </EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{message}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button asChild>
           <Link to={backTo}>{backLabel}</Link>
         </Button>
-      </div>
-    </div>
+      </EmptyContent>
+    </Empty>
   )
 }

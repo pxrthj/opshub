@@ -4,12 +4,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { CanvasIssue } from "@/lib/siteConfig"
 import { mix, THEME_SWATCHES } from "@/lib/theme"
 import type { CanvasNode, FieldDef, SiteConfig, SiteSummary, WorkflowSettings } from "@/lib/types"
-import { cn } from "@/lib/utils"
 import { getModuleDef, PORT_LABELS, requirementLabel, SETTING_LABELS } from "@/modules/definitions"
 import { FieldEditor } from "./FieldEditor"
 
@@ -18,7 +19,7 @@ const OWN = "__own__"
 function Section({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) {
   return (
     <div className="space-y-2.5">
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+      <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-slate-500 uppercase">
         {icon}
         {title}
       </p>
@@ -44,13 +45,13 @@ function WorkflowControl({
   return (
     <div className="rounded-lg border bg-white p-2.5">
       {typeof value === "boolean" ? (
-        <label className="flex cursor-pointer items-start justify-between gap-3">
-          <span>
-            <span className="block text-sm font-medium text-slate-800">{meta.label}</span>
-            <span className="block text-[11px] text-slate-500">{meta.help}</span>
+        <Label className="cursor-pointer items-start justify-between gap-3 leading-normal">
+          <span className="space-y-0.5">
+            <span className="block text-sm font-medium">{meta.label}</span>
+            <span className="block text-xs font-normal text-muted-foreground">{meta.help}</span>
           </span>
           <Switch checked={value} onCheckedChange={(v) => set(v)} />
-        </label>
+        </Label>
       ) : k === "stockSourceSiteId" ? (
         <div className="space-y-1.5">
           <Label className="text-sm">{meta.label}</Label>
@@ -69,13 +70,13 @@ function WorkflowControl({
                 ))}
             </SelectContent>
           </Select>
-          <p className="text-[11px] text-slate-500">{meta.help}</p>
+          <p className="text-xs text-slate-500">{meta.help}</p>
         </div>
       ) : (
         <div className="space-y-1.5">
           <Label className="text-sm">{meta.label}</Label>
           <Input type="number" min={1} value={String(value)} onChange={(e) => set(Math.max(1, Number(e.target.value) || 1))} />
-          <p className="text-[11px] text-slate-500">{meta.help}</p>
+          <p className="text-xs text-slate-500">{meta.help}</p>
         </div>
       )}
     </div>
@@ -188,49 +189,46 @@ export function SettingsPanel({
           <Label>Description</Label>
           <Textarea rows={2} value={config.description} onChange={(e) => setConfig({ ...config, description: e.target.value })} />
         </div>
-        <p className="text-[11px] text-slate-500">
-          URL: <code className="rounded bg-slate-100 px-1">/s/{config.slug}</code> (fixed)
-        </p>
+        <p className="text-xs text-muted-foreground">Address: /s/{config.slug}</p>
       </Section>
       <Section title="Theme" icon={<Palette className="size-3.5" />}>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={t.primary}
-            onChange={(e) => setTheme({ primary: e.target.value })}
-            className="h-9 w-12 cursor-pointer rounded-md border bg-white p-0.5"
-            aria-label="Primary colour"
+        <div className="space-y-2">
+          <Label>Main colour</Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={THEME_SWATCHES.includes(t.primary.toLowerCase()) ? t.primary.toLowerCase() : ""}
+            onValueChange={(v) => v && setTheme({ primary: v })}
+            className="flex-wrap"
+          >
+            {THEME_SWATCHES.map((c) => (
+              <ToggleGroupItem key={c} value={c} aria-label={`Use colour ${c}`}>
+                <span className="size-4 rounded-full" style={{ background: c }} />
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <Input
+            aria-label="Colour code"
+            defaultValue={t.primary}
+            key={t.primary}
+            onBlur={(e) => /^#[0-9a-fA-F]{6}$/.test(e.target.value.trim()) && setTheme({ primary: e.target.value.trim().toLowerCase() })}
+            placeholder="#1e40af"
           />
-          <Input className="font-mono" value={t.primary} onChange={(e) => /^#[0-9a-fA-F]{6}$/.test(e.target.value) && setTheme({ primary: e.target.value })} />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {THEME_SWATCHES.map((c) => (
-            <button
-              key={c}
-              onClick={() => setTheme({ primary: c })}
-              className={cn("size-6 rounded-full ring-offset-2 transition", t.primary.toLowerCase() === c && "ring-2 ring-slate-900")}
-              style={{ background: c }}
-              aria-label={`Use colour ${c}`}
-            />
-          ))}
         </div>
         <div className="space-y-1.5">
           <Label>Sidebar style</Label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {(["solid", "tinted", "light"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setTheme({ sidebar: s })}
-                className={cn("rounded-md border px-2 py-1.5 text-xs font-medium capitalize", t.sidebar === s ? "border-slate-900 bg-slate-900 text-white" : "bg-white hover:bg-slate-50")}
-              >
-                {s}
-              </button>
+          <ToggleGroup type="single" variant="outline" size="sm" value={t.sidebar} onValueChange={(v) => v && setTheme({ sidebar: v as SiteConfig["theme"]["sidebar"] })} className="w-full">
+            {(["solid", "tinted", "light"] as const).map((st) => (
+              <ToggleGroupItem key={st} value={st} className="flex-1 capitalize">
+                {st}
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
         <div className="space-y-1.5">
-          <Label>Corner radius · {t.radius.toFixed(2)}rem</Label>
-          <input type="range" min={0} max={1.2} step={0.05} value={t.radius} onChange={(e) => setTheme({ radius: Number(e.target.value) })} className="w-full accent-slate-900" />
+          <Label>Corner roundness</Label>
+          <Slider min={0} max={1.2} step={0.05} value={[t.radius]} onValueChange={([v]) => setTheme({ radius: v })} />
         </div>
         <div className="overflow-hidden rounded-lg border" style={{ borderRadius: `${t.radius}rem` }}>
           <div className="flex h-24">
@@ -245,7 +243,7 @@ export function SettingsPanel({
             <div className="flex-1 space-y-1.5 p-2" style={{ background: t.background }}>
               <div className="h-2 w-16 rounded bg-slate-300" />
               <div className="h-8 rounded border bg-white" style={{ borderRadius: `${t.radius * 0.8}rem` }} />
-              <div className="h-5 w-14 rounded text-[9px] leading-5 font-semibold text-white" style={{ background: t.primary, borderRadius: `${t.radius * 0.6}rem`, textAlign: "center" }}>
+              <div className="h-5 w-14 rounded text-xs leading-5 font-semibold text-white" style={{ background: t.primary, borderRadius: `${t.radius * 0.6}rem`, textAlign: "center" }}>
                 Button
               </div>
             </div>

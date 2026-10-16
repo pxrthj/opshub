@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Spinner } from "@/components/ui/spinner"
 import { Link, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { ArrowLeft, ExternalLink, GitCommitVertical, History, Loader2, Rocket, RotateCcw, Workflow } from "lucide-react"
+import { ArrowLeft, ExternalLink, GitCommitVertical, History, Rocket, RotateCcw, Workflow, Info } from "lucide-react"
 import { api, ApiError } from "@/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,7 +48,7 @@ export function DeployHistoryPage() {
   if (state.status === "loading")
     return (
       <div className="flex flex-1 items-center justify-center text-slate-500">
-        <Loader2 className="mr-2 size-5 animate-spin" /> Loading history…
+        <Spinner className="mr-2 size-5" /> Loading history…
       </div>
     )
   if (state.status === "error")
@@ -97,13 +99,18 @@ export function DeployHistoryPage() {
           }
         />
         {data.draft && (
-          <div className="mb-4 rounded-[var(--radius)] border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
-            An unpublished draft exists (saved {data.draftSavedAt && formatDateTime(data.draftSavedAt)} by {data.draftSavedBy}).{" "}
-            <Link to={`/preview/${live.slug}`} className="font-medium underline">
-              Preview it
-            </Link>
-            . Rolling back discards it.
-          </div>
+          <Alert className="mb-4">
+            <Info />
+            <AlertDescription>
+              <p>
+                There are unpublished changes (saved {data.draftSavedAt && formatDateTime(data.draftSavedAt)} by {data.draftSavedBy}).{" "}
+                <Link to={`/preview/${live.slug}`} className="font-medium underline">
+                  Preview them
+                </Link>
+                . Rolling back discards them.
+              </p>
+            </AlertDescription>
+          </Alert>
         )}
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <Card className="py-0">
@@ -125,7 +132,7 @@ export function DeployHistoryPage() {
                     <TableRow key={v.version} className={isLive ? "bg-primary/5" : undefined}>
                       <TableCell className="pl-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-semibold">v{v.version}</span>
+                          <span className="font-semibold">v{v.version}</span>
                           {isLive && <Badge className="bg-emerald-600 text-white">Live</Badge>}
                         </div>
                       </TableCell>
@@ -137,7 +144,7 @@ export function DeployHistoryPage() {
                           {v.config.modules
                             .filter((m) => !getModuleDef(m).core)
                             .map((m) => (
-                              <span key={m} className="rounded bg-muted px-1.5 py-0.5 text-[10.5px] font-medium">
+                              <span key={m} className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">
                                 {getModuleDef(m).short}
                               </span>
                             ))}
@@ -177,7 +184,7 @@ export function DeployHistoryPage() {
                   </li>
                 ))}
               </ol>
-              <p className="mt-4 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <p className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
                 <GitCommitVertical className="size-3" /> Versions are immutable snapshots of the full site config.
               </p>
             </CardContent>

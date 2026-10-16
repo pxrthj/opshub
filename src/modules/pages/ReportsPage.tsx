@@ -1,6 +1,10 @@
 import { useRef, useState, type ReactNode } from "react"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { Download, FileSpreadsheet, FileUp, Info, Loader2, Lock, Upload, X } from "lucide-react"
+import { Download, FileSpreadsheet, FileUp, Info, Lock, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,7 +19,7 @@ import { roleAtLeast } from "@/lib/roles"
 import { fieldsFor } from "@/lib/siteConfig"
 import type { ExportDataset, FieldDef, InventoryItem } from "@/lib/types"
 import { errorMessage, toastError, useAsync } from "@/lib/useAsync"
-import { cn, formatINR } from "@/lib/utils"
+import { formatINR } from "@/lib/utils"
 
 /** Button that is disabled with an explanatory tooltip when the role isn't allowed. */
 function Gated({ allowed, reason, children }: { allowed: boolean; reason: string; children: ReactNode }) {
@@ -111,9 +115,10 @@ export function ReportsPage() {
       <PageHeader title="Excel reports" icon={<FileSpreadsheet />} description="Download data as Excel, or upload a stock sheet." />
 
       {!canExport && (
-        <div className="mb-5 flex items-center gap-2 rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-          <Info className="size-4" /> Downloads need a Manager. Uploads need an Admin.
-        </div>
+        <Alert className="mb-5">
+          <Info />
+          <AlertDescription>Downloads need a Manager. Uploads need an Admin.</AlertDescription>
+        </Alert>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -125,23 +130,23 @@ export function ReportsPage() {
               </CardTitle>
               <CardDescription>Choose what to download.</CardDescription>
             </div>
-            <Gated allowed={canExport} reason={`Export is available to Managers and Admins. Your role on ${config.name} is ${role}.`}>
+            <Gated allowed={canExport} reason="Only Managers and Admins can download.">
               <Button size="sm" disabled={!canExport || !!exporting} onClick={() => doExport(datasets.map((d) => d.id), "all")}>
-                {exporting === "all" ? <Loader2 className="animate-spin" /> : <FileSpreadsheet />} All sheets
+                {exporting === "all" ? <Spinner /> : <FileSpreadsheet />} All sheets
               </Button>
             </Gated>
           </CardHeader>
           <CardContent className="space-y-2">
             {datasets.map((d) => (
-              <div key={d.id} className="flex items-center gap-3 rounded-[var(--radius)] border px-3 py-2.5">
+              <div key={d.id} className="flex items-center gap-3 rounded-lg border px-3 py-2.5">
                 <FileSpreadsheet className="size-5 shrink-0 text-emerald-600" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{d.label}</p>
                   <p className="text-xs text-muted-foreground">{d.desc}</p>
                 </div>
-                <Gated allowed={canExport} reason={`Export is available to Managers and Admins. Your role on ${config.name} is ${role}.`}>
+                <Gated allowed={canExport} reason="Only Managers and Admins can download.">
                   <Button size="sm" variant="outline" disabled={!canExport || !!exporting} onClick={() => doExport([d.id], d.id)}>
-                    {exporting === d.id ? <Loader2 className="animate-spin" /> : <Download />} .xlsx
+                    {exporting === d.id ? <Spinner /> : <Download />} .xlsx
                   </Button>
                 </Gated>
               </div>
@@ -159,12 +164,9 @@ export function ReportsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-            <div
-              className={cn(
-                "flex flex-col items-center justify-center rounded-[var(--radius)] border-2 border-dashed px-4 py-8 text-center",
-                canImport ? "border-primary/30 bg-primary/5" : "bg-muted/40",
-              )}
+            <Input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+            <Empty
+              className="border border-dashed"
               onDragOver={(e) => canImport && e.preventDefault()}
               onDrop={(e) => {
                 if (!canImport) return
@@ -172,20 +174,26 @@ export function ReportsPage() {
                 onFile(e.dataTransfer.files?.[0])
               }}
             >
-              <FileUp className={cn("mb-2 size-8", canImport ? "text-primary" : "text-muted-foreground")} />
-              <p className="text-sm font-medium">{canImport ? "Drop an .xlsx file here" : "Import locked"}</p>
-              <p className="mb-3 text-xs text-muted-foreground">
-                {linked ? `Inventory is linked from ${inv?.sourceName} — import it there.` : canImport ? "or choose a file" : "Only Admins can import inventory."}
-              </p>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileUp />
+                </EmptyMedia>
+                <EmptyTitle>{canImport ? "Drop an .xlsx file here" : "Upload locked"}</EmptyTitle>
+                <EmptyDescription>
+                  {linked ? `Stock is kept in ${inv?.sourceName}. Upload it there.` : canImport ? "or choose a file" : "Only Admins can upload."}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
               <Gated
                 allowed={canImport}
-                reason={linked ? `This unit uses ${inv?.sourceName}'s inventory. Import from that unit instead.` : `Import is Admin-only. Your role on ${config.name} is ${role}.`}
+                reason={linked ? `Upload stock in ${inv?.sourceName} instead.` : "Only Admins can upload."}
               >
                 <Button disabled={!canImport || parsing} onClick={() => fileRef.current?.click()}>
-                  {parsing ? <Loader2 className="animate-spin" /> : <Upload />} Choose file
+                  {parsing ? <Spinner /> : <Upload />} Choose file
                 </Button>
               </Gated>
-            </div>
+              </EmptyContent>
+            </Empty>
             <Button variant="link" size="sm" className="px-0" onClick={() => downloadTemplate(fieldsFor(config, "inventory").find((f) => f.key === "category")?.options ?? [])}>
               <Download /> Download a blank template
             </Button>
@@ -214,7 +222,7 @@ export function ReportsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="max-h-96 overflow-auto rounded-[var(--radius)] border">
+            <div className="max-h-96 overflow-auto rounded-lg border">
               <Table>
                 <TableHeader className="sticky top-0 bg-muted">
                   <TableRow>

@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowRight, Blocks, Lock } from "lucide-react"
+import { Blocks, Lock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageHeader } from "@/components/PageHeader"
 import { useHub } from "@/context/HubContext"
-import { cn } from "@/lib/utils"
 import { MODULE_DEFINITIONS, PORT_LABELS, requirementLabel, type ModuleCategory } from "@/modules/definitions"
 
 const CATEGORIES: ("All" | ModuleCategory)[] = ["All", "Core", "Stores", "Workflow", "Field", "Service", "Insights"]
@@ -17,76 +17,67 @@ export function ModuleCatalogue() {
 
   return (
     <div>
-      <PageHeader
-        title="Modules"
-        description="The building blocks an office is made of."
-        icon={<Blocks />}
-      />
-      <div className="mb-5 flex flex-wrap gap-1.5">
+      <PageHeader title="Modules" description="The building blocks an office is made of." icon={<Blocks />} />
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        value={cat}
+        onValueChange={(v) => v && setCat(v as typeof cat)}
+        className="mb-6 flex-wrap"
+      >
         {CATEGORIES.map((c) => (
-          <button
-            key={c}
-            onClick={() => setCat(c)}
-            className={cn(
-              "rounded-full px-3 py-1 text-sm font-medium transition-colors",
-              cat === c ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
-            )}
-          >
+          <ToggleGroupItem key={c} value={c}>
             {c}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {list.map((m) => {
           const usedBy = sites.filter((s) => s.config.modules.includes(m.id))
           return (
-            <Card key={m.id} className="gap-3 p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <Card key={m.id}>
+              <CardHeader className="flex flex-row items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <m.icon className="size-5" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-400 tabular-nums">{String(MODULE_DEFINITIONS.indexOf(m) + 1).padStart(2, "0")}</span>
-                    <p className="font-semibold text-slate-900">{m.name}</p>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <CardTitle>{m.name}</CardTitle>
+                  <div className="flex flex-wrap gap-1">
                     <Badge variant="secondary">{m.category}</Badge>
                     {m.core && (
-                      <Badge variant="outline" className="gap-1">
-                        <Lock className="size-3" /> Always on
+                      <Badge variant="outline">
+                        <Lock /> Always on
                       </Badge>
                     )}
-                    {m.page && <Badge variant="outline">Page: {m.page.label} · {m.page.minRole}+</Badge>}
                   </div>
                 </div>
-              </div>
-              <p className="text-sm text-slate-600">{m.description}</p>
-              <dl className="grid grid-cols-[88px_1fr] gap-x-2 gap-y-1.5 text-xs">
-                <dt className="text-slate-500">Requires</dt>
-                <dd className="font-medium text-slate-800">{m.requires.length ? m.requires.map(requirementLabel).join(" + ") : "Nothing"}</dd>
-                <dt className="text-slate-500">Inputs</dt>
-                <dd className="text-slate-700">{m.inputs.length ? m.inputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</dd>
-                <dt className="text-slate-500">Outputs</dt>
-                <dd className="text-slate-700">{m.outputs.length ? m.outputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</dd>
-                <dt className="text-slate-500">Used by</dt>
-                <dd className="flex flex-wrap gap-1">
-                  {usedBy.length ? (
-                    usedBy.map((s) => (
-                      <Link
-                        key={s.config.siteId}
-                        to={`/s/${s.config.slug}`}
-                        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium hover:underline"
-                        style={{ background: s.config.theme.accent, color: s.config.theme.primary }}
-                      >
-                        {s.config.name} <ArrowRight className="size-3" />
-                      </Link>
-                    ))
-                  ) : (
-                    <span className="text-slate-400">Not used by your units yet</span>
-                  )}
-                </dd>
-              </dl>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <CardDescription>{m.description}</CardDescription>
+                <dl className="grid grid-cols-[88px_1fr] gap-x-2 gap-y-1.5 text-xs">
+                  <dt className="text-muted-foreground">Needs</dt>
+                  <dd className="font-medium">{m.requires.length ? m.requires.map(requirementLabel).join(" + ") : "Nothing"}</dd>
+                  <dt className="text-muted-foreground">Takes in</dt>
+                  <dd>{m.inputs.length ? m.inputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</dd>
+                  <dt className="text-muted-foreground">Gives out</dt>
+                  <dd>{m.outputs.length ? m.outputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</dd>
+                  <dt className="text-muted-foreground">Used by</dt>
+                  <dd className="flex flex-wrap gap-1">
+                    {usedBy.length ? (
+                      usedBy.map((s) => (
+                        <Badge key={s.config.siteId} variant="outline" asChild>
+                          <Link to={`/s/${s.config.slug}`} style={{ color: s.config.theme.primary }}>
+                            {s.config.name}
+                          </Link>
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">No office yet</span>
+                    )}
+                  </dd>
+                </dl>
+              </CardContent>
             </Card>
           )
         })}

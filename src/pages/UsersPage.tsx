@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertTitle } from "@/components/ui/alert"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { Loader2, Pencil, Search, UserPlus, Users } from "lucide-react"
+import { Pencil, Search, UserPlus, Users, AlertCircle } from "lucide-react"
 import { api } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -136,9 +139,9 @@ export function UsersPage() {
                     return (
                       <TableCell key={s.config.siteId}>
                         {r ? (
-                          <span className="rounded-md px-2 py-0.5 text-xs font-medium" style={{ background: s.config.theme.accent, color: s.config.theme.primary }}>
+                          <Badge variant="outline" style={{ background: s.config.theme.accent, color: s.config.theme.primary, borderColor: s.config.theme.accent }}>
                             {r}
-                          </span>
+                          </Badge>
                         ) : (
                           <span className="text-xs text-slate-400">No access</span>
                         )}
@@ -215,7 +218,12 @@ export function UsersPage() {
                   )
                 })}
               </div>
-              {formError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">{formError}</p>}
+              {formError && (
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertTitle>{formError}</AlertTitle>
+            </Alert>
+          )}
             </div>
           )}
           <DialogFooter>
@@ -223,7 +231,7 @@ export function UsersPage() {
               Cancel
             </Button>
             <Button onClick={save} disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />}
+              {busy && <Spinner />}
               {draft?.id ? "Save changes" : "Create user"}
             </Button>
           </DialogFooter>

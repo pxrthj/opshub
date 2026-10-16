@@ -35,8 +35,8 @@ export function StatCard({
           <p className="mt-1.5 text-2xl font-semibold text-foreground tabular-nums">{value}</p>
           {hint && <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>}
         </div>
-        <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-[var(--radius)]", tones[tone])}>
-          <Icon className="size-4.5" />
+        <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", tones[tone])}>
+          <Icon className="size-4" />
         </div>
       </div>
     </Card>

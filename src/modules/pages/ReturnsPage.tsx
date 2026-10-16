@@ -1,6 +1,7 @@
 import { useState } from "react"
+import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { CircuitBoard, Loader2, Plus, Undo2 } from "lucide-react"
+import { CircuitBoard, Plus, Undo2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -72,15 +73,15 @@ export function ReturnsPage() {
             ) : (
               <div className="grid gap-2 md:grid-cols-2">
                 {readyRepairs.map((r) => (
-                  <div key={r.id} className="flex items-center gap-3 rounded-[var(--radius)] border px-3 py-2">
+                  <div key={r.id} className="flex items-center gap-3 rounded-lg border px-3 py-2">
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-sm font-semibold">{r.meterId}</p>
+                      <p className="text-sm font-semibold">{r.meterId}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {r.code} · {r.meterType} · fixed by {r.technician || "—"}
                       </p>
                     </div>
                     <Button size="sm" onClick={() => returnRepair(r)} disabled={busyId === r.id}>
-                      {busyId === r.id ? <Loader2 className="animate-spin" /> : <Undo2 />} Return to stock
+                      {busyId === r.id ? <Spinner /> : <Undo2 />} Return to stock
                     </Button>
                   </div>
                 ))}
@@ -112,7 +113,7 @@ export function ReturnsPage() {
                 <TableRow key={r.id}>
                   <TableCell className="pl-4 text-xs text-muted-foreground">{formatDateTime(r.date)}</TableCell>
                   <TableCell>
-                    <span className="font-mono text-xs">{r.refCode}</span>
+                    <span className="text-xs">{r.refCode}</span>
                     <span className="ml-1.5 text-xs text-muted-foreground">{r.source === "repair" ? "Repair job" : "Assignment"}</span>
                   </TableCell>
                   <TableCell>{r.itemName}</TableCell>

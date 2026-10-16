@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { Loader2 } from "lucide-react"
+import { Spinner } from "@/components/ui/spinner"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -63,7 +63,7 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
           <Button variant={destructive ? "destructive" : "default"} onClick={handle} disabled={busy || confirmDisabled}>
-            {busy && <Loader2 className="animate-spin" />}
+            {busy && <Spinner />}
             {confirmLabel}
           </Button>
         </AlertDialogFooter>

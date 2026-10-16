@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Spinner } from "@/components/ui/spinner"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { Eye, Loader2, Workflow } from "lucide-react"
+import { Eye, Workflow } from "lucide-react"
 import { api, ApiError } from "@/api"
 import { Button } from "@/components/ui/button"
 import { AccessDenied } from "@/components/AccessDenied"
@@ -77,7 +78,7 @@ export function SiteRenderer({ mode }: { mode: "live" | "preview" }) {
   if (state.status === "loading")
     return (
       <div className="flex flex-1 items-center justify-center text-slate-500">
-        <Loader2 className="mr-2 size-5 animate-spin" /> Loading unit…
+        <Spinner className="mr-2 size-5" /> Loading unit…
       </div>
     )
   if (state.status === "error") {

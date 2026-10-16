@@ -63,7 +63,7 @@ export function ConsumptionPage() {
                 {records.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="pl-4 text-xs text-muted-foreground">{formatDateTime(r.date)}</TableCell>
-                    <TableCell className="font-mono text-xs">{code(r.assignmentId)}</TableCell>
+                    <TableCell className="text-xs">{code(r.assignmentId)}</TableCell>
                     <TableCell>{r.itemName}</TableCell>
                     <TableCell className="text-right font-medium tabular-nums">{r.qty}</TableCell>
                     <TableCell className="text-muted-foreground">{r.location}</TableCell>
@@ -84,7 +84,7 @@ export function ConsumptionPage() {
               <div key={a.id + l.itemId}>
                 <div className="mb-1 flex justify-between gap-2 text-sm">
                   <span className="truncate">
-                    <span className="font-mono text-xs text-muted-foreground">{a.code}</span> {l.itemName}
+                    <span className="text-xs text-muted-foreground">{a.code}</span> {l.itemName}
                     {isManager && <span className="text-xs text-muted-foreground"> · {a.assigneeName}</span>}
                   </span>
                   <span className="text-xs whitespace-nowrap tabular-nums">
