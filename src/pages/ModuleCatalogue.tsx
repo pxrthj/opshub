@@ -4,8 +4,6 @@ import { ArrowRight, Blocks, Lock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { PageHeader } from "@/components/PageHeader"
-import { PageHelp } from "@/components/PageHelp"
-import { HUB_HELP } from "@/lib/help"
 import { useHub } from "@/context/HubContext"
 import { cn } from "@/lib/utils"
 import { MODULE_DEFINITIONS, PORT_LABELS, requirementLabel, type ModuleCategory } from "@/modules/definitions"
@@ -19,10 +17,9 @@ export function ModuleCatalogue() {
 
   return (
     <div>
-      <PageHelp what={HUB_HELP.modules} />
       <PageHeader
-        title="Module Catalogue"
-        description="The 13 building blocks every OpsHub site is assembled from. Admins drag these onto a site's canvas in the Builder."
+        title="Modules"
+        description="The building blocks an office is made of."
         icon={<Blocks />}
       />
       <div className="mb-5 flex flex-wrap gap-1.5">

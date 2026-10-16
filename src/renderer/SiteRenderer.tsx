@@ -4,11 +4,9 @@ import { Eye, Loader2, Workflow } from "lucide-react"
 import { api, ApiError } from "@/api"
 import { Button } from "@/components/ui/button"
 import { AccessDenied } from "@/components/AccessDenied"
-import { PageHelp } from "@/components/PageHelp"
 import { ThemeScope } from "@/components/ThemeScope"
 import { SiteProvider, useSite, type SiteApi, type SiteContextValue } from "@/context/SiteContext"
 import { useHub } from "@/context/HubContext"
-import { canDoFor, MODULE_HELP } from "@/lib/help"
 import { roleAtLeast } from "@/lib/roles"
 import type { Role, SiteConfig } from "@/lib/types"
 import { errorMessage } from "@/lib/useAsync"
@@ -130,13 +128,7 @@ function PageOutlet({ segment }: { segment: string }) {
     )
   const Component = PAGE_COMPONENTS[page.moduleId]
   if (!Component) return <NotFound message="This module has no page." backTo={basePath} />
-  const help = MODULE_HELP[page.moduleId]
-  return (
-    <>
-      {help && <PageHelp what={help.what} role={role} can={canDoFor(help, role)} />}
-      <Component key={`${config.siteId}-${page.id}`} />
-    </>
-  )
+  return <Component key={`${config.siteId}-${page.id}`} />
 }
 
 function PreviewBanner({ config, hasDraft }: { config: SiteConfig; hasDraft: boolean }) {

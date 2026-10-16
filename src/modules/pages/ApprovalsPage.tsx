@@ -43,10 +43,8 @@ export function ApprovalsPage() {
       const res = await siteApi.post<{ assignmentCode?: string; repairCode?: string }>(`requests/${r.id}/approve`, { comment })
       setFailures((f) => ({ ...f, [r.id]: "" }))
       if (res.assignmentCode)
-        toast.success(`${r.code} approved & assigned`, {
-          description: `Stock issued from ${inv?.sourceName} in one transaction → ${res.assignmentCode}`,
-        })
-      else if (res.repairCode) toast.success(`${r.code} approved`, { description: `Repair job ${res.repairCode} created (status: Received)` })
+        toast.success(`${r.code} approved`, { description: "Material handed over." })
+      else if (res.repairCode) toast.success(`${r.code} approved`, { description: "Repair job created." })
       else toast.success(`${r.code} approved`)
       reload()
       reloadInv()
@@ -81,13 +79,7 @@ export function ApprovalsPage() {
       <PageHeader
         title="Approve requests"
         icon={<CheckCheck />}
-        description={
-          willAssign
-            ? `Approving a material request runs one all-or-nothing transaction: check stock in ${inv?.sourceName ?? "stores"}, decrement it and create the assignment.`
-            : repairFlow
-              ? "Approving a repair request opens a PCB repair job."
-              : "Approve or reject pending requests with a comment."
-        }
+        description={willAssign ? "Approve to hand over the material. If there isn't enough stock, nothing changes." : "Approve or reject requests."}
       />
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mb-4">
         <TabsList>
@@ -102,7 +94,7 @@ export function ApprovalsPage() {
         <TableSkeleton rows={4} />
       ) : tab === "pending" ? (
         pending.length === 0 ? (
-          <EmptyState icon={CheckCheck} title="All caught up" description="There are no requests waiting for approval." />
+          <EmptyState icon={CheckCheck} title="All caught up" description="Nothing is waiting for approval." />
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {pending.map((r) => {
@@ -164,7 +156,7 @@ export function ApprovalsPage() {
                   {(failures[r.id] || short) && (
                     <div className="flex gap-2 rounded-[var(--radius)] bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">
                       <AlertOctagon className="size-4 shrink-0" />
-                      <span>{failures[r.id] || `Not enough stock in ${inv?.sourceName} for every line — approving will fail and nothing will change.`}</span>
+                      <span>{failures[r.id] || "Not enough stock for this request."}</span>
                     </div>
                   )}
                   <div className="flex justify-end gap-2">

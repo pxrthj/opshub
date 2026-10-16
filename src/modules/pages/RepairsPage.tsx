@@ -70,7 +70,7 @@ export function RepairsPage() {
       <PageHeader
         title="Meter repairs"
         icon={<CircuitBoard />}
-        description="Repair log for faulty smart meters: Received → Being repaired → Fixed / Scrapped."
+        description="Track broken meters until they are fixed."
         actions={
           <Button
             onClick={() => {
@@ -111,7 +111,7 @@ export function RepairsPage() {
       {loading && !data ? (
         <TableSkeleton />
       ) : list.length === 0 ? (
-        <EmptyState icon={CircuitBoard} title="No repair jobs" description="Log a faulty meter or approve a repair request to open a job." />
+        <EmptyState icon={CircuitBoard} title="No repair jobs" description="Log a broken meter to start." />
       ) : (
         <Card className="py-0">
           <Table>

@@ -11,7 +11,7 @@ onto a canvas; every site has its own theme, pages, workflow and data.
 | Distribution | `/s/distribution` | green | Request → Approval → Material Assignment (+ linked Inventory) → My Materials, Consumption |
 
 There is **no backend**. All data is mock data in the browser (React state + `localStorage`, key `opshub.db.v2`),
-so it survives a refresh. Use **user menu → Reset demo data** to restore the seed.
+so it survives a refresh. Use **user menu → Reset data** to restore the seed.
 
 ## How to run
 
@@ -24,16 +24,7 @@ npm run build    # type-check + production build
 Stack: React 19 + Vite + TypeScript, Tailwind CSS v4 + shadcn/ui, React Router, React Flow (`@xyflow/react`),
 Recharts, ExcelJS (in-browser), lucide-react. State is React Context + `useState` only.
 
-## Built-in demo guide
-
-A floating **Demo guide** (bottom-right, on every page including login) walks through the whole story in 10 steps:
-it tells you who to be and what to click, logs you in as the right person with one click, takes you to the right page,
-and ticks each step off automatically by reading the demo data. **Start over** resets everything.
-Every page also starts with a plain-language "What is this page?" strip that explains what the page is for and what
-*your* role can do there. Menus use everyday names (Stock, Approve requests, My material, Usage log, Meter repairs, …)
-and statuses read Waiting / Approved / Rejected / Handed over.
-
-## Demo accounts (also on the login page — click to fill)
+## Sample accounts (also on the login page — click to fill)
 
 | Email | Password | Roles (per site) |
 |---|---|---|

@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { AccessDenied } from "@/components/AccessDenied"
 import { PageHeader } from "@/components/PageHeader"
-import { PageHelp } from "@/components/PageHelp"
-import { HUB_HELP } from "@/lib/help"
 import { useHub } from "@/context/HubContext"
 import { getModuleDef } from "@/modules/definitions"
 
@@ -16,8 +14,7 @@ export function BuilderIndex() {
   const adminSites = sites.filter((s) => s.role === "Admin")
   return (
     <div>
-      <PageHelp what={HUB_HELP.builderIndex} />
-      <PageHeader title="Site Builder" description="Choose a unit to edit its modules, workflow, fields and theme." icon={<Workflow />} />
+      <PageHeader title="Builder" description="Choose an office to change." icon={<Workflow />} />
       <div className="grid gap-4 md:grid-cols-3">
         {adminSites.map((s) => (
           <Card key={s.config.siteId} className="gap-3 p-5">

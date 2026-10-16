@@ -30,7 +30,7 @@ export function MyMaterialsPage() {
       <PageHeader
         title="My material"
         icon={<HardHat />}
-        description="Material issued to you. Record what you used on site; the balance stays with you."
+        description="Material handed to you."
         actions={
           config.modules.includes("request") && (
             <Button variant="outline" asChild>
@@ -58,7 +58,7 @@ export function MyMaterialsPage() {
       {loading && !data ? (
         <CardsSkeleton count={3} />
       ) : !data?.length ? (
-        <EmptyState icon={HardHat} title="Nothing issued to you yet" description="When a Manager approves your request, the material shows up here." />
+        <EmptyState icon={HardHat} title="Nothing issued to you yet" description="It shows up here once your request is approved." />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {data.map((a) => (

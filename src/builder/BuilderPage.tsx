@@ -23,7 +23,6 @@ import {
   Eye,
   GripVertical,
   History,
-  Lightbulb,
   Loader2,
   Lock,
   Plus,
@@ -48,7 +47,6 @@ import { Label } from "@/components/ui/label"
 import { AccessDenied } from "@/components/AccessDenied"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { ThemeScope } from "@/components/ThemeScope"
-import { HUB_HELP } from "@/lib/help"
 import { useHub } from "@/context/HubContext"
 import { buildConfigFromCanvas, connectionError, diffConfigs, summarizeDiff, validateCanvas } from "@/lib/siteConfig"
 import type { BuilderState, CanvasEdge, CanvasNode, ModuleId, SiteConfig } from "@/lib/types"
@@ -381,20 +379,14 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 border-b bg-amber-50/70 px-4 py-1.5 text-xs text-amber-900">
-          <Lightbulb className="size-3.5 shrink-0" />
-          <span>
-            <b>What is this page?</b> {HUB_HELP.builder}
-          </span>
-        </div>
         <div className="flex min-h-0 flex-1">
           {/* ------------------------------------------------ palette */}
           <aside className="relative w-64 shrink-0 overflow-y-auto border-r bg-slate-50/80 p-3">
-            <p className="mb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Module palette</p>
-            <p className="mb-3 text-xs text-slate-500">Drag onto the canvas, then connect outputs (right) to inputs (left).</p>
+            <p className="mb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Blocks</p>
+            <p className="mb-3 text-xs text-slate-500">Drag a block onto the board, then connect it.</p>
             <div className="mb-4 rounded-lg border bg-white p-2">
               <p className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
-                <Lock className="size-3" /> CORE · always on
+                <Lock className="size-3" /> Always included
               </p>
               {MODULE_DEFINITIONS.filter((m) => m.core).map((m) => (
                 <div key={m.id} className="flex items-center gap-2 py-1 text-xs text-slate-600">
@@ -468,13 +460,13 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
             {nodes.length === 0 && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="rounded-xl border border-dashed bg-white/80 px-6 py-5 text-center backdrop-blur">
-                  <p className="font-medium text-slate-800">Empty canvas</p>
-                  <p className="mt-1 text-sm text-slate-500">Drag modules from the palette or pick a Preset.</p>
+                  <p className="font-medium text-slate-800">Empty board</p>
+                  <p className="mt-1 text-sm text-slate-500">Drag blocks in from the left, or pick a preset.</p>
                 </div>
               </div>
             )}
             <div className="pointer-events-none absolute top-3 left-3 rounded-md bg-white/90 px-2.5 py-1.5 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
-              {canvasNodes.length} modules · {canvasEdges.length} connections · select + <kbd className="rounded bg-slate-100 px-1">Del</kbd> to remove
+              Select a block and press <kbd className="rounded bg-slate-100 px-1">Del</kbd> to remove it
             </div>
           </div>
 

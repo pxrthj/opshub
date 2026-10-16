@@ -90,7 +90,7 @@ export function AnalyticsPage() {
       <PageHeader
         title="Charts"
         icon={<BarChart3 />}
-        description={`Charts for ${config.name} only — data never mixes across units.${data && data.stockSourceName !== config.name ? ` Stock figures come from ${data.stockSourceName}.` : ""}`}
+        description="This office's numbers at a glance."
       />
       {loading && !data ? (
         <div className="grid gap-6 lg:grid-cols-2">

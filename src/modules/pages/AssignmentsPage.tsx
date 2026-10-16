@@ -51,7 +51,7 @@ export function AssignmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Handed-out material" icon={<PackageCheck />} description="Who received what — with used, returned and remaining quantities." />
+      <PageHeader title="Handed-out material" icon={<PackageCheck />} description="Who has what, and how much is left." />
 
       {awaiting.length > 0 && (
         <Card className="mb-6 border-sky-200 bg-sky-50/40">
@@ -86,7 +86,7 @@ export function AssignmentsPage() {
       {loading && !data ? (
         <TableSkeleton />
       ) : list.length === 0 ? (
-        <EmptyState icon={PackageCheck} title="No assignments yet" description="Assignments are created automatically when a Manager approves a material request." />
+        <EmptyState icon={PackageCheck} title="No assignments yet" description="Material appears here once a request is approved." />
       ) : (
         <Card className="py-0">
           <Table>

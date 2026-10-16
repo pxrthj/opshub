@@ -27,7 +27,7 @@ export function ConsumptionPage() {
       <PageHeader
         title="Usage log"
         icon={<Gauge />}
-        description="Quantity actually used per assignment. Remaining = assigned − used − returned."
+        description="Material used on site, and what is left."
         actions={
           <Button onClick={() => setOpen(true)} disabled={!lines.some((x) => x.l.remaining > 0)}>
             <Plus /> Record usage
@@ -45,7 +45,7 @@ export function ConsumptionPage() {
             </div>
           ) : !records?.length ? (
             <div className="p-4">
-              <EmptyState icon={Gauge} title="No usage recorded yet" description="Record how much issued material was used on site." />
+              <EmptyState icon={Gauge} title="No usage recorded yet" description="Record how much material was used." />
             </div>
           ) : (
             <Table>

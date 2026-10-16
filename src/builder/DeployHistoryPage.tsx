@@ -10,8 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AccessDenied } from "@/components/AccessDenied"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { PageHeader } from "@/components/PageHeader"
-import { PageHelp } from "@/components/PageHelp"
-import { HUB_HELP } from "@/lib/help"
 import { ThemeScope } from "@/components/ThemeScope"
 import { useHub } from "@/context/HubContext"
 import { diffConfigs, summarizeDiff } from "@/lib/siteConfig"
@@ -79,15 +77,10 @@ export function DeployHistoryPage() {
             <ArrowLeft /> Back to builder
           </Link>
         </Button>
-        <PageHelp what={HUB_HELP.history} />
         <PageHeader
-          title={`Deploy history · ${live.name}`}
+          title={`Version history · ${live.name}`}
           icon={<History />}
-          description={
-            <>
-              Every Publish creates a new immutable version. Rollback makes an older version live again. Currently live: <b>v{data.liveVersion}</b>.
-            </>
-          }
+          description={<>Each publish is saved as a version. Live now: <b>v{data.liveVersion}</b>.</>}
           actions={
             <>
               <Button variant="outline" asChild>

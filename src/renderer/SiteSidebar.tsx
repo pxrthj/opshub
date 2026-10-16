@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { ArrowLeft, History, Workflow } from "lucide-react"
+import { ArrowLeft, Workflow } from "lucide-react"
 import { useSite } from "@/context/SiteContext"
 import { roleAtLeast } from "@/lib/roles"
 import type { SiteStats } from "@/lib/types"
@@ -9,7 +9,7 @@ import { getModuleDef } from "@/modules/definitions"
 
 /** Sidebar menu built purely from config.pages (which come from the enabled modules). */
 export function SiteSidebar() {
-  const { config, role, basePath, siteApi, changeTick, liveVersion, preview } = useSite()
+  const { config, role, basePath, siteApi, changeTick, preview } = useSite()
   const { data: stats } = useAsync(() => siteApi.get<SiteStats>("stats"), [config.siteId, changeTick, preview])
 
   const badges: Record<string, number | undefined> = {
@@ -18,7 +18,6 @@ export function SiteSidebar() {
     "pcb-repair": stats?.openRepairs,
   }
   const visible = config.pages.filter((p) => roleAtLeast(role, p.minRole))
-  const hiddenCount = config.pages.length - visible.length
 
   return (
     <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
@@ -33,12 +32,11 @@ export function SiteSidebar() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{config.name}</p>
-            <p className="truncate text-[11px] opacity-70">MahaPower Utility (Demo)</p>
+            <p className="truncate text-[11px] opacity-70">You are: {role}</p>
           </div>
         </div>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-2.5">
-        <p className="px-2.5 pt-1 pb-1.5 text-[10px] font-semibold tracking-widest uppercase opacity-60">Menu</p>
         {visible.map((p) => {
           const def = getModuleDef(p.moduleId)
           const badge = badges[p.moduleId]
@@ -62,32 +60,16 @@ export function SiteSidebar() {
             </NavLink>
           )
         })}
-        {hiddenCount > 0 && (
-          <p className="px-2.5 pt-3 text-[11px] leading-snug opacity-60">
-            {hiddenCount} page{hiddenCount > 1 ? "s" : ""} hidden for the {role} role
-          </p>
-        )}
       </nav>
       <div className="space-y-1 border-t border-sidebar-border p-2.5 text-sm">
         {role === "Admin" && !preview && (
-          <>
-            <NavLink to={`/builder/${config.siteId}`} className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 opacity-85 hover:bg-sidebar-accent/50 hover:opacity-100">
-              <Workflow className="size-4" /> Open builder
-            </NavLink>
-            <NavLink to={`/builder/${config.siteId}/history`} className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 opacity-85 hover:bg-sidebar-accent/50 hover:opacity-100">
-              <History className="size-4" /> Deploy history
-            </NavLink>
-          </>
+          <NavLink to={`/builder/${config.siteId}`} className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 opacity-85 hover:bg-sidebar-accent/50 hover:opacity-100">
+            <Workflow className="size-4" /> Change this office
+          </NavLink>
         )}
         <NavLink to="/" className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 opacity-85 hover:bg-sidebar-accent/50 hover:opacity-100">
-          <ArrowLeft className="size-4" /> All units
+          <ArrowLeft className="size-4" /> Home
         </NavLink>
-        <div className="mt-2 flex items-center justify-between rounded-md bg-black/5 px-2.5 py-1.5 text-[11px]">
-          <span>
-            Role: <b>{role}</b>
-          </span>
-          <span className="opacity-70">{preview ? "Draft" : `Live v${liveVersion}`}</span>
-        </div>
       </div>
     </aside>
   )

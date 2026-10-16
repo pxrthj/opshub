@@ -108,11 +108,11 @@ export function ReportsPage() {
 
   return (
     <div>
-      <PageHeader title="Excel reports" icon={<FileSpreadsheet />} description="Excel export for Managers & Admins. Excel import of inventory for Admins, with a preview before anything changes." />
+      <PageHeader title="Excel reports" icon={<FileSpreadsheet />} description="Download data as Excel, or upload a stock sheet." />
 
       {!canExport && (
         <div className="mb-5 flex items-center gap-2 rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-          <Info className="size-4" /> Your role here is <b>{role}</b>. Export needs Manager or Admin; import needs Admin.
+          <Info className="size-4" /> Downloads need a Manager. Uploads need an Admin.
         </div>
       )}
 
@@ -121,9 +121,9 @@ export function ReportsPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Download className="size-4 text-primary" /> Export to Excel
+                <Download className="size-4 text-primary" /> Download
               </CardTitle>
-              <CardDescription>Generated in your browser with ExcelJS — nothing leaves this device.</CardDescription>
+              <CardDescription>Choose what to download.</CardDescription>
             </div>
             <Gated allowed={canExport} reason={`Export is available to Managers and Admins. Your role on ${config.name} is ${role}.`}>
               <Button size="sm" disabled={!canExport || !!exporting} onClick={() => doExport(datasets.map((d) => d.id), "all")}>
@@ -152,11 +152,10 @@ export function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Upload className="size-4 text-primary" /> Import inventory
+              <Upload className="size-4 text-primary" /> Upload stock sheet
             </CardTitle>
             <CardDescription>
-              Upload an .xlsx with columns Item, Category, Unit, Qty, Unit Price, Reorder Level. Matching item names are updated, new names are added. A
-              single invalid row rejects the whole import.
+              Upload a stock sheet. You'll see a preview before anything changes.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

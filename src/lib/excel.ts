@@ -48,7 +48,7 @@ export async function exportWorkbook(datasets: ExportDataset[], opts: { filename
     ["Unit", opts.siteName],
     ["Exported by", opts.author],
     ["Exported at", new Date().toLocaleString("en-IN")],
-    ["Company", "MahaPower Utility (Demo) — fictional"],
+    ["Company", "MahaPower Utility"],
   ])
   info.getColumn(1).width = 16
   info.getColumn(2).width = 44

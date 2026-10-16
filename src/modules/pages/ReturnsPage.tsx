@@ -49,7 +49,7 @@ export function ReturnsPage() {
       <PageHeader
         title="Returns"
         icon={<Undo2 />}
-        description="Return unused or repaired items. Stock goes back up in the source store."
+        description="Give back unused or repaired items."
         actions={
           hasAssign && (
             <Button onClick={() => setOpen(true)}>
@@ -93,7 +93,7 @@ export function ReturnsPage() {
       {loading && !returns ? (
         <TableSkeleton />
       ) : !returns?.length ? (
-        <EmptyState icon={Undo2} title="No returns yet" description="Returned items will be listed here with the stock movement." />
+        <EmptyState icon={Undo2} title="No returns yet" description="Returned items will show up here." />
       ) : (
         <Card className="py-0">
           <Table>

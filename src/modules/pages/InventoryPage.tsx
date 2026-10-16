@@ -112,13 +112,10 @@ export function InventoryPage() {
         description={
           linked ? (
             <span className="inline-flex items-center gap-1.5">
-              <Link2 className="size-3.5" /> Read-only view of <b>{data?.sourceName}</b> stock — material for {config.name} is issued from there.
+              <Link2 className="size-3.5" /> Stock held in {data?.sourceName}. View only.
             </span>
           ) : (
-            `Stock register.${fields
-              .filter((f) => f.type === "calculated")
-              .map((f) => ` ${f.label} = ${f.formula} (calculated).`)
-              .join("")}`
+            "Everything on the shelves and how many are left."
           )
         }
         actions={
@@ -311,7 +308,7 @@ export function InventoryPage() {
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
         title={`Delete ${deleting?.name}?`}
-        description="The item is removed from this store's register. Existing assignments keep their history."
+        description="This removes the item from the stock list."
         confirmLabel="Delete item"
         destructive
         onConfirm={async () => {

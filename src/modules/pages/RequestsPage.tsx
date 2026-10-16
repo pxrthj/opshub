@@ -85,8 +85,8 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
     }
     setBusy(true)
     try {
-      const created = await siteApi.post<MaterialRequest>("requests", body)
-      toast.success(`Request ${created.code} submitted`, { description: "Status: Pending — a Manager will review it." })
+      await siteApi.post<MaterialRequest>("requests", body)
+      toast.success("Request sent", { description: "A manager will review it." })
       reset()
       onOpenChange(false)
       onCreated()
@@ -234,7 +234,7 @@ export function RequestsPage() {
       <PageHeader
         title="Requests"
         icon={<ClipboardList />}
-        description={isManager ? "All requests raised on this unit." : "Ask for material and follow it: Waiting → Approved / Rejected → Handed over."}
+        description={isManager ? "All requests in this office." : "Ask for material and track your requests."}
         actions={
           canRequest && (
             <Button onClick={() => setOpen(true)}>
@@ -273,7 +273,7 @@ export function RequestsPage() {
         <EmptyState
           icon={ClipboardList}
           title={data?.length ? `No ${statusLabel(status).toLowerCase()} requests` : "No requests yet"}
-          description={canRequest ? "Raise a request for material or a repair job." : undefined}
+          description={canRequest ? "Ask for material or a repair." : undefined}
           action={
             canRequest && (
               <Button onClick={() => setOpen(true)}>

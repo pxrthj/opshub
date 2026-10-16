@@ -6,7 +6,7 @@ export function AccessDenied({
   title = "Access denied",
   message,
   backTo = "/",
-  backLabel = "Back to hub",
+  backLabel = "Back to home",
 }: {
   title?: string
   message: string

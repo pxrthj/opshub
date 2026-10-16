@@ -158,7 +158,7 @@ export function SettingsPanel({
         )}
         <Separator />
         <Button variant="destructive" className="w-full" onClick={() => onRemoveNode(node.id)}>
-          <Trash2 /> Remove from canvas
+          <Trash2 /> Remove from board
         </Button>
       </div>
     )
@@ -176,12 +176,12 @@ export function SettingsPanel({
   return (
     <div className="space-y-5 p-4">
       <div>
-        <p className="font-semibold text-slate-900">Site settings</p>
-        <p className="text-xs text-slate-500">Select a module on the canvas to edit its fields and workflow.</p>
+        <p className="font-semibold text-slate-900">Office settings</p>
+        <p className="text-xs text-slate-500">Click a block on the board to change it.</p>
       </div>
       <Section title="Identity">
         <div className="space-y-1.5">
-          <Label>Site name</Label>
+          <Label>Office name</Label>
           <Input value={config.name} onChange={(e) => setConfig({ ...config, name: e.target.value })} />
         </div>
         <div className="space-y-1.5">
@@ -255,7 +255,7 @@ export function SettingsPanel({
       <Section title="Validation">
         {issues.length === 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-emerald-700">
-            <CheckCircle2 className="size-3.5" /> Workflow is valid and ready to publish.
+            <CheckCircle2 className="size-3.5" /> Ready to publish.
           </p>
         ) : (
           <div className="space-y-1 rounded-lg bg-red-50 p-2.5 text-xs text-red-700 ring-1 ring-red-200">

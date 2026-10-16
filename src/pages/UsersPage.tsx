@@ -12,8 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AccessDenied } from "@/components/AccessDenied"
 import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
-import { PageHelp } from "@/components/PageHelp"
-import { HUB_HELP } from "@/lib/help"
 import { TableSkeleton } from "@/components/TableSkeleton"
 import { useAuth } from "@/context/AuthContext"
 import { useHub } from "@/context/HubContext"
@@ -84,10 +82,9 @@ export function UsersPage() {
 
   return (
     <div>
-      <PageHelp what={HUB_HELP.users} />
       <PageHeader
-        title="User Management"
-        description="Users and their role on each unit. Roles are per site — you can only change roles on units where you are Admin."
+        title="Users"
+        description="Everyone who can sign in, and their access to each office."
         icon={<Users />}
         actions={
           <Button onClick={openNew}>
@@ -164,7 +161,7 @@ export function UsersPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{draft?.id ? "Edit user" : "Add user"}</DialogTitle>
-            <DialogDescription>Assign a role per unit. "No access" hides the unit completely.</DialogDescription>
+            <DialogDescription>Choose their access to each office.</DialogDescription>
           </DialogHeader>
           {draft && (
             <div className="grid gap-4">
@@ -187,7 +184,7 @@ export function UsersPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Role per unit</Label>
+                <Label>Access per office</Label>
                 {sites.map((s) => {
                   const id = s.config.siteId
                   const editable = adminOn(id)

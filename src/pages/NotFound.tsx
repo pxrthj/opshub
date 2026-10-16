@@ -2,7 +2,7 @@ import { Compass } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 
-export function NotFound({ message = "We couldn't find that page.", backTo = "/", backLabel = "Back to hub" }: { message?: string; backTo?: string; backLabel?: string }) {
+export function NotFound({ message = "We couldn't find that page.", backTo = "/", backLabel = "Back to home" }: { message?: string; backTo?: string; backLabel?: string }) {
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
       <div className="max-w-md text-center">

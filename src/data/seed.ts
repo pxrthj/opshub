@@ -590,5 +590,3 @@ export function createSeedDatabase(): Database {
   }
 }
 
-/** Ids of requests that exist in the seed — the demo guide uses this to spot requests made during the demo. */
-export const SEED_REQUEST_IDS: ReadonlySet<string> = new Set([...DIST_REQUESTS, ...SERVICE_REQUESTS].map((r) => r.id))

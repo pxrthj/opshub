@@ -41,7 +41,7 @@ export function TeamPage() {
 
   return (
     <div>
-      <PageHeader title="Team" icon={<Users />} description={`Roles are per site. Changes here only affect ${config.name}.`} />
+      <PageHeader title="Team" icon={<Users />} description="Who can use this office." />
       {loading && !data ? (
         <TableSkeleton />
       ) : (

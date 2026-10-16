@@ -2,7 +2,6 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "rea
 import { Loader2 } from "lucide-react"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { DemoGuide } from "@/components/DemoGuide"
 import { ThemeScope } from "@/components/ThemeScope"
 import { TopBar } from "@/components/TopBar"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
@@ -74,7 +73,6 @@ export default function App() {
               <Route path="builder/:siteId/history" element={<DeployHistoryPage />} />
             </Route>
           </Routes>
-          <DemoGuide />
         </BrowserRouter>
         <Toaster position="top-right" richColors closeButton offset={64} />
       </TooltipProvider>

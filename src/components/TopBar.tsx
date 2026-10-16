@@ -53,23 +53,22 @@ export function SiteSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="h-9 min-w-[220px] justify-between gap-2 bg-white px-2.5">
+        <Button variant="outline" className="h-9 min-w-[200px] justify-between gap-2 bg-white px-2.5">
           <span className="flex min-w-0 items-center gap-2">
             {current ? (
               <span className="size-3 shrink-0 rounded-full ring-2 ring-white" style={{ background: current.config.theme.primary }} />
             ) : (
               <LayoutGrid className="size-4 text-slate-500" />
             )}
-            <span className="truncate text-sm">{current ? current.config.name : "All units (Hub)"}</span>
+            <span className="truncate text-sm">{current ? current.config.name : "Home"}</span>
           </span>
           <ChevronsUpDown className="size-3.5 text-slate-400" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">MahaPower Utility (Demo) — your units</DropdownMenuLabel>
         <DropdownMenuItem onClick={() => navigate("/")}>
           <LayoutGrid className="text-slate-500" />
-          <span className="flex-1">All units (Hub)</span>
+          <span className="flex-1">Home</span>
           {!current && <Check className="size-4" />}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -78,14 +77,12 @@ export function SiteSwitcher() {
             <span className="size-3 shrink-0 rounded-full" style={{ background: s.config.theme.primary }} />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-medium">{s.config.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {s.role} · v{s.liveVersion} · /s/{s.config.slug}
-              </span>
+              <span className="text-xs text-muted-foreground">{s.role}</span>
             </span>
             {current?.config.siteId === s.config.siteId && <Check className="size-4" />}
           </DropdownMenuItem>
         ))}
-        {sites.length === 0 && <div className="px-2 py-3 text-sm text-muted-foreground">You don't have access to any unit yet.</div>}
+        {sites.length === 0 && <div className="px-2 py-3 text-sm text-muted-foreground">You don't have access to any office yet.</div>}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -119,25 +116,9 @@ function UserMenu() {
             <div className="font-medium text-foreground">{user.name}</div>
             <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
           </DropdownMenuLabel>
-          {current && (
-            <div className="mx-1.5 mb-1 rounded-md bg-primary/10 px-2 py-1.5 text-xs text-foreground">
-              Current role on <b>{current.config.name}</b>: <b className="text-primary">{current.role}</b>
-            </div>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Roles per site</DropdownMenuLabel>
-          {sites.map((s) => (
-            <div key={s.config.siteId} className="flex items-center justify-between px-2 py-1 text-sm">
-              <span className="flex items-center gap-2">
-                <span className="size-2 rounded-full" style={{ background: s.config.theme.primary }} />
-                {s.config.name}
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">{s.role}</span>
-            </div>
-          ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setResetOpen(true)}>
-            <RotateCcw /> Reset demo data
+            <RotateCcw /> Reset data
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
@@ -154,18 +135,16 @@ function UserMenu() {
       <ConfirmDialog
         open={resetOpen}
         onOpenChange={setResetOpen}
-        title="Reset demo data?"
-        description="All sites, versions, users, stock and requests go back to the original seed. This can't be undone."
-        confirmLabel="Reset everything"
+        title="Reset all data?"
+        description="Everything goes back to the starting data. This can't be undone."
+        confirmLabel="Reset"
         destructive
         onConfirm={async () => {
           try {
             await api.raw.post("/api/hub/reset")
             bumpData()
-            toast.success("Demo data restored", { description: "Seed data for all 3 units has been reloaded." })
-            // restart the demo guide too, then reload so every screen starts fresh
-            localStorage.removeItem("opshub.guide.v1")
-            window.location.assign("/")
+            toast.success("Data reset")
+            navigate("/")
           } catch (e) {
             toastError(e)
             throw e
@@ -193,13 +172,13 @@ export function TopBar() {
         <SiteSwitcher />
         <nav className="ml-2 hidden items-center gap-1 lg:flex">
           <NavLink to="/" end className={link}>
-            <LayoutGrid className="size-4" /> Hub
-          </NavLink>
-          <NavLink to="/modules" className={link}>
-            <Blocks className="size-4" /> Modules
+            <LayoutGrid className="size-4" /> Home
           </NavLink>
           {isAnyAdmin && (
             <>
+              <NavLink to="/modules" className={link}>
+                <Blocks className="size-4" /> Modules
+              </NavLink>
               <NavLink to="/builder" className={link}>
                 <Workflow className="size-4" /> Builder
               </NavLink>
