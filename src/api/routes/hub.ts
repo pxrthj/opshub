@@ -51,7 +51,13 @@ register(
     auth: false,
     handler: ({ db, body }) => {
       const email = String(body.email ?? "").trim().toLowerCase()
-      const user = db.users.find((u) => u.email.toLowerCase() === email)
+      const altEmail = email.includes("@plexus.demo")
+        ? email.replace("@plexus.demo", "@opshub.demo")
+        : email.replace("@opshub.demo", "@plexus.demo")
+      const user = db.users.find((u) => {
+        const ue = u.email.toLowerCase()
+        return ue === email || ue === altEmail
+      })
       // Mock login: plain comparison. The real backend compares a bcrypt hash and sets an HTTP-only cookie.
       if (!user || user.password !== body.password) throw unauthorized("Invalid email or password")
       writeSession({ userId: user.id, at: new Date().toISOString() })

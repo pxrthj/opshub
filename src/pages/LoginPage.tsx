@@ -10,11 +10,11 @@ import { errorMessage } from "@/lib/useAsync"
 import { cn } from "@/lib/utils"
 
 const SAMPLE_ACCOUNTS = [
-  { email: "admin@opshub.demo", password: "admin123", name: "Aarti Deshmukh", role: "Admin · all offices" },
-  { email: "engineer@opshub.demo", password: "eng123", name: "Rahul Patil", role: "Manager · Distribution, Service Centre" },
-  { email: "lineman@opshub.demo", password: "line123", name: "Sunil Jadhav", role: "Member · Distribution" },
-  { email: "storekeeper@opshub.demo", password: "store123", name: "Meena Kulkarni", role: "Manager · Central Stores" },
-  { email: "clerk@opshub.demo", password: "clerk123", name: "Pooja Gaikwad", role: "Member · Central Stores" },
+  { email: "admin@plexus.demo", password: "admin123", name: "Aarti Deshmukh", role: "Admin · all offices" },
+  { email: "engineer@plexus.demo", password: "eng123", name: "Rahul Patil", role: "Manager · Distribution, Service Centre" },
+  { email: "lineman@plexus.demo", password: "line123", name: "Sunil Jadhav", role: "Member · Distribution" },
+  { email: "storekeeper@plexus.demo", password: "store123", name: "Meena Kulkarni", role: "Manager · Central Stores" },
+  { email: "clerk@plexus.demo", password: "clerk123", name: "Pooja Gaikwad", role: "Member · Central Stores" },
 ]
 
 export function LoginPage() {
@@ -50,7 +50,7 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-sm">
-        <Logo className="mb-8 justify-center" />
+        <Logo size="lg" className="mb-8 justify-center" />
         <div className="rounded-xl border bg-white p-6 shadow-sm">
           <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
           <form onSubmit={submit} className="mt-5 space-y-4">
