@@ -171,6 +171,10 @@ export interface MaterialRequest {
   decidedAt?: string
   assignmentId?: string
   repairJobId?: string
+  originSiteId?: string
+  originSiteName?: string
+  targetSiteId?: string
+  targetSiteName?: string
   [custom: string]: unknown
 }
 

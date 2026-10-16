@@ -304,6 +304,16 @@ export function RequestsPage() {
                   <TableCell className="pl-4">
                     <div className="font-mono text-xs font-semibold">{r.code}</div>
                     <div className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</div>
+                    {r.targetSiteName && r.targetSiteId !== config.siteId && (
+                      <span className="mt-0.5 inline-block rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                        To: {r.targetSiteName}
+                      </span>
+                    )}
+                    {r.originSiteName && r.originSiteId !== config.siteId && (
+                      <span className="mt-0.5 inline-block rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-700">
+                        From: {r.originSiteName}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-xs">
                     <div className="flex items-start gap-1.5 text-sm whitespace-normal">

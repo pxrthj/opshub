@@ -298,6 +298,10 @@ const DIST_REQUESTS: MaterialRequest[] = [
     decidedAt: daysAgo(24),
     decisionComment: "Dispatched 100 Smart Meters and 1000m cable to Distribution warehouse",
     assignmentId: "as_c1",
+    originSiteId: SITE_IDS.distribution,
+    originSiteName: "Distribution",
+    targetSiteId: SITE_IDS.central,
+    targetSiteName: "Central Stores",
   },
   {
     id: "rq_dc2",
@@ -313,6 +317,10 @@ const DIST_REQUESTS: MaterialRequest[] = [
     decidedBy: "Meena Kulkarni",
     decidedAt: daysAgo(11),
     assignmentId: "as_c2",
+    originSiteId: SITE_IDS.distribution,
+    originSiteName: "Distribution",
+    targetSiteId: SITE_IDS.central,
+    targetSiteName: "Central Stores",
   },
   {
     id: "rq_dc3",
@@ -325,6 +333,10 @@ const DIST_REQUESTS: MaterialRequest[] = [
     requestedByName: "Rahul Patil",
     createdAt: daysAgo(2),
     status: "Pending",
+    originSiteId: SITE_IDS.distribution,
+    originSiteName: "Distribution",
+    targetSiteId: SITE_IDS.central,
+    targetSiteName: "Central Stores",
   },
   {
     id: "rq_d1",
@@ -603,6 +615,10 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     decidedAt: daysAgo(13),
     decisionComment: "Issued from Distribution regional store",
     assignmentId: "as_sc1",
+    originSiteId: SITE_IDS.service,
+    originSiteName: "Service Centre",
+    targetSiteId: SITE_IDS.distribution,
+    targetSiteName: "Distribution",
   },
   {
     id: "rq_sc2",
@@ -615,6 +631,10 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     requestedByName: "Vikas Shinde",
     createdAt: daysAgo(1),
     status: "Pending",
+    originSiteId: SITE_IDS.service,
+    originSiteName: "Service Centre",
+    targetSiteId: SITE_IDS.distribution,
+    targetSiteName: "Distribution",
   },
 ]
 
@@ -692,8 +712,13 @@ export function emptySiteData(): SiteData {
 
 export function createSeedDatabase(): Database {
   const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
+  const centralReqs = [DIST_REQUESTS[0], DIST_REQUESTS[1], DIST_REQUESTS[2]]
+  const distIncoming = [
+    SERVICE_REQUESTS.find((r) => r.id === "rq_sc1")!,
+    SERVICE_REQUESTS.find((r) => r.id === "rq_sc2")!,
+  ]
   return {
-    schema: 3,
+    schema: 4,
     users: clone(SEED_USERS),
     sites: {
       [SITE_IDS.central]: siteRecord(clone(centralStores)),
@@ -705,6 +730,7 @@ export function createSeedDatabase(): Database {
         ...emptySiteData(),
         inventory: clone(CENTRAL_INVENTORY),
         assignments: clone(CENTRAL_ASSIGNMENTS),
+        requests: clone(centralReqs),
       },
       [SITE_IDS.service]: {
         ...emptySiteData(),
@@ -716,7 +742,7 @@ export function createSeedDatabase(): Database {
       [SITE_IDS.distribution]: {
         ...emptySiteData(),
         inventory: clone(DISTRIBUTION_INVENTORY),
-        requests: clone(DIST_REQUESTS),
+        requests: clone([...DIST_REQUESTS, ...distIncoming]),
         assignments: clone(DIST_ASSIGNMENTS),
         consumption: clone(DIST_CONSUMPTION),
       },

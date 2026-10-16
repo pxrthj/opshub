@@ -48,6 +48,18 @@ export function computeStats(db: Database, siteId: string): SiteStats {
   const hasInv = cfg.modules.includes("inventory")
   const inv = hasInv ? (db.data[stockId]?.inventory ?? []) : []
   const requests = data.requests ?? []
+  const incomingPending = Object.entries(db.data).flatMap(([sId, sData]) => {
+    if (sId === siteId) return []
+    return (sData.requests ?? []).filter(
+      (r) =>
+        r.status === "Pending" &&
+        (r.targetSiteId === siteId || (!r.targetSiteId && r.type === "material" && db.sites[sId]?.live.workflow.stockSourceSiteId === siteId)),
+    )
+  })
+  const allPendingIds = new Set([
+    ...requests.filter((r) => r.status === "Pending").map((r) => r.id),
+    ...incomingPending.map((r) => r.id),
+  ])
   const assignments = data.assignments ?? []
   const repairs = data.repairs ?? []
   const consumption = data.consumption ?? []
@@ -55,7 +67,7 @@ export function computeStats(db: Database, siteId: string): SiteStats {
 
   return {
     siteId,
-    pendingRequests: requests.filter((r) => r.status === "Pending").length,
+    pendingRequests: allPendingIds.size,
     lowStock: inv.filter((i) => i.qty < i.reorderLevel).length,
     totalItems: inv.length,
     stockValue: inv.reduce((s, i) => s + i.qty * i.unitPrice, 0),
@@ -218,6 +230,7 @@ register(
       requireAnyAdmin(ctx)
       const { db } = ctx
       const trails: GoodsMovementTrail[] = []
+      const seenRequestIds = new Set<string>()
 
       for (const [siteId, record] of Object.entries(db.sites)) {
         const config = record.live
@@ -231,7 +244,14 @@ register(
         const repairsList = sData.repairs ?? []
 
         for (const req of requests) {
-          const assignment = assignments.find((a) => a.requestId === req.id || a.id === req.assignmentId)
+          if (seenRequestIds.has(req.id)) continue
+          seenRequestIds.add(req.id)
+
+          const originSiteId = req.originSiteId || siteId
+          const originConfig = db.sites[originSiteId]?.live || config
+
+          const assignment = assignments.find((a) => a.requestId === req.id || a.id === req.assignmentId) ||
+            Object.values(db.data).flatMap((d) => d.assignments ?? []).find((a) => a.requestId === req.id || a.id === req.assignmentId)
           const consumption = assignment ? consumptions.filter((c) => c.assignmentId === assignment.id) : []
           const returns = returnsList.filter(
             (r) => (assignment && r.refId === assignment.id) || (req.repairJobId && r.refId === req.repairJobId),
@@ -267,19 +287,19 @@ register(
           let sourceTier: SupplyChainTier = "Tier 1: Central Store"
           let destinationTier: SupplyChainTier = "Tier 2: Distribution Centre"
           let supplyChainFlow: SupplyChainFlow = "Tier 1 ➔ Tier 2"
-          let sourceSiteId = assignment?.stockSiteId || stockSiteOf(config)
+          let sourceSiteId = req.targetSiteId || assignment?.stockSiteId || stockSiteOf(originConfig)
           let sourceSiteName = db.sites[sourceSiteId]?.live.name || "Central Stores"
-          const destinationSiteId = siteId
-          const destinationSiteName = config.name
+          const destinationSiteId = originSiteId
+          const destinationSiteName = originConfig.name
 
-          if (siteId === "sc-002" || config.slug === "service-centre") {
+          if (originSiteId === "sc-002" || originConfig.slug === "service-centre") {
             // Service Centre is at the bottom of the supply chain (Tier 3), requesting products from Distribution (Tier 2)
             sourceTier = "Tier 2: Distribution Centre"
             destinationTier = "Tier 3: Service Centre"
             supplyChainFlow = "Tier 2 ➔ Tier 3"
             sourceSiteId = "ds-003"
             sourceSiteName = db.sites["ds-003"]?.live.name || "Distribution"
-          } else if (siteId === "ds-003" || config.slug === "distribution") {
+          } else if (originSiteId === "ds-003" || originConfig.slug === "distribution") {
             if (req.requestedBy === "u_lineman" || req.requestedBy === "u_ganesh") {
               sourceTier = "Tier 2: Distribution Centre"
               destinationTier = "Tier 2: Distribution Centre"
@@ -299,10 +319,10 @@ register(
             id: req.id,
             code: req.code,
             type: req.type,
-            siteId,
-            siteName: config.name,
-            siteSlug: config.slug,
-            siteColor: config.theme.primary,
+            siteId: originSiteId,
+            siteName: originConfig.name,
+            siteSlug: originConfig.slug,
+            siteColor: originConfig.theme.primary,
             sourceSiteId,
             sourceSiteName,
             sourceTier,
