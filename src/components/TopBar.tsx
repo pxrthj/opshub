@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/context/AuthContext"
 import { useHub } from "@/context/HubContext"
+import { NotificationsBell } from "@/components/NotificationsBell"
 import { toastError } from "@/lib/useAsync"
 import { cn } from "@/lib/utils"
 import { ConfirmDialog } from "./ConfirmDialog"
@@ -188,7 +189,8 @@ export function TopBar() {
             </>
           )}
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2.5">
+          <NotificationsBell />
           <UserMenu />
         </div>
       </div>

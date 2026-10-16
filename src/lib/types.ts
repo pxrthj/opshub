@@ -329,3 +329,21 @@ export interface BuilderState {
   versions: SiteVersion[]
   events: DeployEvent[]
 }
+
+export type NotificationPriority = "urgent" | "medium" | "low"
+export type NotificationCategory = "approval" | "request" | "inventory" | "repair" | "assignment" | "system"
+
+export interface AppNotification {
+  id: string
+  priority: NotificationPriority
+  category: NotificationCategory
+  title: string
+  message: string
+  siteId?: string
+  siteName: string
+  siteSlug?: string
+  timestamp: string
+  timeAgo: string
+  link: string
+}
+
