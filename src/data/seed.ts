@@ -239,6 +239,48 @@ const line = (itemId: string, qty: number) => {
   return { itemId, itemName: i.name, unit: i.unit, qty }
 }
 
+const CENTRAL_REQUESTS: MaterialRequest[] = [
+  {
+    id: "rq_cs1",
+    code: "REQ-CS-0001",
+    type: "material",
+    lines: [line("itm_sp_meter", 250), line("itm_meter_box", 200)],
+    purpose: "State Grid procurement batch intake from Secure Meters Ltd (PO-4421)",
+    priority: "Normal",
+    requestedBy: "u_admin",
+    requestedByName: "Meena Kulkarni",
+    createdAt: daysAgo(28),
+    status: "Assigned",
+    decidedBy: "Aarti Deshmukh",
+    decidedAt: daysAgo(27),
+    decisionComment: "Quality batch certified and accepted into master warehouse",
+    assignmentId: "as_c1",
+    originSiteId: SITE_IDS.central,
+    originSiteName: "Central Stores",
+    targetSiteId: SITE_IDS.central,
+    targetSiteName: "Central Stores",
+  },
+  {
+    id: "rq_cs2",
+    code: "REQ-CS-0002",
+    type: "material",
+    lines: [line("itm_dt100", 4), line("itm_pin_ins", 300)],
+    purpose: "High-voltage transformer grid reserve buffer restock",
+    priority: "Urgent",
+    requestedBy: "u_admin",
+    requestedByName: "Meena Kulkarni",
+    createdAt: daysAgo(14),
+    status: "Approved",
+    decidedBy: "Aarti Deshmukh",
+    decidedAt: daysAgo(13),
+    decisionComment: "Approved for regional distribution buffer",
+    originSiteId: SITE_IDS.central,
+    originSiteName: "Central Stores",
+    targetSiteId: SITE_IDS.central,
+    targetSiteName: "Central Stores",
+  },
+]
+
 const DIST_REQUESTS: MaterialRequest[] = [
   {
     id: "rq_dc1",
@@ -827,7 +869,7 @@ export function createSeedDatabase(): Database {
         ...emptySiteData(),
         inventory: clone(CENTRAL_INVENTORY),
         assignments: clone(CENTRAL_ASSIGNMENTS),
-        requests: clone(centralReqs),
+        requests: clone([...CENTRAL_REQUESTS, ...centralReqs]),
         productAudits: clone(CENTRAL_AUDITS),
       },
       [SITE_IDS.service]: {

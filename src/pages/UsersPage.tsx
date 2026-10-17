@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { Navigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "@/components/ui/spinner"
@@ -12,7 +13,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { AccessDenied } from "@/components/AccessDenied"
 import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
 import { TableSkeleton } from "@/components/TableSkeleton"
@@ -56,7 +56,7 @@ export function UsersPage() {
     [users, q],
   )
 
-  if (!hubLoading && !isAnyAdmin) return <AccessDenied message="Only Admins can manage people." />
+  if (!hubLoading && !isAnyAdmin) return <Navigate to="/" replace />
 
   const adminOn = (siteId: string) => user?.roles[siteId] === "Admin"
 

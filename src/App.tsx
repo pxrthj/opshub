@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom"
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom"
 import { Spinner } from "@/components/ui/spinner"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -29,9 +29,8 @@ function FullScreenLoader() {
 /** Guards every route behind login and provides hub-wide data + the top bar. */
 function ProtectedShell() {
   const { user, ready } = useAuth()
-  const location = useLocation()
   if (!ready) return <FullScreenLoader />
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  if (!user) return <Navigate to="/login" replace />
   return (
     // keyed by user so switching person reloads every unit, role and menu
     <HubProvider key={user.id}>
@@ -66,6 +65,7 @@ export default function App() {
                 <Route index element={<HubHome />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="movement" element={<GoodsMovementPage />} />
+                <Route path="supply-chain" element={<GoodsMovementPage />} />
                 <Route path="modules" element={<ModuleCatalogue />} />
                 <Route path="builder" element={<BuilderIndex />} />
                 <Route path="*" element={<NotFound />} />

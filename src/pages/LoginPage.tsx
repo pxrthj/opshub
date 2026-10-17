@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
+import { Link, Navigate, useNavigate } from "react-router-dom"
 import { AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Alert, AlertTitle } from "@/components/ui/alert"
@@ -57,16 +57,13 @@ const ALL_PEOPLE = SAMPLE_PEOPLE.flatMap((g) => g.people)
 export function LoginPage() {
   const { user, login, ready } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [busyAccount, setBusyAccount] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const from = (location.state as { from?: string } | null)?.from
-  const next = from && from !== "/login" ? from : "/"
-  if (ready && user) return <Navigate to={next} replace />
+  if (ready && user) return <Navigate to="/" replace />
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -78,7 +75,7 @@ export function LoginPage() {
     setBusy(true)
     try {
       await login(email.trim(), password)
-      navigate(next, { replace: true })
+      navigate("/", { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -95,7 +92,7 @@ export function LoginPage() {
     try {
       await login(a.email, DEMO_PASSWORD)
       toast.success(`Welcome, ${a.name}`)
-      navigate(next, { replace: true })
+      navigate("/", { replace: true })
     } catch (err) {
       setError(errorMessage(err))
     } finally {

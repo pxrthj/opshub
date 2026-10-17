@@ -11,7 +11,11 @@ import type {
   Role,
   SiteStats,
   SiteSummary,
+  SupplyChainBottleneck,
+  SupplyChainData,
   SupplyChainFlow,
+  SupplyChainHierarchyEdge,
+  SupplyChainSiteMetrics,
   SupplyChainTier,
   User,
 } from "@/lib/types"
@@ -77,6 +81,23 @@ function adminSites(user: User) {
 
 function requireAnyAdmin(ctx: Ctx) {
   if (!adminSites(ctx.user!).length) throw forbidden("Access denied: User Management needs the Admin role on at least one site")
+}
+
+function computeSiteTier(siteId: string, sites: Record<string, { live: { workflow?: { stockSourceSiteId?: string | null } } }>): number {
+  let tier = 1
+  let currentId: string | null = siteId
+  const visited = new Set<string>()
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId)
+    const srcId: string | null | undefined = sites[currentId]?.live?.workflow?.stockSourceSiteId
+    if (srcId && srcId !== currentId && sites[srcId]) {
+      tier++
+      currentId = srcId
+    } else {
+      break
+    }
+  }
+  return tier
 }
 
 register(
@@ -481,40 +502,36 @@ register(
             else stage = "Approved & Dispatched"
           }
 
-          // Determine the Supply Chain Tier and Flow
-          // Tier 1: Central Stores (cs-001) - Master Inventory (Top of chain)
-          // Tier 2: Distribution Centre (ds-003) - Regional Mid-tier
-          // Tier 3: Service Centre (sc-002) - Service & Repair (Bottom of chain)
-          let sourceTier: SupplyChainTier = "Tier 1: Central Store"
-          let destinationTier: SupplyChainTier = "Tier 2: Distribution Centre"
-          let supplyChainFlow: SupplyChainFlow = "Tier 1 ➔ Tier 2"
-          let sourceSiteId = req.targetSiteId || assignment?.stockSiteId || stockSiteOf(originConfig)
-          let sourceSiteName = db.sites[sourceSiteId]?.live.name || "Central Stores"
-          const destinationSiteId = originSiteId
-          const destinationSiteName = originConfig.name
+          // Determine the Supply Chain Tier and Flow dynamically from workflow.stockSourceSiteId
+          let sourceSiteId = req.targetSiteId || assignment?.stockSiteId || originConfig.workflow?.stockSourceSiteId || originSiteId
+          let sourceSiteName = db.sites[sourceSiteId]?.live.name || originConfig.name
 
-          if (originSiteId === "sc-002" || originConfig.slug === "service-centre") {
-            // Service Centre is at the bottom of the supply chain (Tier 3), requesting products from Distribution (Tier 2)
-            sourceTier = "Tier 2: Distribution Centre"
-            destinationTier = "Tier 3: Service Centre"
-            supplyChainFlow = "Tier 2 ➔ Tier 3"
-            sourceSiteId = "ds-003"
-            sourceSiteName = db.sites["ds-003"]?.live.name || "Distribution"
-          } else if (originSiteId === "ds-003" || originConfig.slug === "distribution") {
-            const requesterLegacyId = db.users.find((u) => u.id === req.requestedBy)?.legacyId ?? req.requestedBy
-            if (requesterLegacyId === "u_lineman" || requesterLegacyId === "u_ganesh") {
-              sourceTier = "Tier 2: Distribution Centre"
-              destinationTier = "Tier 2: Distribution Centre"
-              supplyChainFlow = "Internal / Field"
-              sourceSiteId = "ds-003"
-              sourceSiteName = "Distribution Regional Store"
-            } else {
-              sourceTier = "Tier 1: Central Store"
-              destinationTier = "Tier 2: Distribution Centre"
-              supplyChainFlow = "Tier 1 ➔ Tier 2"
-              sourceSiteId = "cs-001"
-              sourceSiteName = db.sites["cs-001"]?.live.name || "Central Stores"
+          // If origin is not the source and source is not set, fallback to stockSiteOf
+          if (!sourceSiteId || sourceSiteId === originSiteId) {
+            const fallbackSiteId = stockSiteOf(originConfig)
+            if (fallbackSiteId && fallbackSiteId !== originSiteId && db.sites[fallbackSiteId]) {
+              sourceSiteId = fallbackSiteId
+              sourceSiteName = db.sites[fallbackSiteId].live.name
             }
+          }
+
+          const srcTierNum = computeSiteTier(sourceSiteId, db.sites)
+          const destTierNum = computeSiteTier(originSiteId, db.sites)
+
+          const sourceTier: SupplyChainTier = (
+            srcTierNum === 1 ? "Tier 1: Central Store" : srcTierNum === 2 ? "Tier 2: Distribution Centre" : "Tier 3: Service Centre"
+          ) as SupplyChainTier
+          const destinationTier: SupplyChainTier = (
+            destTierNum === 1 ? "Tier 1: Central Store" : destTierNum === 2 ? "Tier 2: Distribution Centre" : "Tier 3: Service Centre"
+          ) as SupplyChainTier
+
+          let supplyChainFlow: SupplyChainFlow = "Tier 1 ➔ Tier 2"
+          if (sourceSiteId === originSiteId) {
+            supplyChainFlow = "Internal / Field"
+          } else if (srcTierNum >= 2 && destTierNum >= 3) {
+            supplyChainFlow = "Tier 2 ➔ Tier 3"
+          } else {
+            supplyChainFlow = "Tier 1 ➔ Tier 2"
           }
 
           trails.push({
@@ -527,8 +544,8 @@ register(
             sourceSiteId,
             sourceSiteName,
             sourceTier,
-            destinationSiteId,
-            destinationSiteName,
+            destinationSiteId: originSiteId,
+            destinationSiteName: originConfig.name,
             destinationTier,
             supplyChainFlow,
             requestedBy: req.requestedBy,
@@ -617,7 +634,152 @@ register(
         avgFulfillmentHours,
       }
 
-      return { trails, stats }
+      // ── Per-site Comparison Metrics ──────────────────────────────────────────
+      const siteMetrics: SupplyChainSiteMetrics[] = Object.entries(db.sites).map(([sId, rec]) => {
+        const cfg = rec.live
+        const siteOutgoing = trails.filter((t) => t.siteId === sId)
+        const siteSupplied = trails.filter((t) => t.sourceSiteId === sId)
+        // Operational requests handled or initiated by this office
+        const siteReqs = Array.from(new Set([...siteOutgoing, ...siteSupplied]))
+
+        const approved = siteReqs.filter((t) => t.status === "Approved" || t.status === "Assigned")
+        const pending = siteReqs.filter((t) => t.status === "Pending")
+        const rejected = siteReqs.filter((t) => t.status === "Rejected")
+        const fulfilmentRate = siteReqs.length > 0 ? Math.round((approved.length / siteReqs.length) * 100) : 100
+
+        const turnaroundTimes = siteReqs
+          .filter((t) => t.decidedAt || t.assignment?.dispatchedAt)
+          .map((t) => {
+            const start = new Date(t.requestedAt).getTime()
+            const end = new Date(t.assignment?.dispatchedAt || t.decidedAt!).getTime()
+            return Math.max(0, (end - start) / (1000 * 60 * 60))
+          })
+        const avgTurnaroundHours =
+          turnaroundTimes.length > 0
+            ? Math.round((turnaroundTimes.reduce((a, b) => a + b, 0) / turnaroundTimes.length) * 10) / 10
+            : 0
+
+        const sInventory = db.data[sId]?.inventory ?? []
+        const lowStockCount = sInventory.filter((item) => item.qty <= (item.reorderLevel ?? 0)).length
+        const totalInventoryItems = sInventory.length
+
+        const unitsDispatched = trails
+          .filter((t) => t.sourceSiteId === sId && t.assignment)
+          .reduce((sum, t) => sum + (t.assignment ? t.assignment.lines.reduce((lSum, l) => lSum + l.qty, 0) : 0), 0)
+
+        const unitsReceived = siteOutgoing
+          .filter((t) => t.assignment)
+          .reduce((sum, t) => sum + (t.assignment ? t.assignment.lines.reduce((lSum, l) => lSum + l.qty, 0) : 0), 0)
+
+        const unitsConsumed = siteOutgoing.reduce((sum, t) => sum + t.totalConsumed, 0)
+        const unitsReturned = siteOutgoing.reduce((sum, t) => sum + t.totalReturned, 0)
+
+        return {
+          siteId: sId,
+          siteName: cfg.name,
+          siteSlug: cfg.slug,
+          tier: computeSiteTier(sId, db.sites),
+          stockSourceSiteId: cfg.workflow?.stockSourceSiteId ?? null,
+          stockSourceName: cfg.workflow?.stockSourceSiteId ? db.sites[cfg.workflow.stockSourceSiteId]?.live.name ?? null : null,
+          totalRequests: siteReqs.length,
+          pendingRequests: pending.length,
+          approvedRequests: approved.length,
+          rejectedRequests: rejected.length,
+          fulfilmentRate,
+          avgTurnaroundHours,
+          lowStockCount,
+          totalInventoryItems,
+          unitsDispatched,
+          unitsReceived,
+          unitsConsumed,
+          unitsReturned,
+        }
+      })
+
+      // ── Bottleneck Highlights ───────────────────────────────────────────────
+      const now = Date.now()
+      const stuckThresholdMs = 3 * 24 * 60 * 60 * 1000
+
+      const bottlenecks: SupplyChainBottleneck[] = Object.entries(db.sites).map(([sId, rec]) => {
+        const cfg = rec.live
+        const siteReqs = trails.filter((t) => t.siteId === sId)
+        const pendingReqs = siteReqs.filter((t) => t.status === "Pending")
+        const stuckReqs = pendingReqs.filter((t) => now - new Date(t.requestedAt).getTime() > stuckThresholdMs)
+
+        const oldest =
+          pendingReqs.length > 0
+            ? [...pendingReqs].sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime())[0]
+            : undefined
+
+        const waitHours = pendingReqs.map((t) => Math.max(0, (now - new Date(t.requestedAt).getTime()) / (1000 * 60 * 60)))
+        const avgWaitHours = waitHours.length > 0 ? Math.round((waitHours.reduce((a, b) => a + b, 0) / waitHours.length) * 10) / 10 : 0
+
+        return {
+          siteId: sId,
+          siteName: cfg.name,
+          stage: "Awaiting Approval" as MovementStage,
+          avgWaitHours,
+          stuckRequestsCount: stuckReqs.length,
+          oldestOpenRequest: oldest
+            ? {
+                id: oldest.id,
+                code: oldest.code,
+                requestedAt: oldest.requestedAt,
+                requestedByName: oldest.requestedByName,
+                waitDays: Math.round(((now - new Date(oldest.requestedAt).getTime()) / (1000 * 60 * 60 * 24)) * 10) / 10,
+              }
+            : undefined,
+        }
+      })
+
+      // ── Network Hierarchy Edges (stockSourceSiteId + flows) ─────────────────
+      const edgesMap = new Map<string, SupplyChainHierarchyEdge>()
+
+      for (const [targetSiteId, rec] of Object.entries(db.sites)) {
+        const sourceSiteId = rec.live?.workflow?.stockSourceSiteId
+        if (sourceSiteId && db.sites[sourceSiteId]) {
+          const edgeKey = `${sourceSiteId}->${targetSiteId}`
+          edgesMap.set(edgeKey, {
+            id: edgeKey,
+            sourceSiteId,
+            sourceSiteName: db.sites[sourceSiteId].live.name,
+            targetSiteId,
+            targetSiteName: rec.live.name,
+            volumeUnits: 0,
+            requestsCount: 0,
+            pendingCount: 0,
+          })
+        }
+      }
+
+      for (const t of trails) {
+        if (t.sourceSiteId && t.siteId && t.sourceSiteId !== t.siteId) {
+          const edgeKey = `${t.sourceSiteId}->${t.siteId}`
+          let edge = edgesMap.get(edgeKey)
+          if (!edge) {
+            edge = {
+              id: edgeKey,
+              sourceSiteId: t.sourceSiteId,
+              sourceSiteName: t.sourceSiteName,
+              targetSiteId: t.siteId,
+              targetSiteName: t.siteName,
+              volumeUnits: 0,
+              requestsCount: 0,
+              pendingCount: 0,
+            }
+            edgesMap.set(edgeKey, edge)
+          }
+          edge.requestsCount += 1
+          const units = t.assignment ? t.assignment.lines.reduce((acc, l) => acc + l.qty, 0) : t.totalQtyRequested
+          edge.volumeUnits += units
+          if (t.status === "Pending") edge.pendingCount += 1
+        }
+      }
+
+      const edges = Array.from(edgesMap.values())
+
+      const result: SupplyChainData = { trails, stats, siteMetrics, bottlenecks, edges }
+      return result
     },
   },
 )

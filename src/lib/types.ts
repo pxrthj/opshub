@@ -548,4 +548,58 @@ export interface SiteAdminDashboardData {
   activityFeed: DashboardActivityItem[]
 }
 
+export interface SupplyChainSiteMetrics {
+  siteId: string
+  siteName: string
+  siteSlug: string
+  tier: number
+  stockSourceSiteId: string | null
+  stockSourceName: string | null
+  totalRequests: number
+  pendingRequests: number
+  approvedRequests: number
+  rejectedRequests: number
+  fulfilmentRate: number
+  avgTurnaroundHours: number
+  lowStockCount: number
+  totalInventoryItems: number
+  unitsDispatched: number
+  unitsReceived: number
+  unitsConsumed: number
+  unitsReturned: number
+}
+
+export interface SupplyChainBottleneck {
+  siteId: string
+  siteName: string
+  stage: MovementStage
+  avgWaitHours: number
+  stuckRequestsCount: number
+  oldestOpenRequest?: {
+    id: string
+    code: string
+    requestedAt: string
+    requestedByName: string
+    waitDays: number
+  }
+}
+
+export interface SupplyChainHierarchyEdge {
+  id: string
+  sourceSiteId: string
+  sourceSiteName: string
+  targetSiteId: string
+  targetSiteName: string
+  volumeUnits: number
+  requestsCount: number
+  pendingCount: number
+}
+
+export interface SupplyChainData {
+  trails: GoodsMovementTrail[]
+  stats: GoodsMovementStats
+  siteMetrics: SupplyChainSiteMetrics[]
+  bottlenecks: SupplyChainBottleneck[]
+  edges: SupplyChainHierarchyEdge[]
+}
 
