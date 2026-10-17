@@ -49,15 +49,16 @@ language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then perform _fail('Please sign in', 401); end if;
   if not is_super_admin() then perform _fail('Only an Admin of every office can restore the sample data', 403); end if;
-  delete from product_audits;
-  delete from returns;
-  delete from consumption;
-  delete from assignments;
-  delete from requests;
-  delete from repairs;
-  delete from inventory_items;
-  delete from site_events;
-  delete from site_versions;
+  -- "where true": Supabase refuses a DELETE without a WHERE clause when it comes in through the API.
+  delete from product_audits where true;
+  delete from returns where true;
+  delete from consumption where true;
+  delete from assignments where true;
+  delete from requests where true;
+  delete from repairs where true;
+  delete from inventory_items where true;
+  delete from site_events where true;
+  delete from site_versions where true;
   perform _load_demo_seed();
   return jsonb_build_object('ok', true);
 end $$;
