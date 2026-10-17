@@ -543,7 +543,6 @@ register(
             siteId: originSiteId,
             siteName: originConfig.name,
             siteSlug: originConfig.slug,
-            siteColor: originConfig.theme.primary,
             sourceSiteId,
             sourceSiteName,
             sourceTier,

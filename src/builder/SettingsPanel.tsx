@@ -1,15 +1,12 @@
-import { AlertTriangle, CheckCircle2, Palette, Settings2, Trash2, X } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Settings2, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { CanvasIssue } from "@/lib/siteConfig"
-import { mix, THEME_SWATCHES } from "@/lib/theme"
 import type { CanvasEdge, CanvasNode, FieldDef, SiteConfig, SiteSummary, WorkflowSettings } from "@/lib/types"
 import { getModuleDef, PORT_LABELS, requirementLabel, SETTING_LABELS } from "@/modules/definitions"
 import { FieldEditor } from "./FieldEditor"
@@ -125,7 +122,7 @@ export function SettingsPanel({
     return (
       <div className="space-y-5 p-4">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg text-white" style={{ background: config.theme.primary }}>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <def.icon className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -223,15 +220,6 @@ export function SettingsPanel({
     )
   }
 
-  const t = config.theme
-  const setTheme = (patch: Partial<SiteConfig["theme"]>) => {
-    const next = { ...t, ...patch }
-    if (patch.primary) {
-      next.accent = mix("#ffffff", patch.primary, 0.14)
-      next.background = mix("#ffffff", patch.primary, 0.035)
-    }
-    setConfig({ ...config, theme: next })
-  }
   return (
     <div className="space-y-5 p-4">
       <div>
@@ -248,65 +236,6 @@ export function SettingsPanel({
           <Textarea rows={2} value={config.description} onChange={(e) => setConfig({ ...config, description: e.target.value })} />
         </div>
         <p className="text-xs text-muted-foreground">Web address: /s/{config.slug}</p>
-      </Section>
-      <Section title="Look" icon={<Palette className="size-4" />}>
-        <div className="space-y-2">
-          <Label>Main colour</Label>
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={THEME_SWATCHES.includes(t.primary.toLowerCase()) ? t.primary.toLowerCase() : ""}
-            onValueChange={(v) => v && setTheme({ primary: v })}
-            className="flex-wrap"
-          >
-            {THEME_SWATCHES.map((c) => (
-              <ToggleGroupItem key={c} value={c} aria-label={`Use colour ${c}`}>
-                <span className="size-4 rounded-full" style={{ background: c }} />
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <Input
-            aria-label="Colour code"
-            defaultValue={t.primary}
-            key={t.primary}
-            onBlur={(e) => /^#[0-9a-fA-F]{6}$/.test(e.target.value.trim()) && setTheme({ primary: e.target.value.trim().toLowerCase() })}
-            placeholder="#1e40af"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Menu style</Label>
-          <ToggleGroup type="single" variant="outline" size="sm" value={t.sidebar} onValueChange={(v) => v && setTheme({ sidebar: v as SiteConfig["theme"]["sidebar"] })} className="w-full">
-            {(["solid", "tinted", "light"] as const).map((st) => (
-              <ToggleGroupItem key={st} value={st} className="flex-1 capitalize">
-                {st}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Rounded corners</Label>
-          <Slider min={0} max={1.2} step={0.05} value={[t.radius]} onValueChange={([v]) => setTheme({ radius: v })} />
-        </div>
-        <div className="overflow-hidden rounded-lg border" style={{ borderRadius: `${t.radius}rem` }}>
-          <div className="flex h-24">
-            <div
-              className="w-16 space-y-1 p-1.5"
-              style={{ background: t.sidebar === "solid" ? mix(t.primary, "#000000", 0.25) : t.sidebar === "tinted" ? mix("#ffffff", t.primary, 0.08) : "#fff" }}
-            >
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-2.5 rounded" style={{ background: i === 0 ? (t.sidebar === "light" ? t.accent : t.primary) : t.sidebar === "solid" ? "#ffffff33" : "#00000012" }} />
-              ))}
-            </div>
-            <div className="flex-1 space-y-1.5 p-2" style={{ background: t.background }}>
-              <div className="h-2 w-16 rounded bg-muted-foreground/30" />
-              <div className="h-8 rounded border bg-card" style={{ borderRadius: `${t.radius * 0.8}rem` }} />
-              <div className="h-5 w-14 rounded text-xs leading-5 font-semibold text-white" style={{ background: t.primary, borderRadius: `${t.radius * 0.6}rem`, textAlign: "center" }}>
-                Button
-              </div>
-            </div>
-          </div>
-        </div>
       </Section>
       <Section title="Ready to publish?">
         {issues.length === 0 ? (

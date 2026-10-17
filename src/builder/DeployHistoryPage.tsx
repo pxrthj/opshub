@@ -12,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AccessDenied } from "@/components/AccessDenied"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { PageHeader } from "@/components/PageHeader"
-import { ThemeScope } from "@/components/ThemeScope"
 import { useHub } from "@/context/HubContext"
 import { diffConfigs, summarizeDiff } from "@/lib/siteConfig"
 import type { BuilderState, SiteVersion } from "@/lib/types"
@@ -72,7 +71,7 @@ export function DeployHistoryPage() {
   }
 
   return (
-    <ThemeScope theme={live.theme}>
+    <>
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
         <Button variant="ghost" size="sm" asChild className="mb-3 -ml-2">
           <Link to={`/builder/${live.siteId}`}>
@@ -116,7 +115,7 @@ export function DeployHistoryPage() {
           <Card className="py-0">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/40">
+                <TableRow>
                   <TableHead className="pl-4">Version</TableHead>
                   <TableHead>Made live</TableHead>
                   <TableHead>By</TableHead>
@@ -139,7 +138,7 @@ export function DeployHistoryPage() {
                       <TableCell className="text-xs text-muted-foreground">{formatDateTime(v.publishedAt)}</TableCell>
                       <TableCell className="text-sm">{v.author}</TableCell>
                       <TableCell className="max-w-xs text-sm whitespace-normal">{v.summary}</TableCell>
-                      <TableCell className="max-w-[220px]">
+                      <TableCell className="max-w-56">
                         <div className="flex flex-wrap gap-1">
                           {v.config.modules
                             .filter((m) => !getModuleDef(m).core)
@@ -209,6 +208,6 @@ export function DeployHistoryPage() {
           onConfirm={rollback}
         />
       </main>
-    </ThemeScope>
+    </>
   )
 }

@@ -67,7 +67,7 @@ export function ModuleCatalogue() {
                     {usedBy.length ? (
                       usedBy.map((s) => (
                         <Badge key={s.config.siteId} variant="outline" asChild>
-                          <Link to={`/s/${s.config.slug}`} style={{ color: s.config.theme.primary }}>
+                          <Link to={`/s/${s.config.slug}`}>
                             {s.config.name}
                           </Link>
                         </Badge>

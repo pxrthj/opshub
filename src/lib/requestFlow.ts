@@ -38,8 +38,12 @@ export function needsMyManager(r: MaterialRequest, siteId: string): boolean {
   return a === "decide" || a === "send-on"
 }
 
-/** Plain-words status for the person who asked. */
-export function requestStatusLabel(r: MaterialRequest): string | null {
-  if (r.status !== "Pending" || !isSupplied(r)) return null
-  return isSentOn(r) ? `With ${r.targetSiteName ?? "the other office"}` : "With your manager"
+/** Plain-words "where is it now" for a waiting request, from the point of view of whoever is looking. */
+export function requestStatusLabel(r: MaterialRequest, viewer: { siteId: string; isManager: boolean }): string | null {
+  if (r.status !== "Pending") return null
+  const action = managerAction(r, viewer.siteId)
+  if (action === "decide") return viewer.isManager ? "Waiting for you" : "With your manager"
+  if (action === "send-on") return viewer.isManager ? "Needs sending on" : "With your manager"
+  if (action === "waiting-for-other-office") return `With ${r.targetSiteName ?? "the other office"}`
+  return null
 }

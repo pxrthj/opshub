@@ -50,7 +50,7 @@ export function MyMaterialsPage() {
           ].map(([k, v]) => (
             <Card key={k} size="sm" className="gap-1 px-3">
               <CardDescription className="text-xs">{k}</CardDescription>
-              <p className="text-xl font-semibold tabular-nums">{Number(v).toLocaleString("en-IN")}</p>
+              <p className="text-2xl font-semibold tabular-nums">{Number(v).toLocaleString("en-IN")}</p>
             </Card>
           ))}
         </div>

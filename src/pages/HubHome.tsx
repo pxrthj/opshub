@@ -9,7 +9,6 @@ import { CardsSkeleton } from "@/components/TableSkeleton"
 import { useAuth } from "@/context/AuthContext"
 import { useHub } from "@/context/HubContext"
 import { roleAtLeast } from "@/lib/roles"
-import { mix } from "@/lib/theme"
 import type { SiteSummary } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -24,7 +23,6 @@ interface Todo {
   text: string
   action: string
   to: string
-  color: string
 }
 
 /** Turns each office's numbers into a few plain to-dos for this person. */
@@ -32,7 +30,6 @@ function todosFor(sites: SiteSummary[]): Todo[] {
   const out: Todo[] = []
   for (const { config, stats, role } of sites) {
     const has = (m: string) => config.modules.includes(m as never)
-    const color = config.theme.primary
     const base = `/s/${config.slug}`
     if (has("approval") && roleAtLeast(role, "Manager") && stats.pendingRequests > 0)
       out.push({
@@ -41,7 +38,6 @@ function todosFor(sites: SiteSummary[]): Todo[] {
         text: `${stats.pendingRequests} request${stats.pendingRequests > 1 ? "s" : ""} waiting for you to decide in ${config.name}`,
         action: "Decide",
         to: `${base}/approvals`,
-        color,
       })
     if (has("inventory") && !config.workflow.stockSourceSiteId && roleAtLeast(role, "Manager") && stats.lowStock > 0)
       out.push({
@@ -50,7 +46,6 @@ function todosFor(sites: SiteSummary[]): Todo[] {
         text: `${stats.lowStock} item${stats.lowStock > 1 ? "s are" : " is"} almost out of stock in ${config.name}`,
         action: "View stock",
         to: `${base}/inventory`,
-        color,
       })
     if (has("pcb-repair") && roleAtLeast(role, "Member") && stats.openRepairs > 0)
       out.push({
@@ -59,7 +54,6 @@ function todosFor(sites: SiteSummary[]): Todo[] {
         text: `${stats.openRepairs} meter${stats.openRepairs > 1 ? "s" : ""} being repaired in ${config.name}`,
         action: "View repairs",
         to: `${base}/repairs`,
-        color,
       })
   }
   return out
@@ -68,21 +62,19 @@ function todosFor(sites: SiteSummary[]): Todo[] {
 function OfficeCard({ s }: { s: SiteSummary }) {
   const navigate = useNavigate()
   const { config, role } = s
-  const p = config.theme.primary
   return (
-    <Card className="overflow-hidden pt-0 transition-shadow hover:shadow-md">
-      <div className="h-1.5" style={{ background: p }} />
+    <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
-        <CardTitle className="text-lg">{config.name}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Building2 className="size-5 text-muted-foreground" /> {config.name}
+        </CardTitle>
         <CardDescription>{config.description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Badge variant="outline" style={{ background: mix("#ffffff", p, 0.1), color: mix(p, "#000000", 0.25), borderColor: mix("#ffffff", p, 0.3) }}>
-          Your role: {role}
-        </Badge>
+        <Badge variant="secondary">Your role: {role}</Badge>
       </CardContent>
       <CardFooter className="mt-auto flex-col gap-2">
-        <Button size="lg" className="w-full text-white hover:opacity-90" style={{ background: p }} onClick={() => navigate(`/s/${config.slug}`)}>
+        <Button size="lg" className="w-full" onClick={() => navigate(`/s/${config.slug}`)}>
           Open {config.name} <ArrowRight />
         </Button>
         {role === "Admin" && (
@@ -103,12 +95,12 @@ export function HubHome() {
   const todos = todosFor(sites)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1 className="text-2xl font-semibold tracking-tight">
           {greeting()}, {user?.name.split(" ")[0]}
         </h1>
-        <p className="mt-1 text-muted-foreground">{sites.length === 1 ? "This is your office." : "Choose an office to work in."}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{sites.length === 1 ? "This is your office." : "Choose an office to work in."}</p>
       </div>
 
       {loading && !sites.length ? (
@@ -118,7 +110,7 @@ export function HubHome() {
       ) : (
         <>
           <section className="space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground">Waiting for you</h2>
+            <h2 className="text-base font-medium">Waiting for you</h2>
             {todos.length === 0 ? (
               <Alert>
                 <CheckCircle2 />
@@ -132,11 +124,11 @@ export function HubHome() {
                     to={t.to}
                     className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start gap-3 rounded-none px-4 py-3 font-normal whitespace-normal")}
                   >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full" style={{ background: mix("#ffffff", t.color, 0.12), color: t.color }}>
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                       <t.icon />
                     </span>
                     <span className="flex-1 text-left">{t.text}</span>
-                    <span className="flex items-center gap-1 font-medium" style={{ color: t.color }}>
+                    <span className="flex items-center gap-1 font-medium">
                       {t.action} <ArrowRight />
                     </span>
                   </Link>
@@ -146,8 +138,8 @@ export function HubHome() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground">Your offices</h2>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <h2 className="text-base font-medium">Your offices</h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {sites.map((s) => (
                 <OfficeCard key={s.config.siteId} s={s} />
               ))}

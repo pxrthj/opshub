@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { History, Workflow } from "lucide-react"
+import { Building2, History, Workflow } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { AccessDenied } from "@/components/AccessDenied"
@@ -17,9 +17,11 @@ export function BuilderIndex() {
       <PageHeader title="Edit offices" description="Choose an office to change." icon={<Workflow />} />
       <div className="grid gap-4 md:grid-cols-3">
         {adminSites.map((s) => (
-          <Card key={s.config.siteId} className="gap-3 p-5">
+          <Card key={s.config.siteId} className="gap-3 p-4">
             <div className="flex items-center gap-3">
-              <span className="size-10 rounded-lg" style={{ background: s.config.theme.primary }} />
+              <span className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Building2 className="size-5" />
+              </span>
               <div>
                 <p className="font-semibold text-foreground">{s.config.name}</p>
                 <p className="text-xs text-muted-foreground">

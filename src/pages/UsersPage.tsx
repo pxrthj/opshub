@@ -97,10 +97,10 @@ export function UsersPage() {
       />
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-slate-400" />
-          <Input className="pl-8" placeholder="Search by name, email or job" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Search by name, email or job" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <span className="text-sm text-slate-500">{filtered.length} users</span>
+        <span className="text-sm text-muted-foreground">{filtered.length} users</span>
       </div>
       {loading && !users ? (
         <TableSkeleton />
@@ -115,10 +115,7 @@ export function UsersPage() {
                 <TableHead>Job</TableHead>
                 {sites.map((s) => (
                   <TableHead key={s.config.siteId}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="size-2 rounded-full" style={{ background: s.config.theme.primary }} />
-                      {s.config.name}
-                    </span>
+                    {s.config.name}
                   </TableHead>
                 ))}
                 <TableHead className="w-16" />
@@ -128,18 +125,18 @@ export function UsersPage() {
               {filtered.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="pl-4">
-                    <div className="font-medium text-slate-900">
-                      {u.name} {u.id === user?.id && <span className="text-xs text-slate-400">(you)</span>}
+                    <div className="font-medium text-foreground">
+                      {u.name} {u.id === user?.id && <span className="text-xs text-muted-foreground">(you)</span>}
                     </div>
-                    <div className="text-xs text-slate-500">{u.email}</div>
+                    <div className="text-xs text-muted-foreground">{u.email}</div>
                   </TableCell>
-                  <TableCell className="text-slate-600">{u.title}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.title}</TableCell>
                   {sites.map((s) => {
                     const r = u.roles[s.config.siteId]
                     return (
                       <TableCell key={s.config.siteId}>
                         {r ? (
-                          <Badge variant="outline" style={{ background: s.config.theme.accent, color: s.config.theme.primary, borderColor: s.config.theme.accent }}>
+                          <Badge variant="secondary">
                             {r}
                           </Badge>
                         ) : (
@@ -193,16 +190,13 @@ export function UsersPage() {
                   const editable = adminOn(id)
                   return (
                     <div key={id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-                      <span className="flex items-center gap-2 text-sm font-medium">
-                        <span className="size-2.5 rounded-full" style={{ background: s.config.theme.primary }} />
-                        {s.config.name}
-                      </span>
+                      <span className="text-sm font-medium">{s.config.name}</span>
                       <Select
                         value={draft.roles[id] ?? NONE}
                         disabled={!editable}
                         onValueChange={(v) => setDraft({ ...draft, roles: { ...draft.roles, [id]: v === NONE ? null : (v as Role) } })}
                       >
-                        <SelectTrigger className="w-44">
+                        <SelectTrigger className="w-48">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

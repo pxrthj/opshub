@@ -195,7 +195,7 @@ export function GoodsMovementPage() {
           </SelectContent>
         </Select>
         <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="w-full sm:w-52">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Everything" />
           </SelectTrigger>
           <SelectContent>

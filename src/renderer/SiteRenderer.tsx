@@ -5,7 +5,6 @@ import { Eye, Workflow } from "lucide-react"
 import { api, ApiError } from "@/api"
 import { Button } from "@/components/ui/button"
 import { AccessDenied } from "@/components/AccessDenied"
-import { ThemeScope } from "@/components/ThemeScope"
 import { SiteProvider, useSite, type SiteApi, type SiteContextValue } from "@/context/SiteContext"
 import { useHub } from "@/context/HubContext"
 import { roleAtLeast } from "@/lib/roles"
@@ -79,8 +78,8 @@ export function SiteRenderer({ mode }: { mode: "live" | "preview" }) {
 
   if (state.status === "loading")
     return (
-      <div className="flex flex-1 items-center justify-center text-slate-500">
-        <Spinner className="mr-2 size-5" /> Loading unit…
+      <div className="flex flex-1 items-center justify-center text-muted-foreground">
+        <Spinner className="mr-2 size-5" /> Opening the office…
       </div>
     )
   if (state.status === "error") {
@@ -91,19 +90,19 @@ export function SiteRenderer({ mode }: { mode: "live" | "preview" }) {
   const ctx = ctxValue!
   const segment = rest.split("/")[0] ?? ""
   return (
-    <ThemeScope theme={ctx.config.theme}>
-      <SiteProvider value={ctx}>
-        <div className="flex flex-1 flex-col">
-          {preview && <PreviewBanner config={ctx.config} hasDraft={state.data.hasDraft} />}
-          <div className="flex flex-1">
-            <SiteSidebar />
-            <main key={ctx.config.siteId} className="min-w-0 flex-1 px-6 py-6 lg:px-8">
+    <SiteProvider value={ctx}>
+      <div className="flex flex-1 flex-col">
+        {preview && <PreviewBanner config={ctx.config} hasDraft={state.data.hasDraft} />}
+        <div className="flex flex-1">
+          <SiteSidebar />
+          <main key={ctx.config.siteId} className="min-w-0 flex-1 px-6 py-8">
+            <div className="mx-auto w-full max-w-6xl">
               <PageOutlet segment={segment} />
-            </main>
-          </div>
+            </div>
+          </main>
         </div>
-      </SiteProvider>
-    </ThemeScope>
+      </div>
+    </SiteProvider>
   )
 }
 

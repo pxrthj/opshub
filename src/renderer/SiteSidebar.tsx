@@ -23,7 +23,7 @@ export function SiteSidebar() {
     <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
       <div className="border-b border-sidebar-border px-4 py-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground shadow-sm ring-2 ring-white/20">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground">
             {config.name
               .split(" ")
               .map((w) => w[0])
@@ -32,7 +32,7 @@ export function SiteSidebar() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{config.name}</p>
-            <p className="truncate text-xs opacity-70">You are: {role}</p>
+            <p className="truncate text-xs text-muted-foreground">Your role: {role}</p>
           </div>
         </div>
       </div>
@@ -47,15 +47,15 @@ export function SiteSidebar() {
               end={!p.path}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
-                  isActive ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm" : "opacity-85 hover:bg-sidebar-accent/50 hover:opacity-100",
+                  "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                  isActive ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 )
               }
             >
               <def.icon className="size-4 shrink-0" />
               <span className="flex-1 truncate">{p.label}</span>
               {!!badge && (
-                <span className="rounded-full bg-amber-500 px-1.5 py-px text-xs font-bold text-white tabular-nums">{badge}</span>
+                <span className="rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground tabular-nums">{badge}</span>
               )}
             </NavLink>
           )
@@ -63,11 +63,11 @@ export function SiteSidebar() {
       </nav>
       <div className="space-y-1 border-t border-sidebar-border p-2.5 text-sm">
         {role === "Admin" && !preview && (
-          <NavLink to={`/builder/${config.siteId}`} className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 opacity-85 hover:bg-sidebar-accent/50 hover:opacity-100">
-            <Workflow className="size-4" /> Change this office
+          <NavLink to={`/builder/${config.siteId}`} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+            <Workflow className="size-4" /> Edit this office
           </NavLink>
         )}
-        <NavLink to="/" className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 opacity-85 hover:bg-sidebar-accent/50 hover:opacity-100">
+        <NavLink to="/" className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
           <ArrowLeft className="size-4" /> Home
         </NavLink>
       </div>

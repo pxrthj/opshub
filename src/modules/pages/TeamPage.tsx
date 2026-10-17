@@ -48,10 +48,10 @@ export function TeamPage() {
         <Card className="py-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow>
                 <TableHead className="pl-4">Person</TableHead>
                 <TableHead>Job</TableHead>
-                <TableHead className="w-64">Role on {config.name}</TableHead>
+                <TableHead className="w-56">Role on {config.name}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -66,7 +66,7 @@ export function TeamPage() {
                   <TableCell className="text-muted-foreground">{m.user.title}</TableCell>
                   <TableCell>
                     <Select value={m.role ?? NONE} onValueChange={(v) => change(m, v)} disabled={busy === m.user.id || m.user.id === user?.id}>
-                      <SelectTrigger className="w-56">
+                      <SelectTrigger className="w-48">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

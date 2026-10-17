@@ -120,7 +120,7 @@ export function ApprovalsPage() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mb-4">
         <TabsList>
           <TabsTrigger value="pending">
-            Waiting <span className="ml-1 rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">{pending.length}</span>
+            Waiting <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">{pending.length}</span>
           </TabsTrigger>
           <TabsTrigger value="history">Decided ({history.length})</TabsTrigger>
         </TabsList>
@@ -137,14 +137,14 @@ export function ApprovalsPage() {
               const sendOnly = managerAction(r, config.siteId) === "send-on"
               const short = !sendOnly && gives(r) && r.lines.some((l) => (stockOf(r, l.itemId)?.qty ?? 0) < l.qty)
               return (
-                <Card key={r.id} className={cn("gap-3 p-4", failures[r.id] && "ring-2 ring-red-300")}>
+                <Card key={r.id} className={cn("gap-3 p-4", failures[r.id] && "ring-2 ring-destructive/40")}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold">{r.code}</span>
                         {r.priority === "Urgent" && <StatusBadge status="Urgent" />}
                         {r.originSiteName && r.originSiteId !== config.siteId && (
-                          <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-800">
+                          <span className="rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
                             From: {r.originSiteName}
                           </span>
                         )}
@@ -166,7 +166,7 @@ export function ApprovalsPage() {
                     <div className="overflow-hidden rounded-lg border">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-muted/50">
+                          <TableRow>
                             <TableHead>Item</TableHead>
                             <TableHead className="text-right">Asked for</TableHead>
                             {gives(r) && !sendOnly && <TableHead className="text-right">In stock</TableHead>}
@@ -249,7 +249,7 @@ export function ApprovalsPage() {
         <Card className="py-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow>
                 <TableHead className="pl-4">Request</TableHead>
                 <TableHead>What</TableHead>
                 <TableHead>Asked by</TableHead>
@@ -262,7 +262,7 @@ export function ApprovalsPage() {
               {history.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="pl-4 text-xs font-semibold">{r.code}</TableCell>
-                  <TableCell className="max-w-xs truncate">{requestSummary(r)}</TableCell>
+                  <TableCell className="max-w-xs whitespace-normal">{requestSummary(r)}</TableCell>
                   <TableCell>
                     <span>{r.requestedByName}</span>
                     {r.originSiteName && r.originSiteId !== config.siteId && (

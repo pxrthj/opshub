@@ -144,8 +144,8 @@ export function InventoryPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-xs">
-          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="bg-card pl-8" placeholder="Search for an item" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="bg-card pl-9" placeholder="Search for an item" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Select value={cat} onValueChange={setCat}>
           <SelectTrigger className="w-48 bg-card">
@@ -195,7 +195,7 @@ export function InventoryPage() {
         <Card className="py-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow>
                 {tableFields.map((f) => (
                   <TableHead key={f.key} className={f.type === "number" || f.type === "calculated" ? "text-right" : f.key === "name" ? "pl-4" : ""}>
                     {f.label}

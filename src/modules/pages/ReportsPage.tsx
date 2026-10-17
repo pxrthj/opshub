@@ -72,7 +72,7 @@ export function ReportsPage() {
         filename: `${config.slug}-${ids.length > 1 ? "all-reports" : ids[0]}-${stamp}.xlsx`,
         siteName: config.name,
         author: user?.name ?? "Plexus",
-        color: config.theme.primary,
+        color: "#171717",
       })
       toast.success("Excel file downloaded", { description: `${sets.map((s) => `${s.label} (${s.rows.length} rows)`).join(", ")}` })
     } catch (e) {
@@ -139,7 +139,7 @@ export function ReportsPage() {
           <CardContent className="space-y-2">
             {datasets.map((d) => (
               <div key={d.id} className="flex items-center gap-3 rounded-lg border px-3 py-2.5">
-                <FileSpreadsheet className="size-5 shrink-0 text-emerald-600" />
+                <FileSpreadsheet className="size-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{d.label}</p>
                   <p className="text-xs text-muted-foreground">{d.desc}</p>
@@ -208,7 +208,7 @@ export function ReportsPage() {
               <CardTitle>Import preview — {parsed.fileName}</CardTitle>
               <CardDescription>
                 Sheet "{parsed.sheetName}": {preview.length} rows · <span className="text-emerald-700">{creates} new</span> ·{" "}
-                <span className="text-sky-700">{updates} updates</span> · <span className={bad ? "font-semibold text-red-600" : ""}>{bad} with errors</span>
+                <span className="text-muted-foreground">{updates} updates</span> · <span className={bad ? "font-semibold text-red-600" : ""}>{bad} with errors</span>
                 {parsed.missingColumns.length > 0 && <> · missing columns: {parsed.missingColumns.join(", ")}</>}
               </CardDescription>
             </div>

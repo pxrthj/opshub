@@ -25,6 +25,7 @@ import { cn, formatDateTime } from "@/lib/utils"
 import { DynamicForm } from "@/renderer/DynamicForm"
 import { formatFieldValue, requestSummary } from "@/lib/format"
 import { requestStatusLabel } from "@/lib/requestFlow"
+import { RequestRoute } from "@/components/RequestRoute"
 
 const STATUSES: ("All" | RequestStatus)[] = ["All", "Pending", "Approved", "Assigned", "Rejected"]
 
@@ -84,7 +85,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
     setBusy(true)
     try {
       await siteApi.post<MaterialRequest>("requests", body)
-      toast.success("Your request was sent", { description: wf.stockSourceSiteId && type === "material" ? "Your manager will look at it first." : "A manager will look at it soon." })
+      toast.success("Your request was sent", { description: wf.stockSourceSiteId && type === "material" ? `It is with your manager now. If it is fine, they send it to ${inv?.sourceName ?? "the supplying office"}.` : "It is with your manager now." })
       reset()
       onOpenChange(false)
       onCreated()
@@ -103,18 +104,22 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
         <DialogHeader>
           <DialogTitle>New request</DialogTitle>
           <DialogDescription>
-            {type === "material" ? wf.stockSourceSiteId ? `Your manager will check this first. If it is fine, they send it on to ${inv?.sourceName ?? "the store"}, whose manager decides.` : "A manager will look at this and decide." : "Send in a meter that is not working."}
+            {type === "material" ? "Ask for items from stock." : "Send in a meter that is not working."} You only ever ask your own manager. They decide, or pass it on.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
+          <div className="space-y-1.5 rounded-lg bg-muted/50 p-3">
+            <p className="text-xs font-medium text-muted-foreground">Where this request goes</p>
+            <RequestRoute officeName={config.name} supplierName={type === "material" && wf.stockSourceSiteId ? (inv?.sourceName ?? "the supplying office") : null} />
+          </div>
           {wf.allowMaterialRequests && wf.allowRepairRequests && (
             <Tabs value={type} onValueChange={(v) => setType(v as "material" | "repair")}>
               <TabsList>
                 <TabsTrigger value="material">
-                  <Package /> Material
+                  <Package /> Items from stock
                 </TabsTrigger>
                 <TabsTrigger value="repair">
-                  <Wrench /> Repair job
+                  <Wrench /> Repair a meter
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -230,6 +235,8 @@ export function RequestsPage() {
   const list = useMemo(() => (data ?? []).filter((r) => status === "All" || r.status === status), [data, status])
   const counts = useMemo(() => Object.fromEntries(STATUSES.map((s) => [s, (data ?? []).filter((r) => s === "All" || r.status === s).length])), [data])
   const canRequest = config.workflow.allowMaterialRequests || config.workflow.allowRepairRequests
+  const supplierId = config.workflow.stockSourceSiteId
+  const { data: stockInfo } = useAsync(() => (supplierId && canRequest ? siteApi.get<{ sourceName: string }>("inventory") : Promise.resolve(null)), [supplierId])
   const hasApproval = config.modules.includes("approval")
 
   return (
@@ -246,6 +253,17 @@ export function RequestsPage() {
           )
         }
       />
+      {canRequest && !isManager && (
+        <Card className="mb-4 gap-2 p-4">
+          <p className="text-sm font-medium">How a request travels</p>
+          <RequestRoute officeName={config.name} supplierName={config.workflow.allowMaterialRequests ? (stockInfo?.sourceName ?? (supplierId ? "the supplying office" : null)) : null} />
+          <p className="text-xs text-muted-foreground">
+            {supplierId && config.workflow.allowMaterialRequests
+              ? "Items come from another office, so your manager sends your request there. Repairs stay in your own office. You never contact the other office yourself."
+              : "Your manager decides on your request."}
+          </p>
+        </Card>
+      )}
       {!hasApproval && (
         <Alert className="mb-4">
           <Info />
@@ -290,7 +308,7 @@ export function RequestsPage() {
         <Card className="py-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow>
                 <TableHead className="pl-4">Request</TableHead>
                 <TableHead>What</TableHead>
                 <TableHead>What for</TableHead>
@@ -309,12 +327,12 @@ export function RequestsPage() {
                     <div className="text-xs font-semibold">{r.code}</div>
                     <div className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</div>
                     {r.targetSiteName && r.targetSiteId !== config.siteId && (
-                      <span className="mt-0.5 inline-block rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+                      <span className="mt-0.5 inline-block rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         To: {r.targetSiteName}
                       </span>
                     )}
                     {r.originSiteName && r.originSiteId !== config.siteId && (
-                      <span className="mt-0.5 inline-block rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-700">
+                      <span className="mt-0.5 inline-block rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         From: {r.originSiteName}
                       </span>
                     )}
@@ -325,7 +343,7 @@ export function RequestsPage() {
                       {requestSummary(r)}
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[220px] truncate text-muted-foreground" title={r.purpose}>
+                  <TableCell className="max-w-64 whitespace-normal text-muted-foreground">
                     {r.purpose}
                   </TableCell>
                   {extraFields.map((f) => (
@@ -333,9 +351,9 @@ export function RequestsPage() {
                   ))}
                   {isManager && <TableCell>{r.requestedByName}</TableCell>}
                   <TableCell>
-                    <StatusBadge status={r.status} label={requestStatusLabel(r) ?? undefined} />
+                    <StatusBadge status={r.status} label={requestStatusLabel(r, { siteId: config.siteId, isManager }) ?? undefined} />
                   </TableCell>
-                  <TableCell className="max-w-[240px] text-xs whitespace-normal text-muted-foreground">
+                  <TableCell className="max-w-64 text-xs whitespace-normal text-muted-foreground">
                     {r.decidedBy ? (
                       <>
                         <span className="font-medium text-foreground">{r.decidedBy}</span>

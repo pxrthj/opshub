@@ -63,7 +63,7 @@ export function AssignmentsPage() {
             {awaiting.map((r) => (
               <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-3 py-2">
                 <span className="text-xs font-semibold">{r.code}</span>
-                <span className="min-w-0 flex-1 truncate text-sm">
+                <span className="min-w-0 flex-1 text-sm">
                   {requestSummary(r)} <span className="text-muted-foreground">· {r.requestedByName}</span>
                 </span>
                 {errors[r.id] && <span className="w-full text-xs text-red-600 sm:order-last">{errors[r.id]}</span>}
@@ -78,8 +78,8 @@ export function AssignmentsPage() {
 
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-xs">
-          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="bg-card pl-8" placeholder="Search by name or item" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="bg-card pl-9" placeholder="Search by name or item" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <span className="text-sm text-muted-foreground">{list.length} assignments</span>
       </div>
@@ -92,7 +92,7 @@ export function AssignmentsPage() {
         <Card className="py-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow>
                 <TableHead className="pl-4">Number</TableHead>
                 <TableHead>Given to</TableHead>
                 <TableHead>Item</TableHead>

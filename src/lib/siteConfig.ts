@@ -158,7 +158,6 @@ export function connectionError(
 export interface ConfigDiff {
   added: ModuleId[]
   removed: ModuleId[]
-  themeChanged: boolean
   fieldsChanged: ModuleId[]
   workflowChanged: boolean
   nameChanged: boolean
@@ -173,7 +172,6 @@ export function diffConfigs(a: SiteConfig, b: SiteConfig): ConfigDiff {
   return {
     added,
     removed,
-    themeChanged: JSON.stringify(a.theme) !== JSON.stringify(b.theme),
     fieldsChanged,
     workflowChanged: JSON.stringify(a.workflow) !== JSON.stringify(b.workflow),
     nameChanged: a.name !== b.name,
@@ -186,7 +184,6 @@ export function summarizeDiff(d: ConfigDiff): string {
   if (d.removed.length) parts.push(`Removed ${d.removed.map((m) => getModuleDef(m).name).join(", ")}`)
   if (d.fieldsChanged.length) parts.push(`Changed the form fields of ${d.fieldsChanged.map((m) => getModuleDef(m).short).join(", ")}`)
   if (d.workflowChanged) parts.push("Options changed")
-  if (d.themeChanged) parts.push("Look changed")
   if (d.nameChanged) parts.push("Office renamed")
   return parts.join("; ") || "Nothing changed"
 }

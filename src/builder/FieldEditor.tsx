@@ -30,7 +30,6 @@ function OptionsInput({ options, onCommit }: { options: string[]; onCommit: (o: 
   const commit = () => onCommit(text.split(",").map((s) => s.trim()).filter(Boolean))
   return (
     <Input
-      className="h-7 text-xs"
       value={text}
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
@@ -68,9 +67,9 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
         return (
           <div key={f.key + i} className={cn("space-y-2 rounded-lg border bg-card p-2.5", formulaErr && "border-destructive")}>
             <div className="flex items-center gap-1.5">
-              <Input className="h-7 flex-1 text-sm" value={f.label} onChange={(e) => update(i, { label: e.target.value })} aria-label="Field name" />
+              <Input className="flex-1" value={f.label} onChange={(e) => update(i, { label: e.target.value })} aria-label="Field name" />
               <Select value={f.type} disabled={f.builtin} onValueChange={(v) => update(i, { type: v as FieldType, ...(v === "calculated" && !f.formula ? { formula: "0" } : {}), ...(v === "select" && !f.options ? { options: ["Option A"] } : {}) })}>
-                <SelectTrigger size="sm" className="w-28">
+                <SelectTrigger className="w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -107,7 +106,7 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
                 <div className="relative">
                   <Calculator className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    className="h-7 pl-7 text-xs"
+                    className="pl-8"
                     value={f.formula ?? ""}
                     onChange={(e) => update(i, { formula: e.target.value })}
                     placeholder="For example: qty * unitPrice"
@@ -129,9 +128,9 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
         )
       })}
       <div className="flex items-center gap-1.5 rounded-lg border border-dashed p-2">
-        <Input className="h-7 flex-1 text-sm" placeholder="Name of a new field" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+        <Input className="flex-1" placeholder="Name of a new field" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
         <Select value={newType} onValueChange={(v) => setNewType(v as FieldType)}>
-          <SelectTrigger size="sm" className="w-28">
+          <SelectTrigger className="w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

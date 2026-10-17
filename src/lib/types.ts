@@ -36,16 +36,6 @@ export interface FieldDef {
   min?: number
 }
 
-export type SidebarStyle = "solid" | "light" | "tinted"
-
-export interface SiteTheme {
-  primary: string // hex
-  accent: string // hex
-  background: string // hex
-  radius: number // rem
-  sidebar: SidebarStyle
-}
-
 export interface SitePage {
   id: string
   moduleId: ModuleId
@@ -83,7 +73,6 @@ export interface SiteConfig {
   slug: string
   name: string
   description: string
-  theme: SiteTheme
   modules: ModuleId[]
   pages: SitePage[]
   roles: Role[]
@@ -377,7 +366,6 @@ export interface GoodsMovementTrail {
   siteId: string
   siteName: string
   siteSlug: string
-  siteColor: string
   sourceSiteId: string
   sourceSiteName: string
   sourceTier: SupplyChainTier

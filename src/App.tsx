@@ -2,7 +2,6 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "rea
 import { Spinner } from "@/components/ui/spinner"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { ThemeScope } from "@/components/ThemeScope"
 import { TopBar } from "@/components/TopBar"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import { HubProvider } from "@/context/HubContext"
@@ -19,7 +18,7 @@ import { DeployHistoryPage } from "@/builder/DeployHistoryPage"
 
 function FullScreenLoader() {
   return (
-    <div className="flex h-screen items-center justify-center text-slate-500">
+    <div className="flex h-screen items-center justify-center text-muted-foreground">
       <Spinner className="mr-2 size-5" /> Loading Plexus…
     </div>
   )
@@ -42,14 +41,12 @@ function ProtectedShell() {
   )
 }
 
-/** Hub pages use the neutral OpsHub theme. */
+/** Hub pages: one centred column. */
 function HubLayout() {
   return (
-    <ThemeScope>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
-        <Outlet />
-      </main>
-    </ThemeScope>
+    <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+      <Outlet />
+    </main>
   )
 }
 

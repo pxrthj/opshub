@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link, NavLink, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Blocks, Check, ChevronsUpDown, LayoutGrid, LogOut, Menu, RotateCcw, Truck, Users, Workflow } from "lucide-react"
+import { Blocks, Building2, Check, ChevronsUpDown, LayoutGrid, LogOut, Menu, RotateCcw, Truck, Users, Workflow } from "lucide-react"
 import { api } from "@/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -41,13 +41,9 @@ export function SiteSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-36 sm:w-52 justify-between">
+        <Button variant="outline" className="w-40 justify-between sm:w-52">
           <span className="flex min-w-0 items-center gap-2">
-            {current ? (
-              <span className="size-3 shrink-0 rounded-full ring-2 ring-background" style={{ background: current.config.theme.primary }} />
-            ) : (
-              <LayoutGrid className="text-muted-foreground" />
-            )}
+            {current ? <Building2 className="text-muted-foreground" /> : <LayoutGrid className="text-muted-foreground" />}
             <span className="truncate text-sm">{current ? current.config.name : "Home"}</span>
           </span>
           <ChevronsUpDown className="text-muted-foreground shrink-0" />
@@ -62,7 +58,7 @@ export function SiteSwitcher() {
         <DropdownMenuSeparator />
         {sites.map((s) => (
           <DropdownMenuItem key={s.config.siteId} onClick={() => navigate(`/s/${s.config.slug}`)} className="py-2">
-            <span className="size-3 shrink-0 rounded-full" style={{ background: s.config.theme.primary }} />
+            <Building2 className="text-muted-foreground" />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-medium">{s.config.name}</span>
               <span className="text-xs text-muted-foreground">{s.role}</span>
@@ -93,7 +89,7 @@ function UserMenu() {
             <Avatar>
               <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">{initials(user.name)}</AvatarFallback>
             </Avatar>
-            <span className="hidden flex-col leading-tight md:flex">
+            <span className="hidden flex-col leading-tight lg:flex">
               <span className="text-sm font-medium">{user.name}</span>
               <span className="text-xs font-normal text-muted-foreground">{current ? `${current.role} · ${current.config.name}` : user.title}</span>
             </span>
@@ -156,7 +152,7 @@ export function TopBar() {
         <Separator orientation="vertical" className="mx-1 h-6!" />
         <SiteSwitcher />
         {/* Mobile Navigation Dropdown */}
-        <div className="flex items-center md:hidden">
+        <div className="flex items-center xl:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Open navigation menu">
@@ -196,7 +192,7 @@ export function TopBar() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <nav className="ml-2 hidden items-center gap-1 md:flex">
+        <nav className="ml-2 hidden items-center gap-1 xl:flex">
           <NavLink to="/" end className={link}>
             <LayoutGrid /> Home
           </NavLink>

@@ -33,7 +33,7 @@ export function StatCard({
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{value}</p>
-          {hint && <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>}
+          {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
         </div>
         <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", tones[tone])}>
           <Icon className="size-4" />

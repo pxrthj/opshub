@@ -82,7 +82,7 @@ function edge(source: string, target: string): CanvasEdge {
   return { id: `e_${source}_${target}`, source, target }
 }
 
-function baseConfig(partial: Pick<SiteConfig, "siteId" | "slug" | "name" | "description" | "theme" | "workflow">): SiteConfig {
+function baseConfig(partial: Pick<SiteConfig, "siteId" | "slug" | "name" | "description" | "workflow">): SiteConfig {
   return { ...partial, modules: [...CORE_MODULES], pages: [], roles: [], fields: {}, canvas: { nodes: [], edges: [] } }
 }
 
@@ -92,7 +92,6 @@ const centralStores = buildConfigFromCanvas(
     slug: "central-stores",
     name: "Central Stores",
     description: "Keeps the main stock of meters, cables and spares, and supplies the other offices.",
-    theme: { primary: "#1e40af", accent: "#dbeafe", background: "#f4f7fd", radius: 0.4, sidebar: "solid" },
     workflow: {
       stockSourceSiteId: null,
       autoAssignOnApproval: true,
@@ -113,7 +112,6 @@ const serviceCentre = buildConfigFromCanvas(
     slug: "service-centre",
     name: "Service Centre",
     description: "Repairs broken meters and asks Distribution for what it needs.",
-    theme: { primary: "#ea580c", accent: "#ffedd5", background: "#fffaf5", radius: 0.9, sidebar: "light" },
     workflow: {
       stockSourceSiteId: SITE_IDS.distribution,
       autoAssignOnApproval: true,
@@ -139,7 +137,6 @@ const distribution = buildConfigFromCanvas(
     slug: "distribution",
     name: "Distribution",
     description: "Gives out stock to field teams and the Service Centre, and orders more from Central Stores.",
-    theme: { primary: "#15803d", accent: "#dcfce7", background: "#f5fbf6", radius: 0.65, sidebar: "tinted" },
     workflow: {
       stockSourceSiteId: SITE_IDS.central,
       autoAssignOnApproval: true,

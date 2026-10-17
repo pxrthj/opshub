@@ -76,7 +76,7 @@ export function ReturnsPage() {
                   <div key={r.id} className="flex items-center gap-3 rounded-lg border px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{r.meterId}</p>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {r.code} · {r.meterType} · fixed by {r.technician || "—"}
                       </p>
                     </div>
@@ -99,7 +99,7 @@ export function ReturnsPage() {
         <Card className="py-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow>
                 <TableHead className="pl-4">Date</TableHead>
                 <TableHead>From</TableHead>
                 <TableHead>Item</TableHead>

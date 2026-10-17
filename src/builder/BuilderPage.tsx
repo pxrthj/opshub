@@ -36,7 +36,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AccessDenied } from "@/components/AccessDenied"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
-import { ThemeScope } from "@/components/ThemeScope"
 import { useHub } from "@/context/HubContext"
 import { fieldListErrors } from "@/lib/fields"
 import { buildConfigFromCanvas, connectionError, diffConfigs, summarizeDiff, validateCanvas } from "@/lib/siteConfig"
@@ -52,8 +51,8 @@ import { SettingsPanel } from "./SettingsPanel"
 const NODE_TYPES = { module: ModuleNode }
 const DND_TYPE = "application/opshub-module"
 
-function toFlowNodes(nodes: CanvasNode[], accent: string): ModuleFlowNode[] {
-  return nodes.map((n) => ({ id: n.id, type: "module", position: { x: n.x, y: n.y }, data: { moduleId: n.moduleId, issues: [], accent } }))
+function toFlowNodes(nodes: CanvasNode[]): ModuleFlowNode[] {
+  return nodes.map((n) => ({ id: n.id, type: "module", position: { x: n.x, y: n.y }, data: { moduleId: n.moduleId, issues: [] } }))
 }
 function toFlowEdges(edges: CanvasEdge[]): Edge[] {
   return edges.map((e) => ({ id: e.id, source: e.source, target: e.target }))
@@ -109,8 +108,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
   const [builder, setBuilder] = useState(initial)
   const base = initial.draft ?? initial.live
   const [config, setConfig] = useState<SiteConfig>(base)
-  const accent = config.theme.primary
-  const [nodes, setNodes, onNodesChange] = useNodesState<ModuleFlowNode>(toFlowNodes(base.canvas.nodes, accent))
+  const [nodes, setNodes, onNodesChange] = useNodesState<ModuleFlowNode>(toFlowNodes(base.canvas.nodes))
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(toFlowEdges(base.canvas.edges))
   const [busy, setBusy] = useState<null | "save" | "preview" | "publish" | "discard">(null)
   const [presetToApply, setPresetToApply] = useState<(typeof PRESETS)[number] | null>(null)
@@ -165,8 +163,8 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
   )
 
   const displayNodes = useMemo(
-    () => nodes.map((n) => ({ ...n, data: { ...n.data, accent, issues: issues.filter((i) => i.nodeId === n.id).map((i) => i.message) } })),
-    [nodes, issues, accent],
+    () => nodes.map((n) => ({ ...n, data: { ...n.data, issues: issues.filter((i) => i.nodeId === n.id).map((i) => i.message) } })),
+    [nodes, issues],
   )
   const displayEdges = useMemo(
     () =>
@@ -174,10 +172,10 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
         ...e,
         type: "smoothstep",
         animated: true,
-        style: { stroke: e.selected ? "var(--foreground)" : accent, strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: accent },
+        style: { stroke: e.selected ? "var(--primary)" : "var(--muted-foreground)", strokeWidth: e.selected ? 2.5 : 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: e.selected ? "var(--primary)" : "var(--muted-foreground)" },
       })),
-    [edges, accent],
+    [edges],
   )
 
   // ------------------------------------------------------------ canvas interactions
@@ -206,13 +204,13 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       }
       const pos = position ?? { x: 80 + (nodes.length % 4) * 70, y: 380 + (nodes.length % 3) * 40 }
       const id = `n_${moduleId}_${Date.now().toString(36).slice(-5)}`
-      setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { id, type: "module", position: pos, data: { moduleId, issues: [], accent }, selected: true }])
+      setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { id, type: "module", position: pos, data: { moduleId, issues: [] }, selected: true }])
       const missing = def.requires.filter((r) => !(Array.isArray(r) ? r.some((x) => onCanvas.has(x)) : onCanvas.has(r)))
       toast.info(`Added ${def.name}`, {
         description: missing.length ? `Link it after ${missing.map(requirementLabel).join(" or ")}.` : "Now link it to the feature before it.",
       })
     },
-    [nodes, setNodes, accent, onCanvas],
+    [nodes, setNodes, onCanvas],
   )
 
   function onDrop(e: DragEvent) {
@@ -224,7 +222,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
 
   function applyPreset(p: (typeof PRESETS)[number]) {
     const inst = instantiatePreset(p)
-    setNodes(toFlowNodes(inst.nodes, accent))
+    setNodes(toFlowNodes(inst.nodes))
     setEdges(toFlowEdges(inst.edges))
     setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50)
     toast.success(`Template “${p.name}” is on the board`, { description: `${inst.nodes.length} linked features were added.` })
@@ -303,7 +301,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       const next = await api.del<BuilderState>(built.siteId, "builder/draft")
       setBuilder(next)
       setConfig(next.live)
-      setNodes(toFlowNodes(next.live.canvas.nodes, next.live.theme.primary))
+      setNodes(toFlowNodes(next.live.canvas.nodes))
       setEdges(toFlowEdges(next.live.canvas.edges))
       setSavedPrint(fingerprint(buildConfigFromCanvas(next.live, next.live.canvas.nodes, next.live.canvas.edges)))
       toast.success(`Back to the live version (${next.liveVersion})`)
@@ -319,7 +317,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
   const paletteGroups = ["Stores", "Workflow", "Field", "Service", "Insights"] as const
 
   return (
-    <ThemeScope theme={config.theme}>
+    <>
       <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
         {/* ------------------------------------------------ toolbar */}
         <div className="flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2">
@@ -328,7 +326,6 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               <ArrowLeft />
             </Link>
           </Button>
-          <span className="size-3 rounded-full" style={{ background: accent }} />
           <div className="mr-2">
             <p className="text-sm leading-tight font-semibold">{config.name || "Untitled office"}</p>
             <p className="text-xs text-muted-foreground">
@@ -430,12 +427,12 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                         title={m.description}
                       >
                         <GripVertical className="size-3.5 shrink-0 text-muted-foreground/50" />
-                        <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", used && "bg-muted text-muted-foreground")} style={used ? undefined : { background: `${accent}18`, color: accent }}>
+                        <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", used ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary")} >
                           <m.icon className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm leading-tight font-medium">{m.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{m.requires.length ? `needs ${m.requires.map(requirementLabel).join(" + ")}` : "can go first"}</p>
+                          <p className="text-sm leading-tight font-medium">{m.name}</p>
+                          <p className="text-xs text-muted-foreground">{m.requires.length ? `needs ${m.requires.map(requirementLabel).join(" + ")}` : "can go first"}</p>
                         </div>
                         {used ? (
                           <CheckCircle2 className="size-4 shrink-0 text-emerald-700" />
@@ -471,7 +468,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
             >
               <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="var(--border)" />
               <Controls showInteractive={false} />
-              <MiniMap pannable zoomable nodeColor={(n) => ((n.data as { issues?: string[] }).issues?.length ? "var(--destructive)" : accent)} className="!rounded-lg !border" />
+              <MiniMap pannable zoomable nodeColor={(n) => ((n.data as { issues?: string[] }).issues?.length ? "var(--destructive)" : "var(--primary)")} className="!rounded-lg !border" />
             </ReactFlow>
             {nodes.length === 0 && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -542,6 +539,6 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={diffSummary} />
         </div>
       </ConfirmDialog>
-    </ThemeScope>
+    </>
   )
 }

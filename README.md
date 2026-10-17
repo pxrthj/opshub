@@ -1,16 +1,16 @@
 # OpsHub (Plexus) — one app, many offices
 
 A clickable prototype for a hackathon. One codebase runs several **offices** (sites) for a made-up business
-group. Each office has its own colours, menu, pages and data, and all of them are drawn by the same code from a
-JSON setup. An Admin sets an office up by dragging features onto a board.
+group. Each office has its own menu, pages and data, and all of them are drawn by the same code from a
+JSON setup, in one shared look. An Admin sets an office up by dragging features onto a board.
 
-| Office | Address | Look | Features switched on |
-|---|---|---|---|
-| Central Stores | `/s/central-stores` | blue | Stock, Charts, Excel files |
-| Service Centre | `/s/service-centre` | orange | Requests, Approvals, Meter repairs, Giving back |
-| Distribution | `/s/distribution` | green | Requests, Approvals, Giving out, My items, Usage |
+| Office | Address | Features switched on |
+|---|---|---|
+| Central Stores | `/s/central-stores` | Stock, Charts, Excel files |
+| Service Centre | `/s/service-centre` | Requests, Approvals, Meter repairs, Giving back |
+| Distribution | `/s/distribution` | Requests, Approvals, Giving out, My items, Usage |
 
-There is **no backend** in this folder. Data lives in the browser (`localStorage`, key `opshub.db.v7`) and survives a
+There is **no backend** in this folder. Data lives in the browser (`localStorage`, key `opshub.db.v8`) and survives a
 refresh. Use **your name (top right) → Start over with sample data** to restore it. The real backend version of this
 app lives in the separate `plexus` folder.
 
@@ -91,19 +91,18 @@ src/
   components/   shared pieces (top bar, notification bell, dialogs, badges) and components/ui (shadcn)
   context/      AuthContext, HubContext, SiteContext
   data/         seed.ts (sample data)
-  lib/          types, theme → CSS variables, safe formula parser, field checks, format helpers, Excel
+  lib/          types, safe formula parser, field checks, format helpers, Excel
 ```
 
-- **Config-driven.** An office is `{ siteId, slug, name, theme, modules, pages, roles, fields, workflow, canvas }`.
-  `SiteRenderer` turns that into the theme, the menu and the pages. The board is the source of truth: saving derives the
+- **Config-driven.** An office is `{ siteId, slug, name, modules, pages, roles, fields, workflow, canvas }`.
+  `SiteRenderer` turns that into the menu and the pages. The board is the source of truth: saving derives the
   features, pages and default fields from the boxes on it.
 - **Every call is checked.** For `/api/:siteId/*` the pretend server checks, in order: signed in, office exists, the person
   has a role in *that* office (this is the office-to-office isolation), role is high enough, feature is switched on.
 - **All or nothing.** Giving out stock checks every line first, then lowers stock and creates the record in one step. If
   anything is short, nothing changes (`api/transactions.ts`, with the matching SQL in a comment).
 - **Safe formulas.** Calculated fields (like `qty * unitPrice`) go through a small parser in `lib/formula.ts`. No `eval`.
-- **Look.** The Hub uses plain shadcn neutral colours. Each office overrides colours, corner roundness and menu style from
-  its own theme. Only three status colours carry meaning: amber = waiting, green = good, red = a problem.
+- **Look.** Every office and every Hub page share one neutral look and one font (Geist) with a small text scale (12, 14, 16 and 24 px). Only three status colours carry meaning: amber = waiting, green = good, red = a problem.
 - **Versions.** Making a version live saves a numbered snapshot. History lists them and can go back to any one.
 
 ## Limits of this prototype

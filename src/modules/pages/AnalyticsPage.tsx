@@ -7,30 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PageHeader } from "@/components/PageHeader"
 import { useSite } from "@/context/SiteContext"
-import { mix } from "@/lib/theme"
 import type { AnalyticsData } from "@/lib/types"
 import { useAsync } from "@/lib/useAsync"
 import { formatINR } from "@/lib/utils"
-
-/** Second-series colour picked to stay distinguishable (incl. colour-blind) from the site's primary. */
-function secondSeries(primaryHex: string) {
-  const n = parseInt(primaryHex.replace("#", ""), 16)
-  const r = (n >> 16) / 255
-  const g = ((n >> 8) & 255) / 255
-  const b = (n & 255) / 255
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  let h = 0
-  if (max !== min) {
-    const d = max - min
-    h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
-    h *= 60
-    if (h < 0) h += 360
-  }
-  if (h >= 190 && h < 290) return "#d97706" // blue/indigo -> amber
-  if (h >= 80 && h < 190) return "#7c3aed" // green/teal -> violet
-  return "#2563eb" // warm -> blue
-}
 
 const AXIS = { fontSize: 12, fill: "#64748b" }
 const GRID = "#e2e8f0"
@@ -81,10 +60,11 @@ function SimpleTable({ head, rows }: { head: string[]; rows: (string | number)[]
 }
 
 export function AnalyticsPage() {
-  const { config, siteApi, changeTick } = useSite()
+  const { siteApi, changeTick } = useSite()
   const { data, loading } = useAsync(() => siteApi.get<AnalyticsData>("analytics"), [changeTick])
-  const colorA = mix(config.theme.primary, "#ffffff", 0.1)
-  const colorB = secondSeries(config.theme.primary)
+  // One neutral palette for every office: dark for the main series, grey for the second.
+  const colorA = "var(--primary)"
+  const colorB = "var(--muted-foreground)"
 
   return (
     <div>
@@ -170,7 +150,7 @@ export function AnalyticsPage() {
               ].map(([k, v]) => (
                 <Card key={String(k)} size="sm" className="gap-1 px-3">
                   <CardDescription className="text-xs">{k}</CardDescription>
-                  <p className="text-xl font-semibold tabular-nums">{v}</p>
+                  <p className="text-2xl font-semibold tabular-nums">{v}</p>
                 </Card>
               ))}
             </CardContent>

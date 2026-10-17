@@ -9,7 +9,6 @@ import { getModuleDef, PORT_LABELS } from "@/modules/definitions"
 export type ModuleNodeData = {
   moduleId: ModuleId
   issues: string[]
-  accent: string
 }
 export type ModuleFlowNode = Node<ModuleNodeData, "module">
 
@@ -21,10 +20,7 @@ export const ModuleNode = memo(function ModuleNode({ data, selected }: NodeProps
   const bad = data.issues.length > 0
 
   return (
-    <Card
-      className={cn("relative w-56 gap-0 py-0 shadow-sm", selected && "ring-2 ring-primary", bad && "ring-2 ring-destructive")}
-      style={{ ["--node-accent" as string]: data.accent }}
-    >
+    <Card className={cn("relative w-56 gap-0 py-0 shadow-sm", selected && "ring-2 ring-primary", bad && "ring-2 ring-destructive")}>
       {def.inputs.length > 0 && (
         <Handle
           type="target"
@@ -35,7 +31,7 @@ export const ModuleNode = memo(function ModuleNode({ data, selected }: NodeProps
       )}
 
       <div className="flex items-center gap-2.5 border-b px-3 py-2.5">
-        <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-md text-white", bad && "!bg-destructive")} style={{ background: data.accent }}>
+        <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground", bad && "bg-destructive text-white")}>
           <def.icon className="size-4" />
         </div>
         <p className="min-w-0 flex-1 truncate text-sm font-medium">{def.name}</p>
@@ -60,8 +56,7 @@ export const ModuleNode = memo(function ModuleNode({ data, selected }: NodeProps
         <Handle
           type="source"
           position={Position.Right}
-          className={HANDLE}
-          style={{ background: data.accent }}
+          className={cn(HANDLE, "!bg-primary")}
           title={`Passes on: ${def.outputs.map((p) => PORT_LABELS[p]).join(", ")}`}
         />
       )}

@@ -99,8 +99,8 @@ export function RepairsPage() {
           </TabsList>
         </Tabs>
         <div className="relative w-full max-w-xs">
-          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="bg-card pl-8" placeholder="Search by meter number, fault or name" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="bg-card pl-9" placeholder="Search by meter number, fault or name" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
       {loading && !data ? (
@@ -111,7 +111,7 @@ export function RepairsPage() {
         <Card className="py-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow>
                 <TableHead className="pl-4">Repair</TableHead>
                 {tableFields.map((f) => (
                   <TableHead key={f.key}>{f.label}</TableHead>
@@ -130,11 +130,11 @@ export function RepairsPage() {
                     <div className="text-xs text-muted-foreground">upd {formatDate(r.updatedAt)}</div>
                   </TableCell>
                   {tableFields.map((f) => (
-                    <TableCell key={f.key} className={f.key === "meterId" ? "text-sm font-medium" : "max-w-[200px] text-sm whitespace-normal"}>
+                    <TableCell key={f.key} className={f.key === "meterId" ? "text-sm font-medium" : "max-w-52 text-sm whitespace-normal"}>
                       {f.key === "technician" && !r.technician ? <span className="text-muted-foreground italic">Nobody yet</span> : formatFieldValue(f, r[f.key])}
                     </TableCell>
                   ))}
-                  <TableCell className="max-w-[160px] text-sm whitespace-normal text-muted-foreground">{r.partsUsed || "—"}</TableCell>
+                  <TableCell className="max-w-40 text-sm whitespace-normal text-muted-foreground">{r.partsUsed || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
                       <StatusBadge status={r.status} />

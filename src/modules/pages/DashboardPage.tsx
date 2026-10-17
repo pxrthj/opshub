@@ -80,7 +80,7 @@ export function DashboardPage() {
         {requests.slice(0, 5).map((r) => (
           <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{r.purpose}</p>
+              <p className="text-sm font-medium">{r.purpose}</p>
               <p className="text-xs text-muted-foreground">
                 {r.requestedByName} · {formatDate(r.createdAt)}
               </p>
@@ -96,7 +96,7 @@ export function DashboardPage() {
         {low.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nothing is almost out.</p>}
         {low.slice(0, 6).map((i) => (
           <div key={i.id} className="flex items-center justify-between gap-3 py-1">
-            <span className="truncate text-sm">{i.name}</span>
+            <span className="text-sm">{i.name}</span>
             <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
               {i.qty} left · reorder at {i.reorderLevel}
             </span>
@@ -110,7 +110,7 @@ export function DashboardPage() {
         {repairs.slice(0, 5).map((r) => (
           <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
+              <p className="text-sm font-medium">
                 <span className="font-medium">{r.meterId}</span> · {r.fault}
               </p>
               <p className="text-xs text-muted-foreground">{r.technician || "Nobody yet"}</p>

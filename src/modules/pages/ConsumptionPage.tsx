@@ -50,7 +50,7 @@ export function ConsumptionPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/40">
+                <TableRow>
                   <TableHead className="pl-4">Date</TableHead>
                   <TableHead>Given out as</TableHead>
                   <TableHead>Item</TableHead>
@@ -83,7 +83,7 @@ export function ConsumptionPage() {
             {lines.map(({ a, l }) => (
               <div key={a.id + l.itemId}>
                 <div className="mb-1 flex justify-between gap-2 text-sm">
-                  <span className="truncate">
+                  <span>
                     <span className="text-xs text-muted-foreground">{a.code}</span> {l.itemName}
                     {isManager && <span className="text-xs text-muted-foreground"> · {a.assigneeName}</span>}
                   </span>
