@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Logo } from "@/components/Logo"
 import { useAuth } from "@/context/AuthContext"
 import { DEMO_PASSWORD } from "@/data/seed"
+import { supabase } from "@/lib/supabase"
 import { errorMessage } from "@/lib/useAsync"
 
 interface Account {
@@ -62,6 +63,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [busyAccount, setBusyAccount] = useState<string | null>(null)
+  const [sendingReset, setSendingReset] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const from = (location.state as { from?: string } | null)?.from
@@ -86,6 +88,28 @@ export function LoginPage() {
     }
   }
 
+  /** Emails a password-reset link. Supabase hands the email to the configured sender (the Minimoth hook), and answers
+   *  with an error if that sender refuses it, so a success here means the email system accepted the message. */
+  async function sendReset() {
+    setError(null)
+    if (!email.trim()) {
+      setError("Type your email above first, then press “Forgot your password?”.")
+      return
+    }
+    setSendingReset(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      toast.success("Reset email requested", { description: "If that address has an account, a link is on its way." })
+    } catch (err) {
+      setError(`The email could not be sent: ${errorMessage(err)}`)
+    } finally {
+      setSendingReset(false)
+    }
+  }
+
   /** One click signs straight in as that account. */
   async function quickSignIn(a: Account) {
     setError(null)
@@ -103,7 +127,7 @@ export function LoginPage() {
     }
   }
 
-  const disabled = busy || !!busyAccount
+  const disabled = busy || !!busyAccount || sendingReset
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
@@ -134,6 +158,9 @@ export function LoginPage() {
                 {busy && <Spinner />}
                 Sign in
               </Button>
+              <button type="button" onClick={sendReset} disabled={disabled} className="w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50">
+                {sendingReset ? "Sending…" : "Forgot your password?"}
+              </button>
             </form>
           </CardContent>
         </Card>
