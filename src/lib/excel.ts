@@ -48,7 +48,7 @@ export async function exportWorkbook(datasets: ExportDataset[], opts: { filename
     ["Unit", opts.siteName],
     ["Exported by", opts.author],
     ["Exported at", new Date().toLocaleString("en-IN")],
-    ["Company", "MahaPower Utility"],
+    ["Company", "Electrolyte Solutions"],
   ])
   info.getColumn(1).width = 16
   info.getColumn(2).width = 44
@@ -289,8 +289,8 @@ export async function downloadTemplate(categories: string[]) {
           { key: "reorderLevel", header: "Reorder Level", width: 14 },
         ],
         rows: [
-          { name: "Single Phase Smart Meter", category: categories[0] ?? "Meters", unit: "Nos", qty: 520, unitPrice: 2400, reorderLevel: 100 },
-          { name: "Cable Tie 300 mm (pack of 100)", category: categories[categories.length - 1] ?? "Spares", unit: "Sets", qty: 60, unitPrice: 180, reorderLevel: 20 },
+          { name: "Electrolytic Capacitor 470µF 35V", category: categories[0] ?? "Capacitors", unit: "Nos", qty: 2000, unitPrice: 6, reorderLevel: 500 },
+          { name: "Solder Wire Sn63/Pb37 0.6 mm", category: categories[categories.length - 1] ?? "Consumables", unit: "Rolls", qty: 40, unitPrice: 780, reorderLevel: 15 },
         ],
       },
     ],

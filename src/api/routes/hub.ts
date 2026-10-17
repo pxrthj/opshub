@@ -215,7 +215,7 @@ register(
                 id: `rep-${rep.id}`,
                 priority: "medium",
                 category: "repair",
-                title: `Bench Assignment: Meter ${rep.meterId}`,
+                title: `Bench Assignment: Board ${rep.meterId}`,
                 message: `Fault: ${rep.fault} (Current status: ${rep.status}).`,
                 siteId,
                 siteName: cfg.name,
@@ -298,7 +298,7 @@ register(
                 id: `rep-mgr-${rep.id}`,
                 priority: "medium",
                 category: "repair",
-                title: `Repair Inflow: Meter ${rep.meterId}`,
+                title: `Repair Inflow: Board ${rep.meterId}`,
                 message: `Fault reported: ${rep.fault}. Awaiting technician.`,
                 siteId,
                 siteName: cfg.name,
@@ -519,10 +519,10 @@ register(
           const destTierNum = computeSiteTier(originSiteId, db.sites)
 
           const sourceTier: SupplyChainTier = (
-            srcTierNum === 1 ? "Tier 1: Central Store" : srcTierNum === 2 ? "Tier 2: Distribution Centre" : "Tier 3: Service Centre"
+            srcTierNum === 1 ? "Tier 1: Component Stores" : srcTierNum === 2 ? "Tier 2: Lab & Field Office" : "Tier 3: Sub-office"
           ) as SupplyChainTier
           const destinationTier: SupplyChainTier = (
-            destTierNum === 1 ? "Tier 1: Central Store" : destTierNum === 2 ? "Tier 2: Distribution Centre" : "Tier 3: Service Centre"
+            destTierNum === 1 ? "Tier 1: Component Stores" : destTierNum === 2 ? "Tier 2: Lab & Field Office" : "Tier 3: Sub-office"
           ) as SupplyChainTier
 
           let supplyChainFlow: SupplyChainFlow = "Tier 1 ➔ Tier 2"

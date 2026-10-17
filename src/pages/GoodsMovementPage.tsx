@@ -81,7 +81,7 @@ const EMPTY_STATS: GoodsMovementStats = {
 function itemsText(t: GoodsMovementTrail) {
   return t.type === "material"
     ? t.items.map((i) => `${i.qty} ${i.unit} ${i.itemName}`).join(", ")
-    : `${t.repair?.meterId} (${t.repair?.meterType ?? "Meter"})`
+    : `${t.repair?.meterId} (${t.repair?.meterType ?? "Board"})`
 }
 
 function Step({ title, when, children }: { title: string; when?: string; children: React.ReactNode }) {

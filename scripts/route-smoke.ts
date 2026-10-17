@@ -24,6 +24,9 @@ const rows: Record<string, any[]> = {
 }
 const centralRequests = p.requests.filter((r: any) => r.siteId === "cs-001" || (r.targetSiteId === "cs-001" && r.forwardedAt)).length
 const directory = p.sites.map((s: any) => ({ id: s.id, slug: s.slug, name: s.name }))
+const siteName = (id: string) => p.sites.find((s: any) => s.id === id).name
+const centralItems = p.inventory.filter((i: any) => i.siteId === "cs-001").length
+const rj1Cost = p.repairs.find((r: any) => r.id === "rj1").custom?.partsCost
 
 let me = uuid("u_admin")
 ;(supabase.auth as any).getSession = async () => ({ data: { session: { user: { id: me } } } })
@@ -55,24 +58,24 @@ await check("hub sites (admin sees 3, with stats)", () => api.raw.get<any[]>("/a
 await check("goods movement (admin)", () => api.raw.get<any>("/api/hub/goods-movement"), (v) => v.trails.length === p.requests.length || `trails ${v.trails.length} expected ${p.requests.length}`)
 await check("notifications (admin)", () => api.raw.get<any[]>("/api/hub/notifications"))
 await check("users list (super admin sees 12)", () => api.raw.get<any[]>("/api/hub/users"), (v) => v.length === 12 || `got ${v.length}`)
-await check("central inventory", () => api.get<any>("cs-001", "inventory"), (v) => v.items.length === 16 && !v.linked || `items ${v.items.length}`)
+await check("central inventory", () => api.get<any>("cs-001", "inventory"), (v) => v.items.length === centralItems && !v.linked || `items ${v.items.length} expected ${centralItems}`)
 await check("central audit log", () => api.get<any>("cs-001", "audit-log"), (v) => v.audits.length === 6 || `audits ${v.audits.length}`)
-await check("central requests (forwarded-in from Distribution)", () => api.get<any[]>("cs-001", "requests"), (v) => v.length === centralRequests || `got ${v.length} expected ${centralRequests}`)
+await check("central requests (incl. forwarded-in)", () => api.get<any[]>("cs-001", "requests"), (v) => v.length === centralRequests || `got ${v.length} expected ${centralRequests}`)
 await check("central analytics", () => api.get<any>("cs-001", "analytics"))
 await check("central export", () => api.get<any>("cs-001", "reports/export", { query: { dataset: "inventory" } }))
 await check("builder state (admin)", () => api.get<any>("sc-002", "builder"), (v) => v.versions.length === 1 && v.events.length === 1 || "versions/events")
 
 as("u_lineman")
-await check("member: hub sites = Distribution only", () => api.raw.get<any[]>("/api/hub/sites"), (v) => v.length === 1 && v[0].config.slug === "distribution" || `got ${v.length}`)
-await check("member: inventory is Central's list, linked", () => api.get<any>("ds-003", "inventory"), (v) => v.linked && v.sourceName === "Central Stores" || JSON.stringify([v.linked, v.sourceName]))
+await check("member: hub sites = own office only", () => api.raw.get<any[]>("/api/hub/sites"), (v) => v.length === 1 && v[0].config.siteId === "ds-003" || `got ${v.length}`)
+await check("member: inventory is Central's list, linked", () => api.get<any>("ds-003", "inventory"), (v) => v.linked && v.sourceName === siteName("cs-001") || JSON.stringify([v.linked, v.sourceName]))
 await check("member: my requests (5)", () => api.get<any[]>("ds-003", "requests"), (v) => v.length === 13 ? "sees all" : v.length >= 5 || `got ${v.length}`)
 await checkDenied("member: other office is forbidden", () => api.get<any>("cs-001", "inventory"), 403)
 await checkDenied("member: hub users forbidden", () => api.raw.get<any>("/api/hub/users"), 403)
 
 as("u_service_mgr")
-await check("service mgr: stock names of other office resolve", () => api.get<any>("sc-002", "inventory"), (v) => v.sourceName === "Distribution" || `sourceName=${v.sourceName}`)
-await check("service mgr: requests incl. cross-office labels", () => api.get<any[]>("sc-002", "requests"), (v) => v.some((r) => r.targetSiteName === "Distribution") || "no targetSiteName")
-await check("service mgr: repairs", () => api.get<any[]>("sc-002", "repairs"), (v) => v.length === 8 && v.find((r) => r.id === "rj1").partsCost === 420 || "custom fields lost")
+await check("service mgr: stock names of other office resolve", () => api.get<any>("sc-002", "inventory"), (v) => v.sourceName === siteName(p.sites.find((s: any) => s.id === "sc-002").config.workflow.stockSourceSiteId) || `sourceName=${v.sourceName}`)
+await check("service mgr: requests incl. cross-office labels", () => api.get<any[]>("sc-002", "requests"), (v) => v.some((r) => r.targetSiteName && r.targetSiteName !== siteName("sc-002")) || "no targetSiteName")
+await check("service mgr: repairs", () => api.get<any[]>("sc-002", "repairs"), (v) => v.length === 8 && v.find((r) => r.id === "rj1").partsCost === rj1Cost || "custom fields lost")
 
 as("u_engineer")
 await check("dist mgr: site admin dashboard", () => api.get<any>("ds-003", "dashboard/admin"))

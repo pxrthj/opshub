@@ -298,7 +298,7 @@ register(
     method: "GET",
     path: "/api/:siteId/requests",
     minRole: "Member",
-    // Approving offices (like Central Stores) have no Requests page of their own but must see requests sent to them.
+    // Approving offices (like Component Stores) have no Requests page of their own but must see requests sent to them.
     module: ["request", "approval"],
     handler: (ctx) => {
       const siteId = ctx.siteId
@@ -347,7 +347,7 @@ register(
       if (type === "material" && !wf.allowMaterialRequests) throw forbidden("Material requests are disabled on this site")
       if (type === "repair" && !wf.allowRepairRequests) throw forbidden("Repair jobs are disabled on this site")
 
-      // repair jobs describe themselves — default the purpose from the meter id
+      // repair jobs describe themselves — default the purpose from the board serial
       if (type === "repair" && !String(body.purpose ?? "").trim() && body.repair?.meterId)
         body.purpose = `Repair ${String(body.repair.meterId).trim().toUpperCase()}`
       const fields = fieldsFor(config, "request")
@@ -390,9 +390,9 @@ register(
         })
       } else {
         const r = body.repair ?? {}
-        if (!String(r.meterId ?? "").trim()) throw badRequest("Meter ID is required")
+        if (!String(r.meterId ?? "").trim()) throw badRequest("Board serial is required")
         if (!String(r.fault ?? "").trim()) throw badRequest("Fault is required")
-        req.repair = { meterId: String(r.meterId).trim().toUpperCase(), meterType: String(r.meterType || "Single Phase Smart Meter"), fault: String(r.fault) }
+        req.repair = { meterId: String(r.meterId).trim().toUpperCase(), meterType: String(r.meterType || "BLDC Fan Controller PCB"), fault: String(r.fault) }
         if (!req.purpose) req.purpose = `Repair ${req.repair.meterId}`
       }
 
@@ -619,14 +619,14 @@ register(
         if (!ctx.enabled.has("pcb-repair")) throw forbidden("PCB Repair is not enabled on this site")
         const job = d.repairs.find((r) => r.id === ctx.body.refId)
         if (!job) throw notFound("Repair job not found")
-        if (job.status !== "Fixed") throw conflict(`${job.code} is ${job.status} — only Fixed meters can be returned`)
+        if (job.status !== "Fixed") throw conflict(`${job.code} is ${job.status} — only Fixed boards can be returned`)
         if (job.returned) throw conflict(`${job.code} was already returned to stock`)
         const item = store.inventory.find((i) => i.name.toLowerCase() === job.meterType.toLowerCase())
         if (!item) throw conflict(`"${job.meterType}" is not an item in ${ctx.db.sites[stockSiteId].live.name}`)
         const oldQty = item.qty
         item.qty += 1
         item.updatedAt = now
-        pushAudit(ctx, item, "return", "qty", oldQty, item.qty, `Repaired meter returned to stock (${job.code})`, job.code)
+        pushAudit(ctx, item, "return", "qty", oldQty, item.qty, `Repaired board returned to stock (${job.code})`, job.code)
         job.returned = true
         job.updatedAt = now
         rec = { id: uid("rt"), source: "repair", refId: job.id, refCode: job.code, itemId: item.id, itemName: item.name, qty: 1, condition: "Repaired", stockSiteId, date: now, returnedBy: ctx.user!.name }
@@ -876,7 +876,7 @@ register(
               { metric: "Pending Requests", value: stats.pendingRequests, note: "Awaiting local action" },
               { metric: "Assignments Handed Out", value: stats.assignments, note: "Dispatched kits" },
               { metric: "Active Repairs", value: stats.openRepairs, note: "Received or on bench" },
-              { metric: "Fixed Repairs", value: stats.fixedRepairs, note: "Refurbished meters" },
+              { metric: "Fixed Repairs", value: stats.fixedRepairs, note: "Refurbished boards" },
               { metric: "Units Consumed in Field", value: stats.consumptionUnits, note: "Usage reported" },
               { metric: "Returned Units", value: stats.returnsCount, note: "Restocked units" },
             ],
@@ -1162,7 +1162,7 @@ register(
       for (const r of allRelevantRequests.filter((r) => needsMyManager(r, ctx.siteId))) {
         const action = managerAction(r, ctx.siteId)
         const sendOn = action === "send-on"
-        const itemsSummary = r.type === "repair" ? (r.repair?.meterId ?? "Meter") : r.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ")
+        const itemsSummary = r.type === "repair" ? (r.repair?.meterId ?? "Board") : r.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ")
         needsAttention.push({
           id: `na_req_${r.id}`,
           type: "approval",
@@ -1212,7 +1212,7 @@ register(
           needsAttention.push({
             id: `na_rep_${rep.id}`,
             type: "stuck_repair",
-            title: `Meter ${rep.meterId} in repair > 3 days`,
+            title: `Board ${rep.meterId} in repair > 3 days`,
             subtitle: `${rep.fault} · Technician: ${rep.technician || "Unassigned"}`,
             actionLabel: "Update repair",
             actionPath: "repairs",
@@ -1306,8 +1306,8 @@ register(
         activityEvents.push({
           id: `act_rep_${rep.id}`,
           timestamp: rep.updatedAt || rep.receivedAt,
-          actor: rep.technician || "Service team",
-          action: `updated meter ${rep.meterId} to`,
+          actor: rep.technician || "Repair lab",
+          action: `updated board ${rep.meterId} to`,
           target: rep.status,
           type: "repair",
           link: "repairs",

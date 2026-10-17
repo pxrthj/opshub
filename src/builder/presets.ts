@@ -45,8 +45,8 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "repair-shop",
-    name: "Meter Repair Shop",
-    description: "Send in meters, approve them, repair them and put fixed ones back.",
+    name: "PCB Repair Lab",
+    description: "Send in faulty boards, approve them, repair them and put repaired ones back.",
     nodes: [
       { key: "req", moduleId: "request", x: 40, y: 150 },
       { key: "apr", moduleId: "approval", x: 320, y: 150 },

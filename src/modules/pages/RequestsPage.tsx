@@ -36,7 +36,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
   const defaultType = wf.allowMaterialRequests ? "material" : "repair"
   const [type, setType] = useState<"material" | "repair">(defaultType)
   const [lines, setLines] = useState<Line[]>([{ itemId: "", qty: "" }])
-  const [repair, setRepair] = useState({ meterId: "", meterType: "Single Phase Smart Meter", fault: "" })
+  const [repair, setRepair] = useState({ meterId: "", meterType: "BLDC Fan Controller PCB", fault: "" })
   const [values, setValues] = useState<Record<string, unknown>>({ priority: "Normal" })
   const [errors, setErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
@@ -47,8 +47,8 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
   )
   const fields = fieldsFor(config, "request")
   const repairFields = fieldsFor(config, "pcb-repair")
-  const meterTypes = repairFields.find((f) => f.key === "meterType")?.options ?? ["Single Phase Smart Meter", "Three Phase Smart Meter"]
-  const faults = repairFields.find((f) => f.key === "fault")?.options ?? ["Display blank", "No communication (RF/GPRS)", "Relay stuck", "Burnt PCB"]
+  const meterTypes = repairFields.find((f) => f.key === "meterType")?.options ?? ["BLDC Fan Controller PCB", "Geyser Control PCB"]
+  const faults = repairFields.find((f) => f.key === "fault")?.options ?? ["No power / dead board", "IC / MCU failure", "Burnt component", "Relay failure"]
   const formFields = fields.filter((f) => !(type === "repair" && f.key === "purpose"))
 
   function reset() {
@@ -77,8 +77,8 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
       }
       body = { ...body, lines: clean.map((l) => ({ itemId: l.itemId, qty: Number(l.qty) })) }
     } else {
-      if (!repair.meterId.trim()) return setFormError("Meter ID is required")
-      if (!repair.fault) return setFormError("Pick what is wrong with the meter.")
+      if (!repair.meterId.trim()) return setFormError("Board serial is required")
+      if (!repair.fault) return setFormError("Pick what is wrong with the board.")
       body = { ...body, repair, purpose: `Repair ${repair.meterId.trim().toUpperCase()}` }
     }
     setBusy(true)
@@ -103,7 +103,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
         <DialogHeader>
           <DialogTitle>New request</DialogTitle>
           <DialogDescription>
-            {type === "material" ? "Ask for items from stock." : "Send in a meter that is not working."} You only ever ask your own manager. They decide, or pass it on.
+            {type === "material" ? "Ask for items from stock." : "Send in a faulty board for repair."} You only ever ask your own manager. They decide, or pass it on.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
@@ -114,7 +114,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
                   <Package /> Items from stock
                 </TabsTrigger>
                 <TabsTrigger value="repair">
-                  <Wrench /> Repair a meter
+                  <Wrench /> Repair a board
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -162,11 +162,11 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Meter number *</Label>
-                <Input placeholder="e.g. SM-PN-212345" value={repair.meterId} onChange={(e) => setRepair({ ...repair, meterId: e.target.value })} />
+                <Label>Board serial / QR *</Label>
+                <Input placeholder="e.g. BJ-BLDC-2412345" value={repair.meterId} onChange={(e) => setRepair({ ...repair, meterId: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Type of meter *</Label>
+                <Label>Product type *</Label>
                 <Select value={repair.meterType} onValueChange={(v) => setRepair({ ...repair, meterType: v })}>
                   <SelectTrigger className="w-full">
                     <SelectValue />

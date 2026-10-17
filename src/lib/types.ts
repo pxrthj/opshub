@@ -378,9 +378,9 @@ export type MovementStage =
   | "Returned / Restocked"
 
 export type SupplyChainTier =
-  | "Tier 1: Central Store"
-  | "Tier 2: Distribution Centre"
-  | "Tier 3: Service Centre"
+  | "Tier 1: Component Stores"
+  | "Tier 2: Lab & Field Office"
+  | "Tier 3: Sub-office"
 
 export type SupplyChainFlow = "Tier 1 ➔ Tier 2" | "Tier 2 ➔ Tier 3" | "Internal / Field"
 

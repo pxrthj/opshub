@@ -191,7 +191,7 @@ export function SiteAdminDashboard() {
         { metric: "Requests Dispatched in Period", value: data.kpis.periodRequests.assigned, context: "Materials issued" },
         { metric: "Requests Rejected in Period", value: data.kpis.periodRequests.rejected, context: "Declined" },
         { metric: "Units Issued in Period", value: data.kpis.periodItemsIssued.toLocaleString("en-IN"), context: "Material quantity handed out" },
-        { metric: "Meters in Repair", value: data.kpis.openRepairsCount, context: "Active bench repair jobs" },
+        { metric: "Boards in Repair", value: data.kpis.openRepairsCount, context: "Active bench repair jobs" },
       ],
     }
     await exportWidgetWorkbook(ds, { siteName: config.name, author: user?.name ?? "Admin" })
@@ -369,7 +369,7 @@ export function SiteAdminDashboard() {
           { metric: "Requests Dispatched", value: data.kpis.periodRequests.assigned, context: "Materials issued" },
           { metric: "Requests Rejected", value: data.kpis.periodRequests.rejected, context: "Declined" },
           { metric: "Units Issued in Period", value: data.kpis.periodItemsIssued.toLocaleString("en-IN"), context: "Material quantity handed out" },
-          { metric: "Meters in Repair", value: data.kpis.openRepairsCount, context: "Active bench repair jobs" },
+          { metric: "Boards in Repair", value: data.kpis.openRepairsCount, context: "Active bench repair jobs" },
           { metric: "Avg Approval Lead Time", value: `${data.leadTimes.avgApprovalHours} hrs`, context: "Request to approval" },
           { metric: "Avg Dispatch Lead Time", value: `${data.leadTimes.avgDispatchHours} hrs`, context: "Approval to issuance" },
         ],
@@ -653,10 +653,10 @@ export function SiteAdminDashboard() {
               />
             )}
 
-            {/* 6. Meters in repair */}
+            {/* 6. Boards in repair */}
             {has("pcb-repair") && (
               <StatCard
-                label="Meters in repair"
+                label="Boards in repair"
                 value={data.kpis.openRepairsCount}
                 hint={`${data.repairStages?.find((s) => s.stage === "Fixed")?.count ?? 0} fixed`}
                 icon={Wrench}
@@ -987,7 +987,7 @@ export function SiteAdminDashboard() {
             {/* Chart 6: Repair Pipeline Stages */}
             {has("pcb-repair") && data.repairStages && (
               <WidgetCard
-                title="Meter repair pipeline"
+                title="PCB repair pipeline"
                 description="Status distribution across technical service benches"
                 onExport={() => {
                   const ds: ExportDataset = {
@@ -995,7 +995,7 @@ export function SiteAdminDashboard() {
                     label: "Repair Stages",
                     columns: [
                       { header: "Pipeline Stage", key: "stage", width: 20 },
-                      { header: "Meter Count", key: "count", width: 14 },
+                      { header: "Board Count", key: "count", width: 14 },
                     ],
                     rows: (data.repairStages ?? []).map((s) => ({ stage: s.stage, count: s.count })),
                   }
@@ -1016,7 +1016,7 @@ export function SiteAdminDashboard() {
                     <Bar
                       isAnimationActive={false}
                       dataKey="count"
-                      name="Meters"
+                      name="Boards"
                       fill={COLOR_PRIMARY}
                       radius={[4, 4, 0, 0]}
                       maxBarSize={40}

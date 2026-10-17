@@ -74,7 +74,13 @@ registerFirst(
     auth: false,
     handler: async ({ body }) => {
       // The sample people were first published under @opshub.demo; both spellings reach the same account.
-      const email = String(body.email ?? "").trim().toLowerCase().replace("@opshub.demo", "@plexus.demo")
+      // Offices were renamed (Distribution → Field Service, Service Centre → PCB Repair Lab); old sample logins still work.
+      const email = String(body.email ?? "")
+        .trim()
+        .toLowerCase()
+        .replace("@opshub.demo", "@plexus.demo")
+        .replace(/^dist\.(admin|manager|member)@plexus\.demo$/, "field.$1@plexus.demo")
+        .replace(/^service\.(admin|manager|member)@plexus\.demo$/, "lab.$1@plexus.demo")
       const password = String(body.password ?? "")
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error || !data.user) throw unauthorized("Invalid email or password")
@@ -285,7 +291,7 @@ registerFirst(
     },
   },
 
-  // ---------------------------------------------------------------- meter repairs
+  // ---------------------------------------------------------------- PCB repairs
   {
     method: "POST",
     path: "/api/:siteId/repairs",

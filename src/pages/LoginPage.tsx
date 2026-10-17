@@ -27,27 +27,27 @@ const SAMPLE_PEOPLE: { group: string; people: Account[] }[] = [
     people: [{ email: "admin@plexus.demo", name: "Aarti Deshmukh", role: "Admin in every office" }],
   },
   {
-    group: "Central Stores",
+    group: "Component Stores",
     people: [
       { email: "stores.admin@plexus.demo", name: "Anil Joshi", role: "Admin" },
-      { email: "stores.manager@plexus.demo", name: "Meena Kulkarni", role: "Manager" },
-      { email: "stores.member@plexus.demo", name: "Pooja Gaikwad", role: "Member" },
+      { email: "stores.manager@plexus.demo", name: "Meena Kulkarni", role: "Stores In-charge" },
+      { email: "stores.member@plexus.demo", name: "Pooja Gaikwad", role: "Stores Assistant" },
     ],
   },
   {
-    group: "Distribution",
+    group: "PCB Repair Lab",
     people: [
-      { email: "dist.admin@plexus.demo", name: "Priya Nair", role: "Admin" },
-      { email: "dist.manager@plexus.demo", name: "Rahul Patil", role: "Manager" },
-      { email: "dist.member@plexus.demo", name: "Sunil Jadhav", role: "Member" },
+      { email: "lab.admin@plexus.demo", name: "Kavita Rao", role: "Admin" },
+      { email: "lab.manager@plexus.demo", name: "Anjali Joshi", role: "Manager" },
+      { email: "lab.member@plexus.demo", name: "Vikas Shinde", role: "Technician" },
     ],
   },
   {
-    group: "Service Centre",
+    group: "Field Service",
     people: [
-      { email: "service.admin@plexus.demo", name: "Kavita Rao", role: "Admin" },
-      { email: "service.manager@plexus.demo", name: "Anjali Joshi", role: "Manager" },
-      { email: "service.member@plexus.demo", name: "Vikas Shinde", role: "Member" },
+      { email: "field.admin@plexus.demo", name: "Priya Nair", role: "Admin" },
+      { email: "field.manager@plexus.demo", name: "Rahul Patil", role: "Supervisor" },
+      { email: "field.member@plexus.demo", name: "Sunil Jadhav", role: "Technician" },
     ],
   },
 ]
@@ -105,7 +105,10 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
       <div className="w-full max-w-md space-y-6">
-        <Logo size="lg" className="justify-center" />
+        <div className="space-y-2 text-center">
+          <Logo size="lg" className="justify-center" />
+          <p className="text-sm text-muted-foreground">Repair, stock and field service operations for Electrolyte Solutions</p>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Sign in</CardTitle>

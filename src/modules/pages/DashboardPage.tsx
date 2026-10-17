@@ -135,7 +135,7 @@ export function DashboardPage() {
             path: canSee("assignments") ? "assignments" : "my-materials",
           },
           has("pcb-repair") && {
-            label: "Fixed meters",
+            label: "Repaired boards",
             value: stats.fixedRepairs,
             icon: CircuitBoard,
             tone: "success",

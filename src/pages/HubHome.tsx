@@ -60,7 +60,7 @@ function todosFor(sites: SiteSummary[]): Todo[] {
         out.push({
           key: `${config.siteId}-repairs-admin`,
           icon: Wrench,
-          text: `${stats.openRepairs} meter${stats.openRepairs > 1 ? "s" : ""} undergoing repair in ${config.name}`,
+          text: `${stats.openRepairs} board${stats.openRepairs > 1 ? "s" : ""} undergoing repair in ${config.name}`,
           action: "Oversee repairs",
           to: `${base}/repairs`,
         })
@@ -68,7 +68,7 @@ function todosFor(sites: SiteSummary[]): Todo[] {
         out.push({
           key: `${config.siteId}-repairs`,
           icon: Wrench,
-          text: `${stats.openRepairs} meter${stats.openRepairs > 1 ? "s" : ""} being repaired in ${config.name}`,
+          text: `${stats.openRepairs} board${stats.openRepairs > 1 ? "s" : ""} being repaired in ${config.name}`,
           action: "View repairs",
           to: `${base}/repairs`,
         })

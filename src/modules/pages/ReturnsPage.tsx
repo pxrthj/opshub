@@ -79,12 +79,12 @@ export function ReturnsPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CircuitBoard className="size-4 text-primary" /> Repaired meters ready to return ({readyRepairs.length})
+              <CircuitBoard className="size-4 text-primary" /> Repaired boards ready to return ({readyRepairs.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             {readyRepairs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No fixed meters are waiting. Mark a repair as Fixed on the repairs page first.</p>
+              <p className="text-sm text-muted-foreground">No repaired boards are waiting. Mark a repair as Fixed on the repairs page first.</p>
             ) : (
               <div className="grid gap-2 md:grid-cols-2">
                 {readyRepairs.map((r) => (

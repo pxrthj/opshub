@@ -350,7 +350,7 @@ export function ApprovalsPage() {
           approving && gives(approving)
             ? `Stock will be taken from ${isSupplied(approving) ? config.name : inv?.sourceName} and given to ${approving.requestedByName}${approving.originSiteName && approving.originSiteId !== config.siteId ? ` (${approving.originSiteName})` : ""}. Either all of it happens, or nothing does.`
             : approving?.type === "repair" && repairFlow
-              ? "A PCB repair job will be opened for this meter."
+              ? "A PCB repair job will be opened for this board."
               : "The request will be marked as approved."
         }
         confirmLabel={approving && gives(approving) ? "Approve and give out" : "Approve"}

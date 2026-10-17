@@ -14,7 +14,7 @@ export interface SiteContextValue {
   role: Role
   preview: boolean
   liveVersion: number
-  /** "/s/distribution" or "/preview/distribution" */
+  /** "/s/field-service" or "/preview/field-service" */
   basePath: string
   /** API bound to this site (and to the draft config when previewing). */
   siteApi: SiteApi

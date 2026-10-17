@@ -253,10 +253,10 @@ export function NetworkFlowMap({
             <span className="size-2 rounded-full bg-sky-500" /> Tier 1: Master Store
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-indigo-500" /> Tier 2: Regional Distribution
+            <span className="size-2 rounded-full bg-indigo-500" /> Tier 2: Lab & Field Service
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-emerald-500" /> Tier 3: Service & Repair
+            <span className="size-2 rounded-full bg-emerald-500" /> Tier 3: Sub-offices
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-amber-500 animate-pulse" /> Pending Movement
@@ -313,7 +313,7 @@ export function NetworkFlowMap({
                   </Badge>
                   <CardTitle className="text-base">{selectedSite.siteName}</CardTitle>
                   <CardDescription className="text-xs">
-                    Supplied by: {selectedSite.stockSourceName ?? "Central Stores (Root)"}
+                    Supplied by: {selectedSite.stockSourceName ?? "Component Stores (Root)"}
                   </CardDescription>
                 </div>
                 <Button variant="ghost" size="icon-sm" onClick={() => setSelectedSite(null)}>

@@ -18,12 +18,14 @@ import type {
   User,
 } from "@/lib/types"
 
-// Seed data for "MahaPower Utility (Demo)" — a fictional state electricity utility.
+// Seed data for Electrolyte Solutions (Navi Mumbai): an ISO 9001 L3/L4 PCB repair and refurbishment company that
+// repairs boards for OEM clients (fans, geysers, RO purifiers, mixers, LED video walls) and runs onsite field service.
+// The office ids (cs-001, sc-002, ds-003) are kept from the first prototype because everything refers to them.
 
 export const SITE_IDS = {
-  central: "cs-001",
-  service: "sc-002",
-  distribution: "ds-003",
+  central: "cs-001", // Component Stores
+  service: "sc-002", // PCB Repair Lab
+  distribution: "ds-003", // Field Service
 } as const
 
 const DAY = 86_400_000
@@ -43,32 +45,32 @@ function person(id: string, email: string, name: string, title: string, roles: U
 // Each office has one Admin, one Manager and one Member. User ids are kept stable because
 // requests, assignments and cross-site routing refer to them.
 export const SEED_USERS: User[] = [
-  // Central Stores (Tier 1)
-  person("u_cs_admin", "stores.admin", "Anil Joshi", "Admin, Central Stores", { [SITE_IDS.central]: "Admin" }),
-  person("u_store", "stores.manager", "Meena Kulkarni", "Central Storekeeper", { [SITE_IDS.central]: "Manager" }),
-  person("u_clerk", "stores.member", "Pooja Gaikwad", "Store Inventory Clerk", { [SITE_IDS.central]: "Member" }),
+  // Component Stores
+  person("u_cs_admin", "stores.admin", "Anil Joshi", "Admin, Component Stores", { [SITE_IDS.central]: "Admin" }),
+  person("u_store", "stores.manager", "Meena Kulkarni", "Stores In-charge", { [SITE_IDS.central]: "Manager" }),
+  person("u_clerk", "stores.member", "Pooja Gaikwad", "Stores Assistant", { [SITE_IDS.central]: "Member" }),
 
-  // Distribution (Tier 2)
-  person("u_ds_admin", "dist.admin", "Priya Nair", "Admin, Distribution", { [SITE_IDS.distribution]: "Admin" }),
-  person("u_engineer", "dist.manager", "Rahul Patil", "Distribution Section Engineer", { [SITE_IDS.distribution]: "Manager" }),
-  person("u_lineman", "dist.member", "Sunil Jadhav", "Lineman, Pune Rural", { [SITE_IDS.distribution]: "Member" }),
+  // Field Service
+  person("u_ds_admin", "field.admin", "Priya Nair", "Admin, Field Service", { [SITE_IDS.distribution]: "Admin" }),
+  person("u_engineer", "field.manager", "Rahul Patil", "Field Service Supervisor", { [SITE_IDS.distribution]: "Manager" }),
+  person("u_lineman", "field.member", "Sunil Jadhav", "Field Service Technician, Navi Mumbai", { [SITE_IDS.distribution]: "Member" }),
 
-  // Service Centre (Tier 3)
-  person("u_sc_admin", "service.admin", "Kavita Rao", "Admin, Service Centre", { [SITE_IDS.service]: "Admin" }),
-  person("u_service_mgr", "service.manager", "Anjali Joshi", "Service Centre Manager", { [SITE_IDS.service]: "Manager" }),
-  person("u_vikas", "service.member", "Vikas Shinde", "Senior Meter Technician", { [SITE_IDS.service]: "Member" }),
+  // PCB Repair Lab
+  person("u_sc_admin", "lab.admin", "Kavita Rao", "Admin, PCB Repair Lab", { [SITE_IDS.service]: "Admin" }),
+  person("u_service_mgr", "lab.manager", "Anjali Joshi", "Repair Lab Manager", { [SITE_IDS.service]: "Manager" }),
+  person("u_vikas", "lab.member", "Vikas Shinde", "Senior PCB Repair Technician (L3/L4)", { [SITE_IDS.service]: "Member" }),
 
   // Special accounts
-  person("u_admin", "admin", "Aarti Deshmukh", "Platform Administrator (all offices)", {
+  person("u_admin", "admin", "Aarti Deshmukh", "Operations Head (all offices)", {
     [SITE_IDS.central]: "Admin",
     [SITE_IDS.service]: "Admin",
     [SITE_IDS.distribution]: "Admin",
   }),
-  person("u_ganesh", "ganesh", "Ganesh More", "Field & Meter Support (Distribution + Service Centre)", {
+  person("u_ganesh", "ganesh", "Ganesh More", "Lab & Field Technician (PCB Repair Lab + Field Service)", {
     [SITE_IDS.distribution]: "Member",
     [SITE_IDS.service]: "Member",
   }),
-  person("u_suresh", "logistics", "Suresh Pawar", "Logistics Assistant (Central Stores + Distribution)", {
+  person("u_suresh", "logistics", "Suresh Pawar", "Logistics & Dispatch (Component Stores + Field Service)", {
     [SITE_IDS.central]: "Member",
     [SITE_IDS.distribution]: "Member",
   }),
@@ -90,9 +92,9 @@ function baseConfig(partial: Pick<SiteConfig, "siteId" | "slug" | "name" | "desc
 const centralStores = buildConfigFromCanvas(
   baseConfig({
     siteId: SITE_IDS.central,
-    slug: "central-stores",
-    name: "Central Stores",
-    description: "Keeps the main stock of meters, cables and spares, and supplies the other offices.",
+    slug: "component-stores",
+    name: "Component Stores",
+    description: "Holds ICs, capacitors, consumables and spare boards, and supplies the Repair Lab and Field Service.",
     workflow: {
       stockSourceSiteId: null,
       autoAssignOnApproval: true,
@@ -110,34 +112,47 @@ const centralStores = buildConfigFromCanvas(
 const serviceCentre = buildConfigFromCanvas(
   baseConfig({
     siteId: SITE_IDS.service,
-    slug: "service-centre",
-    name: "Service Centre",
-    description: "Repairs broken meters and asks Distribution for what it needs.",
+    slug: "pcb-repair-lab",
+    name: "PCB Repair Lab",
+    description: "Repairs faulty client boards at component level and takes the parts it needs from Component Stores.",
     workflow: {
-      stockSourceSiteId: SITE_IDS.distribution,
+      stockSourceSiteId: SITE_IDS.central,
       autoAssignOnApproval: true,
       requireRejectComment: true,
       allowRepairRequests: true,
       allowMaterialRequests: true,
-      maxQtyPerLine: 50,
+      maxQtyPerLine: 200,
       lowStockAlerts: false,
     },
   }),
   [
-    node("n_req", "request", 40, 150),
-    node("n_apr", "approval", 320, 150),
-    node("n_pcb", "pcb-repair", 600, 150),
-    node("n_ret", "returns", 880, 150),
+    node("n_req", "request", 40, 60),
+    node("n_apr", "approval", 320, 60),
+    node("n_pcb", "pcb-repair", 600, 60),
+    node("n_ret", "returns", 880, 160),
+    node("n_inv", "inventory", 320, 280),
+    node("n_asg", "assignment", 600, 280),
+    node("n_afe", "assignment-frontend", 880, 360),
+    node("n_con", "consumption", 880, 480),
   ],
-  [edge("n_req", "n_apr"), edge("n_apr", "n_pcb"), edge("n_pcb", "n_ret")],
+  [
+    edge("n_req", "n_apr"),
+    edge("n_apr", "n_pcb"),
+    edge("n_pcb", "n_ret"),
+    edge("n_apr", "n_asg"),
+    edge("n_inv", "n_asg"),
+    edge("n_asg", "n_afe"),
+    edge("n_asg", "n_con"),
+    edge("n_asg", "n_ret"),
+  ],
 )
 
 const distribution = buildConfigFromCanvas(
   baseConfig({
     siteId: SITE_IDS.distribution,
-    slug: "distribution",
-    name: "Distribution",
-    description: "Gives out stock to field teams and the Service Centre, and orders more from Central Stores.",
+    slug: "field-service",
+    name: "Field Service",
+    description: "Onsite technicians for fan, geyser and appliance service calls, installations and AMC visits.",
     workflow: {
       stockSourceSiteId: SITE_IDS.central,
       autoAssignOnApproval: true,
@@ -155,6 +170,7 @@ const distribution = buildConfigFromCanvas(
     node("n_asg", "assignment", 580, 160),
     node("n_afe", "assignment-frontend", 870, 50),
     node("n_con", "consumption", 870, 280),
+    node("n_ret", "returns", 870, 420),
     node("n_aud", "audit-log", 580, 400),
   ],
   [
@@ -163,6 +179,7 @@ const distribution = buildConfigFromCanvas(
     edge("n_inv", "n_asg"),
     edge("n_asg", "n_afe"),
     edge("n_asg", "n_con"),
+    edge("n_asg", "n_ret"),
     edge("n_inv", "n_aud"),
   ],
 )
@@ -202,35 +219,36 @@ const inv = (
   reorderLevel: number,
 ): InventoryItem => ({ id, name, category, unit, qty, unitPrice, reorderLevel, updatedAt: daysAgo(3) })
 
-const CENTRAL_INVENTORY: InventoryItem[] = [
-  inv("itm_sp_meter", "Single Phase Smart Meter", "Meters", "Nos", 500, 2400, 100),
-  inv("itm_tp_meter", "Three Phase Smart Meter", "Meters", "Nos", 120, 6800, 50),
-  inv("itm_ct_meter", "CT Operated Meter", "Meters", "Nos", 18, 9500, 25),
-  inv("itm_meter_box", "Meter Box (SMC) Single Phase", "Meters", "Nos", 410, 380, 150),
-  inv("itm_lt4", "LT Cable 4 sq mm (Al, armoured)", "Cables & Wires", "Metres", 3200, 68, 1000),
-  inv("itm_lt16", "LT Cable 16 sq mm (Al, armoured)", "Cables & Wires", "Metres", 650, 185, 800),
-  inv("itm_service_wire", "Service Wire 2C x 10 sq mm", "Cables & Wires", "Metres", 4500, 42, 1500),
-  inv("itm_dt100", "Distribution Transformer 100 kVA", "Transformers", "Nos", 6, 285000, 4),
-  inv("itm_dt63", "Distribution Transformer 63 kVA", "Transformers", "Nos", 2, 198000, 3),
-  inv("itm_pin_ins", "Pin Insulator 11 kV", "Line Hardware", "Nos", 840, 145, 300),
-  inv("itm_disc_ins", "Disc Insulator 11 kV", "Line Hardware", "Nos", 260, 320, 300),
-  inv("itm_stay", "Stay Set Complete", "Line Hardware", "Sets", 140, 980, 60),
-  inv("itm_mcb32", "MCB 32A Double Pole", "Protection", "Nos", 380, 310, 150),
-  inv("itm_do_fuse", "DO Fuse Set 11 kV", "Protection", "Sets", 45, 3200, 20),
-  inv("itm_earth_rod", "Earthing Rod GI 3 m", "Earthing", "Nos", 95, 650, 120),
-  inv("itm_lugs", "Lugs & Connectors Kit", "Spares", "Sets", 30, 450, 40),
-]
+// Product types the lab repairs. Component Stores also keeps refurbished spares of each, under the same name, so a
+// repaired board can be returned to stock.
+const BLDC = "BLDC Fan Controller PCB"
+const GEYSER = "Geyser Control PCB"
+const RO = "RO Purifier Controller PCB"
+const MIXER = "Mixer Grinder Speed Control PCB"
+const LED = "LED Video Wall Receiving Card"
+const IOT = "Smart Appliance IoT Module"
 
-export const DISTRIBUTION_INVENTORY: InventoryItem[] = [
-  inv("itm_sp_meter", "Single Phase Smart Meter", "Meters", "Nos", 150, 2400, 30),
-  inv("itm_tp_meter", "Three Phase Smart Meter", "Meters", "Nos", 35, 6800, 15),
-  inv("itm_meter_box", "Meter Box (SMC) Single Phase", "Meters", "Nos", 90, 380, 25),
-  inv("itm_service_wire", "Service Wire 2C x 10 sq mm", "Cables & Wires", "Metres", 1500, 42, 400),
-  inv("itm_pin_ins", "Pin Insulator 11 kV", "Line Hardware", "Nos", 220, 145, 50),
-  inv("itm_stay", "Stay Set Complete", "Line Hardware", "Sets", 40, 980, 15),
-  inv("itm_mcb32", "MCB 32A Double Pole", "Protection", "Nos", 85, 310, 20),
-  inv("itm_earth_rod", "Earthing Rod GI 3 m", "Earthing", "Nos", 35, 650, 20),
-  inv("itm_lugs", "Lugs & Connectors Kit", "Spares", "Sets", 18, 450, 10),
+const CENTRAL_INVENTORY: InventoryItem[] = [
+  inv("itm_cap_elec", "Electrolytic Capacitor 470µF 35V", "Capacitors", "Nos", 3000, 6, 800),
+  inv("itm_cap_x2", "X2 Safety Capacitor 0.47µF 275V", "Capacitors", "Nos", 650, 14, 400),
+  inv("itm_mosfet", "MOSFET IRF540N", "Semiconductors", "Nos", 1200, 18, 300),
+  inv("itm_bridge", "Bridge Rectifier KBP307", "Semiconductors", "Nos", 420, 12, 200),
+  inv("itm_mcu", "Microcontroller STM32F030", "ICs", "Nos", 85, 95, 100),
+  inv("itm_driver", "Gate Driver IC IR2101", "ICs", "Nos", 180, 65, 100),
+  inv("itm_relay", "Relay 12V 16A", "Relays & Connectors", "Nos", 340, 48, 150),
+  inv("itm_conn", "JST Connector Kit (2–6 pin)", "Relays & Connectors", "Sets", 22, 350, 30),
+  inv("itm_solder", "Solder Wire Sn63/Pb37 0.6 mm", "Consumables", "Rolls", 40, 780, 15),
+  inv("itm_flux", "No-Clean Flux Paste", "Consumables", "Packs", 18, 420, 10),
+  inv("itm_coating", "Conformal Coating Spray", "Consumables", "Nos", 9, 650, 12),
+  inv("itm_sp_bldc", BLDC, "Spare Boards", "Nos", 60, 850, 20),
+  inv("itm_sp_geyser", GEYSER, "Spare Boards", "Nos", 35, 620, 15),
+  inv("itm_sp_ro", RO, "Spare Boards", "Nos", 28, 1150, 10),
+  inv("itm_sp_mixer", MIXER, "Spare Boards", "Nos", 24, 480, 10),
+  inv("itm_sp_led", LED, "Spare Boards", "Nos", 12, 2800, 6),
+  inv("itm_sp_iot", IOT, "Spare Boards", "Nos", 30, 1450, 10),
+  inv("itm_fan_cap", "Ceiling Fan Capacitor 2.5µF 440V", "Field Spares", "Nos", 900, 22, 300),
+  inv("itm_thermostat", "Geyser Thermostat (Auto-cut)", "Field Spares", "Nos", 140, 180, 60),
+  inv("itm_element", "Geyser Heating Element 2 kW", "Field Spares", "Nos", 45, 450, 50),
 ]
 
 const itemName = (id: string) => CENTRAL_INVENTORY.find((i) => i.id === id)!
@@ -244,8 +262,8 @@ const CENTRAL_REQUESTS: MaterialRequest[] = [
     id: "rq_cs1",
     code: "REQ-CS-0001",
     type: "material",
-    lines: [line("itm_sp_meter", 250), line("itm_meter_box", 200)],
-    purpose: "State Grid procurement batch intake from Secure Meters Ltd (PO-4421)",
+    lines: [line("itm_sp_bldc", 40), line("itm_fan_cap", 500)],
+    purpose: "Opening stock: refurbished BLDC spares from Bajaj RMA lot B-2209 and fan capacitors (PO-ES-4410)",
     priority: "Normal",
     requestedBy: "u_admin",
     requestedByName: "Meena Kulkarni",
@@ -253,19 +271,19 @@ const CENTRAL_REQUESTS: MaterialRequest[] = [
     status: "Assigned",
     decidedBy: "Aarti Deshmukh",
     decidedAt: daysAgo(27),
-    decisionComment: "Quality batch certified and accepted into master warehouse",
+    decisionComment: "Incoming QC passed — accepted into Component Stores",
     assignmentId: "as_c1",
     originSiteId: SITE_IDS.central,
-    originSiteName: "Central Stores",
+    originSiteName: "Component Stores",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Central Stores",
+    targetSiteName: "Component Stores",
   },
   {
     id: "rq_cs2",
     code: "REQ-CS-0002",
     type: "material",
-    lines: [line("itm_dt100", 4), line("itm_pin_ins", 300)],
-    purpose: "High-voltage transformer grid reserve buffer restock",
+    lines: [line("itm_mcu", 4), line("itm_driver", 30)],
+    purpose: "Urgent MCU and gate driver buffer for the LED wall and RO batches",
     priority: "Urgent",
     requestedBy: "u_admin",
     requestedByName: "Meena Kulkarni",
@@ -273,11 +291,11 @@ const CENTRAL_REQUESTS: MaterialRequest[] = [
     status: "Approved",
     decidedBy: "Aarti Deshmukh",
     decidedAt: daysAgo(13),
-    decisionComment: "Approved for regional distribution buffer",
+    decisionComment: "Approved as lab buffer stock",
     originSiteId: SITE_IDS.central,
-    originSiteName: "Central Stores",
+    originSiteName: "Component Stores",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Central Stores",
+    targetSiteName: "Component Stores",
   },
 ]
 
@@ -286,8 +304,8 @@ const DIST_REQUESTS: MaterialRequest[] = [
     id: "rq_dc1",
     code: "REQ-DS-0101",
     type: "material",
-    lines: [line("itm_sp_meter", 100), line("itm_service_wire", 1000)],
-    purpose: "Bulk inventory replenishment from Central Stores",
+    lines: [line("itm_sp_bldc", 30), line("itm_fan_cap", 300)],
+    purpose: "Monthly van stock for Field Service technicians",
     priority: "Urgent",
     requestedBy: "u_engineer",
     requestedByName: "Rahul Patil",
@@ -295,19 +313,19 @@ const DIST_REQUESTS: MaterialRequest[] = [
     status: "Assigned",
     decidedBy: "Meena Kulkarni",
     decidedAt: daysAgo(24),
-    decisionComment: "Dispatched 100 Smart Meters and 1000m cable to Distribution warehouse",
+    decisionComment: "Issued 30 BLDC boards and 300 fan capacitors to Field Service",
     assignmentId: "as_c1",
     originSiteId: SITE_IDS.distribution,
-    originSiteName: "Distribution",
+    originSiteName: "Field Service",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Central Stores",
+    targetSiteName: "Component Stores",
   },
   {
     id: "rq_dc2",
     code: "REQ-DS-0102",
     type: "material",
-    lines: [line("itm_tp_meter", 20), line("itm_meter_box", 50)],
-    purpose: "Commercial feeder hardware replenishment from Central Stores",
+    lines: [line("itm_sp_geyser", 10), line("itm_thermostat", 40)],
+    purpose: "Geyser AMC season spares",
     priority: "Normal",
     requestedBy: "u_engineer",
     requestedByName: "Rahul Patil",
@@ -317,32 +335,32 @@ const DIST_REQUESTS: MaterialRequest[] = [
     decidedAt: daysAgo(11),
     assignmentId: "as_c2",
     originSiteId: SITE_IDS.distribution,
-    originSiteName: "Distribution",
+    originSiteName: "Field Service",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Central Stores",
+    targetSiteName: "Component Stores",
   },
   {
     id: "rq_dc3",
     code: "REQ-DS-0103",
     type: "material",
-    lines: [line("itm_pin_ins", 80), line("itm_disc_ins", 40)],
-    purpose: "Pre-monsoon insulator buffer stock request to Central Stores",
+    lines: [line("itm_element", 20), line("itm_thermostat", 20)],
+    purpose: "Pre-winter geyser service stock",
     priority: "Normal",
     requestedBy: "u_engineer",
     requestedByName: "Rahul Patil",
     createdAt: daysAgo(2),
     status: "Pending",
     originSiteId: SITE_IDS.distribution,
-    originSiteName: "Distribution",
+    originSiteName: "Field Service",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Central Stores",
+    targetSiteName: "Component Stores",
   },
   {
     id: "rq_d1",
     code: "REQ-DS-1001",
     type: "material",
-    lines: [line("itm_sp_meter", 40), line("itm_service_wire", 600)],
-    purpose: "Smart meter replacement drive — Saswad feeder",
+    lines: [line("itm_sp_bldc", 12), line("itm_fan_cap", 60)],
+    purpose: "Bajaj BLDC fan warranty calls — Vashi & Nerul",
     priority: "Urgent",
     requestedBy: "u_lineman",
     requestedByName: "Sunil Jadhav",
@@ -350,15 +368,15 @@ const DIST_REQUESTS: MaterialRequest[] = [
     status: "Assigned",
     decidedBy: "Rahul Patil",
     decidedAt: daysAgo(20),
-    decisionComment: "Approved for phase 1",
+    decisionComment: "Approved for this week's warranty calls",
     assignmentId: "as_d1",
   },
   {
     id: "rq_d2",
     code: "REQ-DS-1002",
     type: "material",
-    lines: [line("itm_pin_ins", 60), line("itm_stay", 8)],
-    purpose: "11 kV line strengthening, Jejuri",
+    lines: [line("itm_thermostat", 10), line("itm_element", 4)],
+    purpose: "Geyser AMC visits — Kharghar housing society",
     priority: "Normal",
     requestedBy: "u_ganesh",
     requestedByName: "Ganesh More",
@@ -372,8 +390,8 @@ const DIST_REQUESTS: MaterialRequest[] = [
     id: "rq_d3",
     code: "REQ-DS-1003",
     type: "material",
-    lines: [line("itm_dt100", 4)],
-    purpose: "New DTC for housing colony",
+    lines: [line("itm_sp_ro", 15)],
+    purpose: "Keep RO controller boards in the technician van",
     priority: "Low",
     requestedBy: "u_ganesh",
     requestedByName: "Ganesh More",
@@ -381,14 +399,14 @@ const DIST_REQUESTS: MaterialRequest[] = [
     status: "Rejected",
     decidedBy: "Rahul Patil",
     decidedAt: daysAgo(14),
-    decisionComment: "Only 1 DTC sanctioned this quarter — resubmit with sanction letter.",
+    decisionComment: "Van stock limit is 5 boards — ask again with the service call numbers.",
   },
   {
     id: "rq_d4",
     code: "REQ-DS-1004",
     type: "material",
-    lines: [line("itm_mcb32", 25), line("itm_meter_box", 25)],
-    purpose: "New service connections — Hadapsar",
+    lines: [line("itm_sp_mixer", 8), line("itm_fan_cap", 25)],
+    purpose: "Anchor appliance service calls — Thane",
     priority: "Normal",
     requestedBy: "u_lineman",
     requestedByName: "Sunil Jadhav",
@@ -402,8 +420,8 @@ const DIST_REQUESTS: MaterialRequest[] = [
     id: "rq_d5",
     code: "REQ-DS-1005",
     type: "material",
-    lines: [line("itm_earth_rod", 12)],
-    purpose: "Earthing rectification at DTC-114",
+    lines: [line("itm_sp_iot", 6)],
+    purpose: "Smart fan IoT module replacements — Panvel",
     priority: "Urgent",
     requestedBy: "u_ganesh",
     requestedByName: "Ganesh More",
@@ -417,8 +435,8 @@ const DIST_REQUESTS: MaterialRequest[] = [
     id: "rq_d6",
     code: "REQ-DS-1006",
     type: "material",
-    lines: [line("itm_lt4", 300)],
-    purpose: "Street-light feeder extension",
+    lines: [line("itm_fan_cap", 150)],
+    purpose: "Installation & demo drive for new fan dealers",
     priority: "Normal",
     requestedBy: "u_lineman",
     requestedByName: "Sunil Jadhav",
@@ -426,14 +444,14 @@ const DIST_REQUESTS: MaterialRequest[] = [
     status: "Approved",
     decidedBy: "Rahul Patil",
     decidedAt: daysAgo(6),
-    decisionComment: "Approved — assign when crew is ready",
+    decisionComment: "Approved — give out when the van is loaded",
   },
   {
     id: "rq_d7",
     code: "REQ-DS-1007",
     type: "material",
-    lines: [line("itm_do_fuse", 30)],
-    purpose: "Monsoon preparedness stock",
+    lines: [line("itm_element", 30)],
+    purpose: "Spare heating elements for the monsoon season",
     priority: "Low",
     requestedBy: "u_ganesh",
     requestedByName: "Ganesh More",
@@ -441,14 +459,14 @@ const DIST_REQUESTS: MaterialRequest[] = [
     status: "Rejected",
     decidedBy: "Rahul Patil",
     decidedAt: daysAgo(4),
-    decisionComment: "Quantity too high for one section.",
+    decisionComment: "Quantity too high for one technician.",
   },
   {
     id: "rq_d8",
     code: "REQ-DS-1008",
     type: "material",
-    lines: [line("itm_tp_meter", 10)],
-    purpose: "Commercial consumers — 3φ meter replacement",
+    lines: [line("itm_sp_geyser", 4)],
+    purpose: "Geyser control board replacements — Airoli",
     priority: "Normal",
     requestedBy: "u_lineman",
     requestedByName: "Sunil Jadhav",
@@ -459,8 +477,8 @@ const DIST_REQUESTS: MaterialRequest[] = [
     id: "rq_d9",
     code: "REQ-DS-1009",
     type: "material",
-    lines: [line("itm_disc_ins", 24), line("itm_pin_ins", 40)],
-    purpose: "Insulator replacement after flashover",
+    lines: [line("itm_sp_ro", 3), line("itm_relay", 10)],
+    purpose: "Kent RO purifier breakdown calls — Ghansoli",
     priority: "Urgent",
     requestedBy: "u_ganesh",
     requestedByName: "Ganesh More",
@@ -471,8 +489,8 @@ const DIST_REQUESTS: MaterialRequest[] = [
     id: "rq_d10",
     code: "REQ-DS-1010",
     type: "material",
-    lines: [line("itm_service_wire", 250), line("itm_lugs", 5)],
-    purpose: "Service line re-wiring, Uruli",
+    lines: [line("itm_fan_cap", 40), line("itm_conn", 2)],
+    purpose: "Fan rewiring and connector replacement — CBD Belapur",
     priority: "Normal",
     requestedBy: "u_lineman",
     requestedByName: "Sunil Jadhav",
@@ -522,22 +540,22 @@ const cons = (
 ): ConsumptionRecord => ({ id, assignmentId, itemId, itemName: itemName(itemId).name, qty, location, date: daysAgo(d), recordedBy: by })
 
 const DIST_CONSUMPTION: ConsumptionRecord[] = [
-  cons("cn1", "as_d1", "itm_sp_meter", 22, "Saswad – Ward 3", 18, "Sunil Jadhav"),
-  cons("cn2", "as_d1", "itm_sp_meter", 11, "Saswad – Ward 5", 14, "Sunil Jadhav"),
-  cons("cn3", "as_d1", "itm_service_wire", 380, "Saswad – Ward 3", 18, "Sunil Jadhav"),
-  cons("cn4", "as_d2", "itm_pin_ins", 48, "Jejuri 11 kV feeder", 15, "Ganesh More"),
-  cons("cn5", "as_d2", "itm_stay", 6, "Jejuri 11 kV feeder", 15, "Ganesh More"),
-  cons("cn6", "as_d3", "itm_mcb32", 14, "Hadapsar – Sector 2", 8, "Sunil Jadhav"),
-  cons("cn7", "as_d3", "itm_meter_box", 14, "Hadapsar – Sector 2", 8, "Sunil Jadhav"),
-  cons("cn8", "as_d4", "itm_earth_rod", 12, "DTC-114", 7, "Ganesh More"),
+  cons("cn1", "as_d1", "itm_sp_bldc", 7, "Vashi Sector 17 — warranty call FS-2231", 18, "Sunil Jadhav"),
+  cons("cn2", "as_d1", "itm_sp_bldc", 3, "Nerul Sector 21 — warranty call FS-2240", 14, "Sunil Jadhav"),
+  cons("cn3", "as_d1", "itm_fan_cap", 38, "Vashi Sector 17 — warranty call FS-2231", 18, "Sunil Jadhav"),
+  cons("cn4", "as_d2", "itm_thermostat", 8, "Kharghar Sector 12 society — AMC visit", 15, "Ganesh More"),
+  cons("cn5", "as_d2", "itm_element", 3, "Kharghar Sector 12 society — AMC visit", 15, "Ganesh More"),
+  cons("cn6", "as_d3", "itm_sp_mixer", 5, "Thane, Ghodbunder Road — service call FS-2288", 8, "Sunil Jadhav"),
+  cons("cn7", "as_d3", "itm_fan_cap", 14, "Thane, Ghodbunder Road — service call FS-2288", 8, "Sunil Jadhav"),
+  cons("cn8", "as_d4", "itm_sp_iot", 6, "New Panvel — smart fan installs", 7, "Ganesh More"),
 ]
 
 const SERVICE_REQUESTS: MaterialRequest[] = [
   ...[
-    ["rq_s1", "SM-PN-208841", "Single Phase Smart Meter", "Display blank", 24, "Fixed", "rj1"],
-    ["rq_s2", "SM-PN-209113", "Single Phase Smart Meter", "No communication (RF/GPRS)", 20, "In Repair", "rj2"],
-    ["rq_s3", "TP-PN-044120", "Three Phase Smart Meter", "Relay stuck", 16, "Fixed", "rj3"],
-    ["rq_s4", "SM-PN-210554", "Single Phase Smart Meter", "Burnt PCB", 14, "Scrapped", "rj4"],
+    ["rq_s1", "BJ-BLDC-2408841", BLDC, "MOSFET / driver failure", 24, "Fixed", "rj1"],
+    ["rq_s2", "KT-RO-2409113", RO, "Firmware / communication fault", 20, "In Repair", "rj2"],
+    ["rq_s3", "AN-GY-2404412", GEYSER, "Relay failure", 16, "Fixed", "rj3"],
+    ["rq_s4", "XM-LED-2410554", LED, "Physical / water damage", 14, "Scrapped", "rj4"],
   ].map(
     ([id, meterId, meterType, fault, d, , rj]) =>
       ({
@@ -562,8 +580,8 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     code: "REQ-SC-2005",
     type: "repair",
     lines: [],
-    repair: { meterId: "SM-PN-211902", meterType: "Single Phase Smart Meter", fault: "Tamper alarm" },
-    purpose: "Repair SM-PN-211902",
+    repair: { meterId: "BJ-BLDC-2411902", meterType: BLDC, fault: "No power / dead board" },
+    purpose: "Repair BJ-BLDC-2411902",
     priority: "Urgent",
     requestedBy: "u_vikas",
     requestedByName: "Vikas Shinde",
@@ -575,8 +593,8 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     code: "REQ-SC-2006",
     type: "repair",
     lines: [],
-    repair: { meterId: "CT-PN-000781", meterType: "CT Operated Meter", fault: "Wrong reading" },
-    purpose: "Repair CT-PN-000781 (HT consumer complaint)",
+    repair: { meterId: "XM-LED-2400781", meterType: LED, fault: "IC / MCU failure" },
+    purpose: "Repair XM-LED-2400781 (Xtreme Media escalation)",
     priority: "Normal",
     requestedBy: "u_vikas",
     requestedByName: "Vikas Shinde",
@@ -588,8 +606,8 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     code: "REQ-SC-2007",
     type: "repair",
     lines: [],
-    repair: { meterId: "SM-PN-198220", meterType: "Single Phase Smart Meter", fault: "Display blank" },
-    purpose: "Repair SM-PN-198220",
+    repair: { meterId: "AN-MX-2398220", meterType: MIXER, fault: "Burnt component" },
+    purpose: "Repair AN-MX-2398220",
     priority: "Low",
     requestedBy: "u_vikas",
     requestedByName: "Vikas Shinde",
@@ -597,59 +615,64 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     status: "Rejected",
     decidedBy: "Anjali Joshi",
     decidedAt: daysAgo(9),
-    decisionComment: "Meter under OEM warranty — send back to vendor.",
+    decisionComment: "Board is still under OEM warranty — send it back to Anchor.",
   },
   {
     id: "rq_sc1",
     code: "REQ-SC-3001",
     type: "material",
-    lines: [line("itm_sp_meter", 5), line("itm_meter_box", 10)],
-    purpose: "Replacement meters & enclosures requested from Distribution",
+    lines: [line("itm_mosfet", 40), line("itm_cap_elec", 100)],
+    purpose: "Components for this week's BLDC fan board batch",
     priority: "Normal",
     requestedBy: "u_vikas",
     requestedByName: "Vikas Shinde",
     createdAt: daysAgo(14),
     status: "Assigned",
-    decidedBy: "Rahul Patil",
+    decidedBy: "Meena Kulkarni",
     decidedAt: daysAgo(13),
-    decisionComment: "Issued from Distribution regional store",
+    decisionComment: "Issued from Component Stores",
     assignmentId: "as_sc1",
     originSiteId: SITE_IDS.service,
-    originSiteName: "Service Centre",
-    targetSiteId: SITE_IDS.distribution,
-    targetSiteName: "Distribution",
+    originSiteName: "PCB Repair Lab",
+    targetSiteId: SITE_IDS.central,
+    targetSiteName: "Component Stores",
   },
   {
     id: "rq_sc2",
     code: "REQ-SC-3002",
     type: "material",
-    lines: [line("itm_tp_meter", 2)],
-    purpose: "Testing & replacement stock requested from Distribution",
+    lines: [line("itm_mcu", 10)],
+    purpose: "MCUs for RO controller board repairs",
     priority: "Urgent",
     requestedBy: "u_vikas",
     requestedByName: "Vikas Shinde",
     createdAt: daysAgo(1),
     status: "Pending",
     originSiteId: SITE_IDS.service,
-    originSiteName: "Service Centre",
-    targetSiteId: SITE_IDS.distribution,
-    targetSiteName: "Distribution",
+    originSiteName: "PCB Repair Lab",
+    targetSiteId: SITE_IDS.central,
+    targetSiteName: "Component Stores",
   },
 ]
 
 const SERVICE_ASSIGNMENTS: Assignment[] = [
   {
     id: "as_sc1",
-    code: "ASN-DS-601",
+    code: "ASN-CS-601",
     requestId: "rq_sc1",
     requestCode: "REQ-SC-3001",
     assigneeId: "u_vikas",
     assigneeName: "Vikas Shinde",
-    lines: [line("itm_sp_meter", 5), line("itm_meter_box", 10)],
-    stockSiteId: SITE_IDS.distribution,
+    lines: [line("itm_mosfet", 40), line("itm_cap_elec", 100)],
+    stockSiteId: SITE_IDS.central,
     createdAt: daysAgo(13),
-    createdBy: "Rahul Patil",
+    createdBy: "Meena Kulkarni",
   },
+]
+
+const SERVICE_CONSUMPTION: ConsumptionRecord[] = [
+  cons("cn9", "as_sc1", "itm_mosfet", 18, "BLDC batch BJ-B2214 — bench 2", 11, "Vikas Shinde"),
+  cons("cn10", "as_sc1", "itm_cap_elec", 36, "BLDC batch BJ-B2214 — bench 2", 11, "Vikas Shinde"),
 ]
 
 const rj = (
@@ -679,14 +702,14 @@ const rj = (
 })
 
 const SERVICE_REPAIRS: RepairJob[] = [
-  rj("rj1", "RJ-SC-301", "SM-PN-208841", "Single Phase Smart Meter", "Display blank", "Vikas Shinde", "LCD module, ribbon cable", "Fixed", 23, 19, { requestId: "rq_s1", returned: true, partsCost: 420, labourHours: 1.5 }),
-  rj("rj2", "RJ-SC-302", "SM-PN-209113", "Single Phase Smart Meter", "No communication (RF/GPRS)", "Vikas Shinde", "RF module", "In Repair", 19, 3, { requestId: "rq_s2", partsCost: 650, labourHours: 2 }),
-  rj("rj3", "RJ-SC-303", "TP-PN-044120", "Three Phase Smart Meter", "Relay stuck", "Rahul Patil", "Latching relay", "Fixed", 15, 6, { requestId: "rq_s3", partsCost: 890, labourHours: 2.5 }),
-  rj("rj4", "RJ-SC-304", "SM-PN-210554", "Single Phase Smart Meter", "Burnt PCB", "Vikas Shinde", "—", "Scrapped", 13, 12, { requestId: "rq_s4", labourHours: 0.5 }),
-  rj("rj5", "RJ-SC-305", "SM-PN-205510", "Single Phase Smart Meter", "Battery failure", "Vikas Shinde", "RTC battery", "Fixed", 11, 4, { partsCost: 120, labourHours: 0.5 }),
-  rj("rj6", "RJ-SC-306", "SM-PN-207731", "Single Phase Smart Meter", "Tamper alarm", "Vikas Shinde", "", "Received", 4, 4),
-  rj("rj7", "RJ-SC-307", "TP-PN-043007", "Three Phase Smart Meter", "No communication (RF/GPRS)", "Rahul Patil", "GPRS modem", "In Repair", 6, 2, { partsCost: 1100, labourHours: 1 }),
-  rj("rj8", "RJ-SC-308", "SM-PN-206688", "Single Phase Smart Meter", "Wrong reading", "", "", "Received", 1, 1),
+  rj("rj1", "RJ-SC-301", "BJ-BLDC-2408841", BLDC, "MOSFET / driver failure", "Vikas Shinde", "MOSFET IRF540N ×2, gate driver IR2101", "Fixed", 23, 19, { requestId: "rq_s1", returned: true, partsCost: 101, labourHours: 1.5 }),
+  rj("rj2", "RJ-SC-302", "KT-RO-2409113", RO, "Firmware / communication fault", "Vikas Shinde", "MCU STM32F030 (re-flashed)", "In Repair", 19, 3, { requestId: "rq_s2", partsCost: 95, labourHours: 2 }),
+  rj("rj3", "RJ-SC-303", "AN-GY-2404412", GEYSER, "Relay failure", "Ganesh More", "Relay 12V 16A", "Fixed", 15, 6, { requestId: "rq_s3", partsCost: 48, labourHours: 1 }),
+  rj("rj4", "RJ-SC-304", "XM-LED-2410554", LED, "Physical / water damage", "Vikas Shinde", "—", "Scrapped", 13, 12, { requestId: "rq_s4", labourHours: 0.5 }),
+  rj("rj5", "RJ-SC-305", "BJ-BLDC-2405510", BLDC, "Burnt component", "Vikas Shinde", "Electrolytic capacitor 470µF ×2, bridge rectifier", "Fixed", 11, 4, { partsCost: 24, labourHours: 0.5 }),
+  rj("rj6", "RJ-SC-306", "AN-MX-2407731", MIXER, "No power / dead board", "Vikas Shinde", "", "Received", 4, 4),
+  rj("rj7", "RJ-SC-307", "XM-LED-2403007", LED, "IC / MCU failure", "Ganesh More", "BGA rework — FPGA re-balled", "In Repair", 6, 2, { partsCost: 350, labourHours: 3 }),
+  rj("rj8", "RJ-SC-308", "KT-RO-2406688", RO, "Connector or trace damage", "", "", "Received", 1, 1),
 ]
 
 const SERVICE_RETURNS: ReturnRecord[] = [
@@ -695,8 +718,8 @@ const SERVICE_RETURNS: ReturnRecord[] = [
     source: "repair",
     refId: "rj1",
     refCode: "RJ-SC-301",
-    itemId: "itm_sp_meter",
-    itemName: "Single Phase Smart Meter",
+    itemId: "itm_sp_bldc",
+    itemName: BLDC,
     qty: 1,
     condition: "Repaired",
     stockSiteId: SITE_IDS.central,
@@ -737,125 +760,46 @@ function routeRequests(
   })
 }
 
+const audit = (
+  id: string,
+  itemId: string,
+  field: ProductAuditRecord["field"],
+  changeType: ProductAuditRecord["changeType"],
+  oldValue: number | null,
+  newValue: number,
+  reason: string,
+  refCode: string | undefined,
+  actor: { id: string; name: string; role: ProductAuditRecord["actorRole"] },
+  timestamp: string,
+): ProductAuditRecord => {
+  const i = itemName(itemId)
+  const diff = oldValue === null ? undefined : `${newValue - oldValue >= 0 ? "+" : ""}${newValue - oldValue}`
+  return { id, itemId, itemName: i.name, category: i.category, unit: i.unit, field, changeType, oldValue, newValue, diff, reason, refCode, actorId: actor.id, actorName: actor.name, actorRole: actor.role, timestamp }
+}
+const MEENA = { id: "u_store", name: "Meena Kulkarni", role: "Manager" as const }
+const AARTI = { id: "u_admin", name: "Aarti Deshmukh", role: "Admin" as const }
+const ANJALI = { id: "u_service_mgr", name: "Anjali Joshi", role: "Manager" as const }
+
 const CENTRAL_AUDITS: ProductAuditRecord[] = [
-  {
-    id: "aud_01",
-    itemId: "itm_sp_meter",
-    itemName: "Single Phase Smart Meter",
-    category: "Meters",
-    unit: "Nos",
-    field: "qty",
-    changeType: "quantity",
-    oldValue: 400,
-    newValue: 500,
-    diff: "+100",
-    reason: "New procurement batch received from Secure Meters Ltd (PO-4421)",
-    refCode: "PO-4421",
-    actorId: "u_store",
-    actorName: "Meena Kulkarni",
-    actorRole: "Manager",
-    timestamp: daysAgo(2, 14),
-  },
-  {
-    id: "aud_02",
-    itemId: "itm_lt16",
-    itemName: "LT Cable 16 sq mm (Al, armoured)",
-    category: "Cables & Wires",
-    unit: "Metres",
-    field: "unitPrice",
-    changeType: "price",
-    oldValue: 172,
-    newValue: 185,
-    diff: "+13",
-    reason: "Vendor contractual rate revision FY 2026-Q1",
-    refCode: "RTE-2026-08",
-    actorId: "u_admin",
-    actorName: "Aarti Deshmukh",
-    actorRole: "Admin",
-    timestamp: daysAgo(5, 11),
-  },
-  {
-    id: "aud_03",
-    itemId: "itm_dt100",
-    itemName: "Distribution Transformer 100 kVA",
-    category: "Transformers",
-    unit: "Nos",
-    field: "reorderLevel",
-    changeType: "threshold",
-    oldValue: 2,
-    newValue: 4,
-    diff: "+2",
-    reason: "Buffer stock increased ahead of monsoon preparedness guidelines",
-    refCode: "CIRC-MON-26",
-    actorId: "u_store",
-    actorName: "Meena Kulkarni",
-    actorRole: "Manager",
-    timestamp: daysAgo(9, 16),
-  },
-  {
-    id: "aud_04",
-    itemId: "itm_sp_meter",
-    itemName: "Single Phase Smart Meter",
-    category: "Meters",
-    unit: "Nos",
-    field: "qty",
-    changeType: "return",
-    oldValue: 399,
-    newValue: 400,
-    diff: "+1",
-    reason: "Repaired meter returned to stock (RJ-SC-301)",
-    refCode: "RJ-SC-301",
-    actorId: "u_engineer",
-    actorName: "Rahul Patil",
-    actorRole: "Manager",
-    timestamp: daysAgo(18, 10),
-  },
-  {
-    id: "aud_05",
-    itemId: "itm_service_wire",
-    itemName: "Service Wire 2C x 10 sq mm",
-    category: "Cables & Wires",
-    unit: "Metres",
-    field: "qty",
-    changeType: "dispatch",
-    oldValue: 5000,
-    newValue: 4500,
-    diff: "-500",
-    reason: "Dispatched for REQ-DS-101 (Feeder maintenance at Baramati circle)",
-    refCode: "REQ-DS-101",
-    actorId: "u_store",
-    actorName: "Meena Kulkarni",
-    actorRole: "Manager",
-    timestamp: daysAgo(20, 15),
-  },
-  {
-    id: "aud_06",
-    itemId: "itm_lugs",
-    itemName: "Lugs & Connectors Kit",
-    category: "Spares",
-    unit: "Sets",
-    field: "created",
-    changeType: "create",
-    oldValue: null,
-    newValue: 30,
-    reason: "Initial catalog entry for standardized repair connectors",
-    actorId: "u_admin",
-    actorName: "Aarti Deshmukh",
-    actorRole: "Admin",
-    timestamp: daysAgo(28, 9),
-  },
+  audit("aud_01", "itm_cap_elec", "qty", "quantity", 2000, 3000, "Purchase received from Mouser Electronics (PO-ES-4421)", "PO-ES-4421", MEENA, daysAgo(2, 14)),
+  audit("aud_02", "itm_mcu", "unitPrice", "price", 88, 95, "Supplier rate revision FY 2026-Q3", "RTE-2026-08", AARTI, daysAgo(5, 11)),
+  audit("aud_03", "itm_coating", "reorderLevel", "threshold", 8, 12, "Higher coating use on LED video wall batches", "QC-NOTE-26", MEENA, daysAgo(9, 16)),
+  audit("aud_04", "itm_sp_bldc", "qty", "return", 59, 60, "Repaired board returned to stock (RJ-SC-301)", "RJ-SC-301", ANJALI, daysAgo(18, 10)),
+  audit("aud_05", "itm_fan_cap", "qty", "dispatch", 1200, 900, "Dispatched for REQ-DS-0101 (Monthly van stock for Field Service technicians)", "REQ-DS-0101", MEENA, daysAgo(20, 15)),
+  audit("aud_06", "itm_conn", "created", "create", null, 30, "Initial catalogue entry for standard connector kits", undefined, AARTI, daysAgo(28, 9)),
 ]
 
 export function createSeedDatabase(): Database {
   const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
-  const central = { id: SITE_IDS.central, name: "Central Stores", manager: "Meena Kulkarni" }
-  const distributionOffice = { id: SITE_IDS.distribution, name: "Distribution", manager: "Rahul Patil" }
-  const serviceOffice = { id: SITE_IDS.service, name: "Service Centre", manager: "Anjali Joshi" }
-  // rq_d8 and rq_d10 are still with Distribution's own manager, so the "send on" step can be tried.
-  const distReqs = routeRequests(DIST_REQUESTS, distributionOffice, central, ["rq_d8", "rq_d10"])
-  const serviceReqs = routeRequests(SERVICE_REQUESTS, serviceOffice, distributionOffice)
-  const centralReqs = distReqs.filter((r) => r.forwardedAt)
-  const distIncoming = serviceReqs.filter((r) => r.forwardedAt)
+  const central = { id: SITE_IDS.central, name: "Component Stores", manager: "Meena Kulkarni" }
+  const fieldOffice = { id: SITE_IDS.distribution, name: "Field Service", manager: "Rahul Patil" }
+  const labOffice = { id: SITE_IDS.service, name: "PCB Repair Lab", manager: "Anjali Joshi" }
+  // rq_d8 and rq_d10 are still with Field Service's own manager, so the "send on" step can be tried.
+  const fieldReqs = routeRequests(DIST_REQUESTS, fieldOffice, central, ["rq_d8", "rq_d10"])
+  // rq_sc2 is still with the lab manager.
+  const labReqs = routeRequests(SERVICE_REQUESTS, labOffice, central, ["rq_sc2"])
+  // Component Stores sees every request that was sent on to it.
+  const centralIncoming = [...fieldReqs, ...labReqs].filter((r) => r.forwardedAt)
   return {
     schema: 5,
     users: clone(SEED_USERS),
@@ -869,24 +813,23 @@ export function createSeedDatabase(): Database {
         ...emptySiteData(),
         inventory: clone(CENTRAL_INVENTORY),
         assignments: clone(CENTRAL_ASSIGNMENTS),
-        requests: clone([...CENTRAL_REQUESTS, ...centralReqs]),
+        requests: clone([...CENTRAL_REQUESTS, ...centralIncoming]),
         productAudits: clone(CENTRAL_AUDITS),
       },
       [SITE_IDS.service]: {
         ...emptySiteData(),
-        requests: clone(serviceReqs),
+        requests: clone(labReqs),
         repairs: clone(SERVICE_REPAIRS),
         returns: clone(SERVICE_RETURNS),
         assignments: clone(SERVICE_ASSIGNMENTS),
+        consumption: clone(SERVICE_CONSUMPTION),
       },
       [SITE_IDS.distribution]: {
         ...emptySiteData(),
-        inventory: clone(DISTRIBUTION_INVENTORY),
-        requests: clone([...distReqs, ...distIncoming]),
+        requests: clone(fieldReqs),
         assignments: clone(DIST_ASSIGNMENTS),
         consumption: clone(DIST_CONSUMPTION),
       },
     },
   }
 }
-

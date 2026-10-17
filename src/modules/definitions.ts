@@ -60,9 +60,9 @@ const INVENTORY_FIELDS: FieldDef[] = [
     required: true,
     builtin: true,
     showInTable: true,
-    options: ["Meters", "Cables & Wires", "Transformers", "Line Hardware", "Protection", "Earthing", "Spares"],
+    options: ["ICs", "Semiconductors", "Capacitors", "Relays & Connectors", "Consumables", "Spare Boards", "Field Spares"],
   },
-  { key: "unit", label: "Unit", type: "select", required: true, builtin: true, options: ["Nos", "Metres", "Sets", "Kg"] },
+  { key: "unit", label: "Unit", type: "select", required: true, builtin: true, options: ["Nos", "Sets", "Packs", "Rolls", "Metres", "Kg"] },
   { key: "qty", label: "Quantity", type: "number", required: true, builtin: true, showInTable: true, min: 0 },
   { key: "unitPrice", label: "Price each (₹)", type: "number", required: true, builtin: true, showInTable: true, min: 0 },
   { key: "total", label: "Total (₹)", type: "calculated", formula: "qty * unitPrice", builtin: true, showInTable: true },
@@ -76,15 +76,22 @@ const REQUEST_FIELDS: FieldDef[] = [
 ]
 
 const REPAIR_FIELDS: FieldDef[] = [
-  { key: "meterId", label: "Meter number", type: "text", required: true, builtin: true, showInTable: true },
+  { key: "meterId", label: "Board serial / QR", type: "text", required: true, builtin: true, showInTable: true },
   {
     key: "meterType",
-    label: "Type of meter",
+    label: "Product type",
     type: "select",
     required: true,
     builtin: true,
     showInTable: true,
-    options: ["Single Phase Smart Meter", "Three Phase Smart Meter", "CT Operated Meter"],
+    options: [
+      "BLDC Fan Controller PCB",
+      "Geyser Control PCB",
+      "RO Purifier Controller PCB",
+      "Mixer Grinder Speed Control PCB",
+      "LED Video Wall Receiving Card",
+      "Smart Appliance IoT Module",
+    ],
   },
   {
     key: "fault",
@@ -93,7 +100,16 @@ const REPAIR_FIELDS: FieldDef[] = [
     required: true,
     builtin: true,
     showInTable: true,
-    options: ["Display blank", "No communication (RF/GPRS)", "Relay stuck", "Tamper alarm", "Burnt PCB", "Battery failure", "Wrong reading"],
+    options: [
+      "No power / dead board",
+      "IC / MCU failure",
+      "MOSFET / driver failure",
+      "Burnt component",
+      "Relay failure",
+      "Connector or trace damage",
+      "Firmware / communication fault",
+      "Physical / water damage",
+    ],
   },
   { key: "technician", label: "Repaired by", type: "text", builtin: true, showInTable: true },
   { key: "partsUsed", label: "Parts used", type: "text", builtin: true },
@@ -102,7 +118,7 @@ const REPAIR_FIELDS: FieldDef[] = [
 ]
 
 const CONSUMPTION_FIELDS: FieldDef[] = [
-  { key: "location", label: "Where was it used?", type: "text", required: true, builtin: true, showInTable: true },
+  { key: "location", label: "Where was it used? (customer / job)", type: "text", required: true, builtin: true, showInTable: true },
 ]
 
 export const MODULE_DEFINITIONS: ModuleDefinition[] = [
@@ -169,7 +185,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
     id: "request",
     name: "Material Requests",
     short: "Requests",
-    description: "Staff ask for materials or send in a meter to be repaired.",
+    description: "Staff ask for components or send in a faulty board to be repaired.",
     icon: ClipboardList,
     category: "Workflow",
     core: false,
@@ -244,7 +260,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
     id: "returns",
     name: "Stock Returns",
     short: "Returns",
-    description: "Put unused items or fixed meters back into stock.",
+    description: "Put unused items or repaired boards back into stock.",
     icon: Undo2,
     category: "Field",
     core: false,
@@ -257,9 +273,9 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   },
   {
     id: "pcb-repair",
-    name: "Meter Repair",
+    name: "PCB Repair",
     short: "Repairs",
-    description: "Follow each meter from received to fixed.",
+    description: "Follow each board from received to repaired or scrapped.",
     icon: CircuitBoard,
     category: "Service",
     core: false,
@@ -268,7 +284,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
     outputs: ["repair"],
     defaultFields: REPAIR_FIELDS,
     settings: [],
-    page: { path: "repairs", label: "Meter Repairs", minRole: "Member" },
+    page: { path: "repairs", label: "PCB Repairs", minRole: "Member" },
   },
   {
     id: "analytics",
@@ -351,7 +367,7 @@ export const SETTING_LABELS: Record<keyof WorkflowSettings, { label: string; hel
   stockSourceSiteId: { label: "Take stock from", help: "The store this office takes its stock from." },
   lowStockAlerts: { label: "Warn when stock is low", help: "Show a warning when an item drops below its warning level." },
   allowMaterialRequests: { label: "Allow asking for materials", help: "Staff can ask for materials." },
-  allowRepairRequests: { label: "Allow sending meters for repair", help: "Staff can send in a meter to be repaired." },
+  allowRepairRequests: { label: "Allow sending boards for repair", help: "Staff can send in a faulty board to be repaired." },
   maxQtyPerLine: { label: "Most items per request", help: "The most anyone can ask for of one item." },
   requireRejectComment: { label: "Ask for a reason when saying no", help: "Managers must explain why they turned a request down." },
   autoAssignOnApproval: { label: "Give out as soon as approved", help: "Items are handed over and stock goes down the moment a manager says yes." },

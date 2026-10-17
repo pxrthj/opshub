@@ -73,22 +73,22 @@ export function RepairsPage() {
   return (
     <div>
       <PageHeader
-        title={isAdmin ? "Meter repairs (Oversight)" : "Meter repairs"}
+        title={isAdmin ? "PCB repairs (Oversight)" : "PCB repairs"}
         icon={<CircuitBoard />}
         description={
           isAdmin
-            ? "Site Admin oversight: Monitoring refurbished meters and repair logs in read-only mode."
-            : "Follow each broken meter until it is fixed."
+            ? "Site Admin oversight: Monitoring refurbished boards and repair logs in read-only mode."
+            : "Follow each faulty board until it is repaired or scrapped."
         }
         actions={
           !isAdmin && (
             <Button
               onClick={() => {
                 setErrors({})
-                setEditing({ values: { meterType: "Single Phase Smart Meter" } })
+                setEditing({ values: { meterType: "BLDC Fan Controller PCB" } })
               }}
             >
-              <Plus /> Log faulty meter
+              <Plus /> Log faulty board
             </Button>
           )
         }
@@ -116,13 +116,13 @@ export function RepairsPage() {
         </Tabs>
         <div className="relative w-full max-w-xs">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="bg-card pl-9" placeholder="Search by meter number, fault or name" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="bg-card pl-9" placeholder="Search by board serial, fault or name" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
       {loading && !data ? (
         <TableSkeleton />
       ) : list.length === 0 ? (
-        <EmptyState icon={CircuitBoard} title="No repairs yet" description="Add a broken meter to start." />
+        <EmptyState icon={CircuitBoard} title="No repairs yet" description="Add a faulty board to start." />
       ) : (
         <Card className="py-0">
           <Table>
@@ -183,7 +183,7 @@ export function RepairsPage() {
       <Dialog open={!!editing} onOpenChange={(o) => !o && !busy && setEditing(null)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{editing?.job ? `Update ${editing.job.code}` : "Add a broken meter"}</DialogTitle>
+            <DialogTitle>{editing?.job ? `Update ${editing.job.code}` : "Add a faulty board"}</DialogTitle>
             <DialogDescription>{editing?.job ? "Change where this repair is up to." : "It starts as received."}</DialogDescription>
           </DialogHeader>
           {editing && (

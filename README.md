@@ -1,14 +1,15 @@
 # OpsHub (Plexus) — one app, many offices
 
-A clickable prototype for a hackathon. One codebase runs several **offices** (sites) for a made-up business
-group. Each office has its own menu, pages and data, and all of them are drawn by the same code from a
-JSON setup, in one shared look. An Admin sets an office up by dragging features onto a board.
+A clickable prototype for a hackathon, set up for **Electrolyte Solutions** (Navi Mumbai), an ISO 9001 L3/L4 PCB
+repair and refurbishment company that repairs boards for OEM clients and runs onsite field service. One codebase runs
+several **offices** (sites). Each office has its own menu, pages and data, and all of them are drawn by the same code
+from a JSON setup, in one shared look. An Admin sets an office up by dragging features onto a board.
 
 | Office | Address | Features switched on |
 |---|---|---|
-| Central Stores | `/s/central-stores` | Stock, Charts, Excel files |
-| Service Centre | `/s/service-centre` | Requests, Approvals, Meter repairs, Giving back |
-| Distribution | `/s/distribution` | Requests, Approvals, Giving out, My items, Usage |
+| Component Stores | `/s/component-stores` | Stock, Approvals, Charts, Excel files, Audit log |
+| PCB Repair Lab | `/s/pcb-repair-lab` | Requests, Approvals, PCB repairs, Giving out, My items, Usage, Returns |
+| Field Service | `/s/field-service` | Requests, Approvals, Giving out, My items, Usage, Returns, Audit log |
 
 The data and sign-in live in **Supabase** (Postgres + Auth), and the site is served as a static app (Vercel). Everyone
 signs in with an email and password. What a person can read is limited by row-level security, and every change goes
@@ -37,12 +38,12 @@ Stack: React 19, Vite, TypeScript, Tailwind 4 + shadcn/ui, React Router, React F
 
 | Office | Admin | Manager | Member |
 |---|---|---|---|
-| Central Stores | stores.admin | stores.manager | stores.member |
-| Distribution | dist.admin | dist.manager | dist.member |
-| Service Centre | service.admin | service.manager | service.member |
+| Component Stores | stores.admin | stores.manager | stores.member |
+| PCB Repair Lab | lab.admin | lab.manager | lab.member |
+| Field Service | field.admin | field.manager | field.member |
 
 Also: `admin@plexus.demo` is an Admin in every office; `ganesh@plexus.demo` and `logistics@plexus.demo` work in two
-offices each. (All addresses end in `@plexus.demo`.)
+offices each. (All addresses end in `@plexus.demo`. The old `dist.*` and `service.*` addresses still sign in.)
 
 Roles, lowest to highest: **Public, Member, Manager, Admin**. Roles are per office. No role in an office means no access.
 
@@ -61,29 +62,29 @@ Roles, lowest to highest: **Public, Member, Manager, Admin**. Roles are per offi
 | People (Admins) | Who can sign in and what they can do in each office |
 
 Inside an office: Overview, Stock, Requests, Decide on requests, Give out, My items, What was used, Giving back,
-Meter repairs, Charts, Excel files, People (only what is switched on and allowed for you is shown).
+PCB repairs, Charts, Excel files, People (only what is switched on and allowed for you is shown).
 
 ## Demo script
 
 1. Sign in as `admin@plexus.demo`. The switcher at the top lists all three offices. Open each one: different look, menu and data.
-2. **Edit offices → Distribution.** Drag **Stock Returns** onto the board. It shows a red "needs" message until you link it after **Giving Out Stock** (use *Link this to another feature* in the right-hand panel, or drag from one box to the other).
-   Press **Preview**, then **Make live**. A **Giving back** page now appears. **History → Go back to this** on version 1 removes it again.
+2. **Edit offices → Field Service.** Drag **Charts** onto the board and link it after **Stock Inventory**. Linked features show what they need in the right-hand panel (use *Link this to another feature*, or drag from one box to the other).
+   Press **Preview**, then **Make live**. A **Charts** page now appears. **History → Go back to this** on version 1 removes it again.
 3. **Ask, send on, decide, give out** (see "How offices talk to each other" below).
-   `dist.member` asks for 20 of an item. Only `dist.manager` sees it. `dist.manager` opens *Approvals* and clicks **Send to Central Stores**. Now `stores.manager` sees it under *Approvals* and clicks **Approve and give out**. Central Stores stock drops by 20 and the member sees the items under *My items*. Asking for more than is in stock fails and nothing changes.
-4. **Use and give back.** As `dist.member`, write down 15 used and give 5 back.
-5. **Repairs.** `service.member` sends in a meter, `service.manager` approves, `service.member` marks it Fixed and gives it back. Stock goes up by one.
+   `field.member` asks for 20 fan capacitors. Only `field.manager` sees it. `field.manager` opens *Approvals* and clicks **Send to Component Stores**. Now `stores.manager` sees it under *Approvals* and clicks **Approve and give out**. Component Stores stock drops by 20 and the technician sees the items under *My items*. Asking for more than is in stock fails and nothing changes.
+4. **Use and give back.** As `field.member`, write down 15 used at a customer and give 5 back.
+5. **Repairs.** `lab.member` sends in a faulty board, `lab.manager` approves, `lab.member` marks it Fixed and returns it to spares stock. Stock goes up by one.
 6. **Excel.** `stores.manager` can download. `stores.member` has the buttons switched off. `stores.admin` can also load a stock list (with a preview first).
-7. **Privacy between offices.** Sign in as `dist.member`. Only Distribution is listed, and the other offices' addresses say "You can't open this".
+7. **Privacy between offices.** Sign in as `field.member`. Only Field Service is listed, and the other offices' addresses say "You can't open this".
 
 ## How offices talk to each other
 
-Offices get stock from each other in a chain: **Central Stores → Distribution → Service Centre** (the "Take stock from" setting of each office).
+Both the PCB Repair Lab and Field Service take their stock from **Component Stores** (the "Take stock from" setting of each office).
 Requests follow one rule: **members never contact another office. Managers do.**
 
 1. A member asks. The request goes to **their own office's managers only**.
 2. If the stock lives in another office, their manager clicks **Send to (that office)**, with an optional message. Until then the other office cannot see the request at all.
 3. A manager of the supplying office decides. Approving gives the items out and lowers *that* office's stock in one step. If there is not enough, nothing changes.
-4. The member sees the status move: *With your manager → With Central Stores → Given out*.
+4. The member sees the status move: *With your manager → With Component Stores → Given out*.
 
 Details: their own manager can also **turn it down** before sending it on; after it is sent on only the supplying office can decide; an office that is not the asker or the supplier cannot see or change the request. Repairs and requests for an office's own stock never leave the office.
 

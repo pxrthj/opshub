@@ -18,7 +18,7 @@ import { SiteSidebar } from "./SiteSidebar"
 type Loaded = { config: SiteConfig; role: Role; liveVersion: number; hasDraft: boolean }
 
 /**
- * THE generic renderer. Every site — Central Stores, Service Centre, Distribution, or any
+ * THE generic renderer. Every site — Component Stores, PCB Repair Lab, Field Service, or any
  * new one — is drawn from its JSON config: theme -> CSS vars, pages -> sidebar + routes,
  * modules -> page components from the registry. There is no per-site code.
  */
