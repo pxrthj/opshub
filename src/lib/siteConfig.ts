@@ -15,7 +15,6 @@ import { ROLES } from "./roles"
 const PAGE_ORDER: ModuleId[] = [
   "shell",
   "inventory",
-  "stock-dashboard",
   "request",
   "approval",
   "assignment",

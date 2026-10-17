@@ -1,5 +1,5 @@
 import { normalizeValues, validateValues } from "@/lib/fields"
-import { isSentOn, managerAction, needsMyManager } from "@/lib/requestFlow"
+import { isSentOn, isSupplied, managerAction, needsMyManager } from "@/lib/requestFlow"
 import { ROLES, roleAtLeast } from "@/lib/roles"
 import { fieldsFor } from "@/lib/siteConfig"
 import type {
@@ -23,16 +23,12 @@ import type {
   SiteAdminDashboardData,
   SiteAdminDashboardKpis,
   SiteMember,
-  StockDashboardData,
-  StockDashboardItemDetail,
-  StockCategoryBreakdown,
-  StockMovementItem,
 } from "@/lib/types"
 import { formatDate, formatINR, uid } from "@/lib/utils"
 import { badRequest, conflict, forbidden, notFound, unprocessable } from "../errors"
 import { register, type Ctx } from "../router"
 import { assignMaterialTransaction, nextCode, siteCodePrefix, stockData } from "../transactions"
-import { assignmentView, byNewest, higherSiteOf, isLinkedInventory, stockSiteOf, weekBuckets } from "./helpers"
+import { assignmentView, byNewest, isLinkedInventory, stockSiteOf, weekBuckets } from "./helpers"
 import { computeStats, publicUser } from "./hub"
 
 // ---------------------------------------------------------------- audit helpers
@@ -154,22 +150,18 @@ register(
     method: "GET",
     path: "/api/:siteId/inventory",
     minRole: "Member",
-    module: ["inventory", "request", "stock-dashboard"],
+    module: ["inventory", "request"],
     handler: (ctx) => {
-      const sourceId = ctx.siteId
+      // ?own=1 asks for the stock this office physically holds (used when it supplies another office).
+      const own = ctx.query.own === "1"
+      const sourceId = own ? ctx.siteId : stockSiteOf(ctx.config)
       const source = ctx.db.sites[sourceId]
-      const higherId = higherSiteOf(ctx.config)
-      const higherSite = higherId ? ctx.db.sites[higherId] : null
-      const higherManager = higherId ? ctx.db.users.find((u) => u.roles[higherId] === "Manager") : null
       return {
         items: [...stockData(ctx.db, sourceId).inventory].sort((a, b) => a.name.localeCompare(b.name)),
-        linked: false,
+        linked: !own && isLinkedInventory(ctx.config),
         sourceSiteId: sourceId,
         sourceName: source?.live.name ?? sourceId,
-        higherSiteId: higherId,
-        higherSiteName: higherSite?.live.name ?? null,
-        higherSiteManager: higherManager ? { id: higherManager.id, name: higherManager.name, title: higherManager.title } : null,
-        fields: fieldsFor(ctx.config, "inventory"),
+        fields: isLinkedInventory(ctx.config) && source ? fieldsFor(source.live, "inventory") : fieldsFor(ctx.config, "inventory"),
       }
     },
   },
@@ -365,10 +357,8 @@ register(
       const values = normalizeValues(fields, body)
 
       const d = data(ctx)
-      const higherId = higherSiteOf(config)
-      const higherSite = higherId ? ctx.db.sites[higherId] : null
-      const targetSiteId = ctx.siteId
-      const targetSiteName = config.name
+      const targetSiteId = type === "material" && wf.stockSourceSiteId ? wf.stockSourceSiteId : ctx.siteId
+      const targetSiteName = ctx.db.sites[targetSiteId]?.live.name || "Stores"
 
       const req: MaterialRequest = {
         ...values,
@@ -389,27 +379,15 @@ register(
       if (type === "material") {
         const rawLines = (body.lines ?? []) as { itemId: string; qty: number }[]
         if (!rawLines.length) throw badRequest("Add at least one item")
-        const localStock = stockData(ctx.db, ctx.siteId).inventory
-        const shortages: string[] = []
+        const stock = stockData(ctx.db, stockSiteOf(config)).inventory
         req.lines = rawLines.map((l, i) => {
-          const item = localStock.find((s) => s.id === l.itemId)
+          const item = stock.find((s) => s.id === l.itemId)
           if (!item) throw badRequest(`Line ${i + 1}: choose an item`)
           const qty = Number(l.qty)
           if (!Number.isInteger(qty) || qty <= 0) throw badRequest(`Line ${i + 1}: quantity must be a positive whole number`)
           if (qty > wf.maxQtyPerLine) throw badRequest(`Line ${i + 1}: max ${wf.maxQtyPerLine} per line on this site`)
-          if (item.qty < qty) {
-            shortages.push(item.qty === 0 ? `${item.name} (0 in stock)` : `${item.name} (asked ${qty}, only ${item.qty} in stock)`)
-          }
           return { itemId: item.id, itemName: item.name, unit: item.unit, qty }
         })
-        if (shortages.length > 0) {
-          req.isOutOfStockLocally = true
-          req.localStockShortages = shortages
-          req.higherSiteId = higherId || undefined
-          req.higherSiteName = higherSite?.live.name || undefined
-        } else {
-          req.isOutOfStockLocally = false
-        }
       } else {
         const r = body.repair ?? {}
         if (!String(r.meterId ?? "").trim()) throw badRequest("Meter ID is required")
@@ -436,24 +414,19 @@ register(
       if (action === "send-on")
         throw forbidden(`Send ${req.code} to ${otherOffice(req)} first. Only their managers can approve it.`)
       if (action !== "decide") throw forbidden(`${req.code} is not waiting for a decision from ${ctx.config.name}.`)
-      
-      // If local request is out of stock, local manager cannot give it out without escalating
-      if (req.targetSiteId === ctx.siteId && req.originSiteId === ctx.siteId && req.isOutOfStockLocally) {
-        const shortages = req.localStockShortages?.join(", ") || "items out of stock"
-        throw conflict(`Cannot approve from local stock: ${shortages}. Escalate to ${req.higherSiteName || "the higher office"} Manager.`)
-      }
-
       req.status = "Approved"
       req.decidedBy = ctx.user!.name
       req.decidedAt = new Date().toISOString()
       req.decisionComment = String(ctx.body.comment ?? "").trim() || undefined
 
       // The stock source site is the target site that supplies the goods
-      const stockSiteId = req.targetSiteId || ctx.siteId
+      const stockSiteId = req.targetSiteId || (isLinkedInventory(ctx.config) ? stockSiteOf(ctx.config) : ctx.siteId)
       const originSiteId = req.originSiteId || ctx.siteId
 
       let assignmentCode: string | undefined
-      const givesStock = ctx.enabled.has("inventory") || ctx.enabled.has("assignment")
+      // An office that supplies stock to another office gives it out as soon as it approves, even if it
+      // has no "Giving Out Stock" feature of its own. Otherwise the asking office's own setup applies.
+      const givesStock = isSupplied(req) ? ctx.enabled.has("inventory") : ctx.enabled.has("assignment")
       if (req.type === "material" && givesStock && ctx.config.workflow.autoAssignOnApproval) {
         // Throws (and whole approval is rolled back) if any line is short.
         const a = assignMaterialTransaction(ctx.db, {
@@ -522,19 +495,15 @@ register(
       if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Request forwarding is made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
-      const higherId = req.higherSiteId || higherSiteOf(ctx.config)
-      const targetId = (req.targetSiteId && req.targetSiteId !== ctx.siteId) ? req.targetSiteId : higherId
-      if (!targetId) throw badRequest("No higher office exists to escalate this request to.")
+      const action = managerAction(req, ctx.siteId)
+      if (action === "waiting-for-other-office") throw conflict(`${req.code} was already sent to ${otherOffice(req)}`)
+      if (action !== "send-on") throw forbidden(`${req.code} does not need to be sent to another office.`)
+      const target = ctx.db.data[req.targetSiteId!]
+      if (!target) throw notFound(`${otherOffice(req)} could not be found`)
 
-      const targetSite = ctx.db.sites[targetId]
-      const target = ctx.db.data[targetId]
-      if (!targetSite || !target) throw notFound(`Higher office could not be found`)
-
-      req.targetSiteId = targetId
-      req.targetSiteName = targetSite.live.name
       req.forwardedAt = new Date().toISOString()
       req.forwardedBy = ctx.user!.name
-      req.forwardNote = String(ctx.body.note ?? "").trim() || (req.isOutOfStockLocally ? "Escalated to higher site manager due to local stockout" : undefined)
+      req.forwardNote = String(ctx.body.note ?? "").trim() || undefined
 
       // Now (and only now) the supplying office's managers can see it.
       if (!target.requests) target.requests = []
@@ -974,203 +943,6 @@ register(
       if (role) target.roles[ctx.siteId] = role
       else delete target.roles[ctx.siteId]
       return { user: publicUser(target), role }
-    },
-  },
-
-  // ---------------------------------------------------------------- stock dashboard (Admin & Manager)
-  {
-    method: "GET",
-    path: "/api/:siteId/stock/dashboard",
-    minRole: "Manager",
-    handler: (ctx): StockDashboardData => {
-      const d = data(ctx)
-      const inv = d.inventory ?? []
-      const higherId = higherSiteOf(ctx.config)
-      const higherSite = higherId ? ctx.db.sites[higherId] : null
-      const higherManager = higherId ? ctx.db.users.find((u) => u.roles[higherId] === "Manager") : null
-      const higherStock = higherId ? (stockData(ctx.db, higherId)?.inventory ?? []) : []
-
-      // Identify lower sites
-      const lowerSites: StockDashboardData["lowerSites"] = []
-      for (const [sId, siteRecord] of Object.entries(ctx.db.sites)) {
-        if (sId === ctx.siteId) continue
-        if (siteRecord.live.workflow.stockSourceSiteId === ctx.siteId) {
-          const mgr = ctx.db.users.find((u) => u.roles[sId] === "Manager")
-          lowerSites.push({
-            id: sId,
-            name: siteRecord.live.name,
-            slug: siteRecord.live.slug,
-            managerName: mgr?.name ?? "Office Manager",
-          })
-        }
-      }
-
-      // Hierarchy Tier detection
-      let tier = 1
-      let tierLabel = "Tier 1: Central Supply Hub"
-      if (higherId && lowerSites.length > 0) {
-        tier = 2
-        tierLabel = "Tier 2: Regional Distribution Centre"
-      } else if (higherId && lowerSites.length === 0) {
-        tier = 3
-        tierLabel = "Tier 3: Service & Testing Centre"
-      }
-
-      const totalValuation = inv.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0)
-      const totalUnits = inv.reduce((s, i) => s + (Number(i.qty) || 0), 0)
-      const totalItems = inv.length
-      const healthyCount = inv.filter((i) => i.qty >= i.reorderLevel).length
-      const lowStockCount = inv.filter((i) => i.qty > 0 && i.qty < i.reorderLevel).length
-      const outOfStockCount = inv.filter((i) => i.qty === 0).length
-
-      // Active escalations: requests originating here that are pending with higher site or flagged out of stock
-      const allLocalRequests = d.requests ?? []
-      const pendingEscalations = allLocalRequests.filter(
-        (r) => r.type === "material" && r.status === "Pending" && (r.isOutOfStockLocally || (higherId && r.targetSiteId === higherId)),
-      )
-
-      // Item details
-      const items: StockDashboardItemDetail[] = inv.map((i) => {
-        const higherItem = higherStock.find((h) => h.id === i.id)
-        const activeEsc = pendingEscalations.find((r) => r.lines.some((l) => l.itemId === i.id))
-        const status: "In Stock" | "Low Stock" | "Out of Stock" =
-          i.qty === 0 ? "Out of Stock" : i.qty < i.reorderLevel ? "Low Stock" : "In Stock"
-        return {
-          id: i.id,
-          name: i.name,
-          category: i.category,
-          unit: i.unit,
-          qty: i.qty,
-          unitPrice: i.unitPrice,
-          totalValue: i.qty * i.unitPrice,
-          reorderLevel: i.reorderLevel,
-          status,
-          higherSiteStock: higherItem ? higherItem.qty : (higherId ? 0 : null),
-          activeEscalationCode: activeEsc?.code,
-          activeEscalationStatus: activeEsc ? (activeEsc.forwardedAt ? `With ${activeEsc.targetSiteName}` : "Pending Escalation") : undefined,
-          updatedAt: i.updatedAt,
-        }
-      })
-
-      const outOfStockItems = items.filter((i) => i.status === "Out of Stock")
-      const lowStockItems = items.filter((i) => i.status === "Low Stock")
-
-      // Category breakdown
-      const catMap = new Map<string, StockCategoryBreakdown>()
-      for (const item of items) {
-        const c = catMap.get(item.category) || {
-          category: item.category,
-          count: 0,
-          totalQty: 0,
-          totalValue: 0,
-          lowOrOutCount: 0,
-        }
-        c.count += 1
-        c.totalQty += item.qty
-        c.totalValue += item.totalValue
-        if (item.status !== "In Stock") c.lowOrOutCount += 1
-        catMap.set(item.category, c)
-      }
-      const categoryBreakdown = Array.from(catMap.values()).sort((a, b) => b.totalValue - a.totalValue)
-
-      // Recent stock movements
-      const recentMovements: StockMovementItem[] = []
-      for (const a of (d.productAudits ?? []).slice(0, 15)) {
-        let type: "inflow" | "outflow" | "adjustment" = "adjustment"
-        if (a.changeType === "dispatch") type = "outflow"
-        else if (a.changeType === "quantity" && a.diff?.startsWith("+")) type = "inflow"
-        else if (a.changeType === "return") type = "inflow"
-        recentMovements.push({
-          id: a.id,
-          type,
-          title: `${a.itemName} (${a.diff || a.changeType})`,
-          description: a.reason || `${a.changeType} recorded by ${a.actorName}`,
-          date: a.timestamp,
-          actorName: a.actorName,
-          diff: a.diff,
-          refCode: a.refCode,
-        })
-      }
-
-      return {
-        siteId: ctx.siteId,
-        siteName: ctx.config.name,
-        slug: ctx.config.slug,
-        tier,
-        tierLabel,
-        higherSite: higherSite && higherManager ? {
-          id: higherId!,
-          name: higherSite.live.name,
-          slug: higherSite.live.slug,
-          managerName: higherManager.name,
-          managerTitle: higherManager.title,
-        } : null,
-        lowerSites,
-        kpis: {
-          totalValuation,
-          totalItems,
-          totalUnits,
-          healthyCount,
-          lowStockCount,
-          outOfStockCount,
-          pendingEscalationsCount: pendingEscalations.length,
-        },
-        items,
-        outOfStockItems,
-        lowStockItems,
-        categoryBreakdown,
-        recentMovements,
-        pendingEscalations,
-      }
-    },
-  },
-  {
-    method: "POST",
-    path: "/api/:siteId/stock/replenish",
-    minRole: "Manager",
-    handler: (ctx) => {
-      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Stock replenishment requests are made by Managers.")
-      const higherId = higherSiteOf(ctx.config)
-      if (!higherId) throw badRequest("This site is the apex central store and cannot replenish from a higher office. Use vendor procurement.")
-      const higherSite = ctx.db.sites[higherId]
-      const higherTarget = ctx.db.data[higherId]
-      if (!higherSite || !higherTarget) throw notFound("Higher office not found")
-
-      const { itemId, qty, note } = ctx.body as { itemId: string; qty: number; note?: string }
-      if (!itemId) throw badRequest("Item ID is required")
-      const numQty = Number(qty)
-      if (!Number.isInteger(numQty) || numQty <= 0) throw badRequest("Quantity must be a positive whole number")
-
-      const localItem = data(ctx).inventory.find((i) => i.id === itemId)
-      if (!localItem) throw notFound("Item not found in local stock")
-
-      const d = data(ctx)
-      const req: MaterialRequest = {
-        id: uid("rq"),
-        code: nextCode(d.requests, `REQ-${siteCodePrefix(ctx.db, ctx.siteId)}`, 1000),
-        type: "material",
-        lines: [{ itemId: localItem.id, itemName: localItem.name, unit: localItem.unit, qty: numQty }],
-        purpose: String(note ?? "").trim() || `Stock replenishment: ${numQty} ${localItem.unit} of ${localItem.name} for ${ctx.config.name}`,
-        priority: "Urgent",
-        requestedBy: ctx.user!.id,
-        requestedByName: ctx.user!.name,
-        createdAt: new Date().toISOString(),
-        status: "Pending",
-        originSiteId: ctx.siteId,
-        originSiteName: ctx.config.name,
-        targetSiteId: higherId,
-        targetSiteName: higherSite.live.name,
-        forwardedAt: new Date().toISOString(),
-        forwardedBy: ctx.user!.name,
-        forwardNote: "Direct replenishment requested via Stock Dashboard",
-        isOutOfStockLocally: localItem.qty === 0,
-      }
-
-      d.requests.unshift(req)
-      if (!higherTarget.requests) higherTarget.requests = []
-      higherTarget.requests.unshift(JSON.parse(JSON.stringify(req)))
-      syncRequest(ctx, req)
-      return req
     },
   },
 

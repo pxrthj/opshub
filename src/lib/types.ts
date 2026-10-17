@@ -7,7 +7,6 @@ export type ModuleId =
   | "users"
   | "shell"
   | "inventory"
-  | "stock-dashboard"
   | "request"
   | "approval"
   | "assignment"
@@ -172,13 +171,6 @@ export interface MaterialRequest {
   forwardedAt?: string
   forwardedBy?: string
   forwardNote?: string
-  /** Flagged if items are out of stock / insufficient in local site stock */
-  isOutOfStockLocally?: boolean
-  localStockShortages?: string[]
-  higherSiteId?: string
-  higherSiteName?: string
-  needsEscalation?: boolean
-  escalatedTo?: string
   [custom: string]: unknown
 }
 
@@ -554,79 +546,6 @@ export interface SiteAdminDashboardData {
   repairStages?: { stage: string; count: number }[]
   needsAttention: DashboardNeedsAttentionItem[]
   activityFeed: DashboardActivityItem[]
-}
-
-export interface StockDashboardKpis {
-  totalValuation: number
-  totalItems: number
-  totalUnits: number
-  healthyCount: number
-  lowStockCount: number
-  outOfStockCount: number
-  pendingEscalationsCount: number
-}
-
-export interface StockDashboardItemDetail {
-  id: string
-  name: string
-  category: string
-  unit: string
-  qty: number
-  unitPrice: number
-  totalValue: number
-  reorderLevel: number
-  status: "In Stock" | "Low Stock" | "Out of Stock"
-  higherSiteStock: number | null
-  activeEscalationCode?: string
-  activeEscalationStatus?: string
-  updatedAt: string
-}
-
-export interface StockCategoryBreakdown {
-  category: string
-  count: number
-  totalQty: number
-  totalValue: number
-  lowOrOutCount: number
-}
-
-export interface StockMovementItem {
-  id: string
-  type: "inflow" | "outflow" | "adjustment"
-  title: string
-  description: string
-  date: string
-  actorName: string
-  diff?: string
-  refCode?: string
-}
-
-export interface StockDashboardData {
-  siteId: string
-  siteName: string
-  slug: string
-  tier: number
-  tierLabel: string
-  higherSite: {
-    id: string
-    name: string
-    slug: string
-    managerName: string
-    managerTitle: string
-  } | null
-  lowerSites: {
-    id: string
-    name: string
-    slug: string
-    managerName: string
-  }[]
-  kpis: StockDashboardKpis
-  items: StockDashboardItemDetail[]
-  outOfStockItems: StockDashboardItemDetail[]
-  lowStockItems: StockDashboardItemDetail[]
-  categoryBreakdown: StockCategoryBreakdown[]
-  recentMovements: StockMovementItem[]
-  pendingEscalations: MaterialRequest[]
 }
 
 

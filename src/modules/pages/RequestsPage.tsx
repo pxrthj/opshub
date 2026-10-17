@@ -42,7 +42,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const { data: inv } = useAsync(
-    () => (open && wf.allowMaterialRequests ? siteApi.get<{ items: InventoryItem[]; sourceName: string; higherSiteName?: string; higherSiteManager?: { name: string } }>("inventory") : Promise.resolve(null)),
+    () => (open && wf.allowMaterialRequests ? siteApi.get<{ items: InventoryItem[]; sourceName: string }>("inventory") : Promise.resolve(null)),
     [open],
   )
   const fields = fieldsFor(config, "request")
@@ -84,20 +84,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
     setBusy(true)
     try {
       await siteApi.post<MaterialRequest>("requests", body)
-      const clean = lines.filter((l) => l.itemId || l.qty)
-      const shortages = clean.filter((l) => {
-        const s = stock.find((x) => x.id === l.itemId)
-        return s && s.qty < Number(l.qty)
-      })
-      if (shortages.length > 0) {
-        toast.success("Your request was submitted to your manager", {
-          description: `Contains out-of-stock items. Your manager will escalate to ${inv?.higherSiteName || "higher office"} manager to supply.`,
-        })
-      } else {
-        toast.success("Your request was sent to your manager", {
-          description: "Items are in stock locally and waiting for your site manager's approval.",
-        })
-      }
+      toast.success("Your request was sent", { description: wf.stockSourceSiteId && type === "material" ? `It is with your manager now. If it is fine, they send it to ${inv?.sourceName ?? "the supplying office"}.` : "It is with your manager now." })
       reset()
       onOpenChange(false)
       onCreated()
@@ -116,7 +103,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
         <DialogHeader>
           <DialogTitle>New request</DialogTitle>
           <DialogDescription>
-            {type === "material" ? `Ask for items from ${config.name} stock.` : "Send in a meter that is not working."} You ask your own manager. If an item is out of stock, they escalate to the higher site manager.
+            {type === "material" ? "Ask for items from stock." : "Send in a meter that is not working."} You only ever ask your own manager. They decide, or pass it on.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
@@ -138,7 +125,6 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
               {lines.map((l, idx) => {
                 const item = stock.find((s) => s.id === l.itemId)
                 const over = item && Number(l.qty) > item.qty
-                const isOutOfStock = item && item.qty === 0
                 return (
                   <div key={idx} className="flex items-start gap-2">
                     <Select value={l.itemId || undefined} onValueChange={(v) => setLines(lines.map((x, i) => (i === idx ? { ...x, itemId: v } : x)))}>
@@ -148,19 +134,12 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
                       <SelectContent>
                         {stock.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
-                            <span className="font-medium">{s.name}</span>{" "}
-                            {s.qty === 0 ? (
-                              <span className="text-xs text-red-600 font-semibold">· Out of stock (0 {s.unit})</span>
-                            ) : s.qty < s.reorderLevel ? (
-                              <span className="text-xs text-amber-600">· Low stock ({s.qty.toLocaleString("en-IN")} {s.unit})</span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">· {s.qty.toLocaleString("en-IN")} {s.unit} in stock</span>
-                            )}
+                            {s.name} <span className="text-xs text-muted-foreground">· {s.qty.toLocaleString("en-IN")} {s.unit} in stock</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <div className="w-48">
+                    <div className="w-32">
                       <Input
                         type="number"
                         min={1}
@@ -168,24 +147,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
                         value={l.qty}
                         onChange={(e) => setLines(lines.map((x, i) => (i === idx ? { ...x, qty: e.target.value } : x)))}
                       />
-                      {item && (
-                        <p
-                          className={cn(
-                            "mt-1 text-xs",
-                            isOutOfStock
-                              ? "font-semibold text-red-600"
-                              : over
-                                ? "font-medium text-amber-600"
-                                : "text-emerald-700",
-                          )}
-                        >
-                          {isOutOfStock
-                            ? `⚠️ Out of stock locally — will escalate to ${inv?.higherSiteName || "higher office"}`
-                            : over
-                              ? `⚠️ Asked for ${l.qty}, only ${item.qty} in stock`
-                              : `✓ In local stock (${item.qty} ${item.unit})`}
-                        </p>
-                      )}
+                      {item && <p className={cn("mt-1 text-xs", over ? "text-amber-600" : "text-muted-foreground")}>{over ? "More than we have in stock" : item.unit}</p>}
                     </div>
                     <Button variant="ghost" size="icon" disabled={lines.length === 1} onClick={() => setLines(lines.filter((_, i) => i !== idx))} aria-label="Remove this row">
                       <Trash2 />
@@ -362,11 +324,6 @@ export function RequestsPage() {
                   <TableCell className="pl-4">
                     <div className="text-xs font-semibold">{r.code}</div>
                     <div className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</div>
-                    {r.isOutOfStockLocally && (
-                      <span className="mt-0.5 inline-block rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
-                        ⚠️ Out of stock locally
-                      </span>
-                    )}
                     {r.targetSiteName && r.targetSiteId !== config.siteId && (
                       <span className="mt-0.5 inline-block rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         To: {r.targetSiteName}

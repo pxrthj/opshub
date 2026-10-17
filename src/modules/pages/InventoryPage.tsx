@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react"
-import { Link } from "react-router-dom"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
@@ -37,7 +36,7 @@ interface InventoryResponse {
 const ALL = "__all__"
 
 export function InventoryPage() {
-  const { config, role, siteApi, basePath, changeTick, notifyChange } = useSite()
+  const { config, role, siteApi, changeTick, notifyChange } = useSite()
   const { data, loading, reload } = useAsync(() => siteApi.get<InventoryResponse>("inventory"), [changeTick])
   const [q, setQ] = useState("")
   const [cat, setCat] = useState(ALL)
@@ -50,9 +49,8 @@ export function InventoryPage() {
   const fields = data?.fields ?? []
   const tableFields = fields.filter((f) => f.showInTable)
   const linked = !!data?.linked
-  const isAdmin = role === "Admin"
-  const canEdit = role === "Manager" && !linked
-  const canDelete = role === "Manager" && !linked
+  const canEdit = roleAtLeast(role, "Manager") && !linked
+  const canDelete = role === "Admin" && !linked
   const alerts = config.workflow.lowStockAlerts
   const categories = fields.find((f) => f.key === "category")?.options ?? []
 
@@ -120,31 +118,31 @@ export function InventoryPage() {
         title="Stock"
         icon={<Boxes />}
         description={
-          isAdmin ? (
-            "Site Admin Oversight: Real-time physical inventory audit for this office."
+          linked ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Link2 className="size-3.5" /> Stock held in {data?.sourceName}. View only.
+            </span>
           ) : (
-            "Physical items held at this site, and how many are available."
+            "Everything we have, and how many are left."
           )
         }
         actions={
-          <div className="flex items-center gap-2">
-            {roleAtLeast(role, "Manager") && (
-              <Button variant="outline" size="sm" asChild>
-                <Link to={`${basePath}/stock-dashboard`}>
-                  📊 Stock Dashboard
-                </Link>
-              </Button>
-            )}
-            {canEdit ? (
-              <Button onClick={openNew}>
-                <Plus /> Add item
-              </Button>
-            ) : isAdmin ? (
-              <span className="text-xs text-muted-foreground flex items-center gap-1 border rounded-md px-2.5 py-1.5 bg-muted/40">
-                <Link2 className="size-3.5" /> Oversight Mode (Read-Only)
-              </span>
-            ) : null}
-          </div>
+          canEdit ? (
+            <Button onClick={openNew}>
+              <Plus /> Add item
+            </Button>
+          ) : !linked ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button disabled>
+                    <Plus /> Add item
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Only managers and admins can change stock</TooltipContent>
+            </Tooltip>
+          ) : null
         }
       />
 

@@ -98,26 +98,13 @@ const centralStores = buildConfigFromCanvas(
       autoAssignOnApproval: true,
       requireRejectComment: true,
       allowRepairRequests: false,
-      allowMaterialRequests: true,
+      allowMaterialRequests: false,
       maxQtyPerLine: 1000,
       lowStockAlerts: true,
     },
   }),
-  [
-    node("n_inv", "inventory", 80, 170),
-    node("n_stk_dash", "stock-dashboard", 80, 340),
-    node("n_apr", "approval", 320, 170),
-    node("n_ana", "analytics", 560, 60),
-    node("n_rep", "reports", 560, 280),
-    node("n_aud", "audit-log", 560, 480),
-  ],
-  [
-    edge("n_inv", "n_stk_dash"),
-    edge("n_inv", "n_apr"),
-    edge("n_inv", "n_ana"),
-    edge("n_inv", "n_rep"),
-    edge("n_inv", "n_aud"),
-  ],
+  [node("n_inv", "inventory", 80, 170), node("n_apr", "approval", 320, 170), node("n_ana", "analytics", 560, 60), node("n_rep", "reports", 560, 280), node("n_aud", "audit-log", 560, 480)],
+  [edge("n_inv", "n_apr"), edge("n_inv", "n_ana"), edge("n_inv", "n_rep"), edge("n_inv", "n_aud")],
 )
 
 const serviceCentre = buildConfigFromCanvas(
@@ -125,7 +112,7 @@ const serviceCentre = buildConfigFromCanvas(
     siteId: SITE_IDS.service,
     slug: "service-centre",
     name: "Service Centre",
-    description: "Repairs broken meters and holds local spare parts and replacement stock.",
+    description: "Repairs broken meters and asks Distribution for what it needs.",
     workflow: {
       stockSourceSiteId: SITE_IDS.distribution,
       autoAssignOnApproval: true,
@@ -133,24 +120,16 @@ const serviceCentre = buildConfigFromCanvas(
       allowRepairRequests: true,
       allowMaterialRequests: true,
       maxQtyPerLine: 50,
-      lowStockAlerts: true,
+      lowStockAlerts: false,
     },
   }),
   [
-    node("n_inv", "inventory", 40, 40),
-    node("n_stk_dash", "stock-dashboard", 320, 40),
-    node("n_req", "request", 40, 200),
-    node("n_apr", "approval", 320, 200),
-    node("n_pcb", "pcb-repair", 600, 200),
-    node("n_ret", "returns", 880, 200),
+    node("n_req", "request", 40, 150),
+    node("n_apr", "approval", 320, 150),
+    node("n_pcb", "pcb-repair", 600, 150),
+    node("n_ret", "returns", 880, 150),
   ],
-  [
-    edge("n_inv", "n_stk_dash"),
-    edge("n_inv", "n_apr"),
-    edge("n_req", "n_apr"),
-    edge("n_apr", "n_pcb"),
-    edge("n_pcb", "n_ret"),
-  ],
+  [edge("n_req", "n_apr"), edge("n_apr", "n_pcb"), edge("n_pcb", "n_ret")],
 )
 
 const distribution = buildConfigFromCanvas(
@@ -173,14 +152,12 @@ const distribution = buildConfigFromCanvas(
     node("n_req", "request", 30, 60),
     node("n_apr", "approval", 300, 60),
     node("n_inv", "inventory", 300, 280),
-    node("n_stk_dash", "stock-dashboard", 300, 420),
     node("n_asg", "assignment", 580, 160),
     node("n_afe", "assignment-frontend", 870, 50),
     node("n_con", "consumption", 870, 280),
     node("n_aud", "audit-log", 580, 400),
   ],
   [
-    edge("n_inv", "n_stk_dash"),
     edge("n_req", "n_apr"),
     edge("n_apr", "n_asg"),
     edge("n_inv", "n_asg"),
@@ -242,11 +219,6 @@ const CENTRAL_INVENTORY: InventoryItem[] = [
   inv("itm_do_fuse", "DO Fuse Set 11 kV", "Protection", "Sets", 45, 3200, 20),
   inv("itm_earth_rod", "Earthing Rod GI 3 m", "Earthing", "Nos", 95, 650, 120),
   inv("itm_lugs", "Lugs & Connectors Kit", "Spares", "Sets", 30, 450, 40),
-  inv("itm_lcd_mod", "Smart Meter LCD Module", "Spares", "Nos", 150, 420, 30),
-  inv("itm_gprs_mod", "RF/GPRS Comm Modem Unit", "Spares", "Nos", 60, 1100, 15),
-  inv("itm_relay_60a", "Latching Relay 60A", "Spares", "Nos", 120, 890, 25),
-  inv("itm_rtc_bat", "RTC Lithium Battery 3.6V", "Spares", "Nos", 200, 120, 40),
-  inv("itm_term_blk", "Meter Terminal Block 4-Way", "Spares", "Nos", 180, 180, 35),
 ]
 
 export const DISTRIBUTION_INVENTORY: InventoryItem[] = [
@@ -259,23 +231,6 @@ export const DISTRIBUTION_INVENTORY: InventoryItem[] = [
   inv("itm_mcb32", "MCB 32A Double Pole", "Protection", "Nos", 85, 310, 20),
   inv("itm_earth_rod", "Earthing Rod GI 3 m", "Earthing", "Nos", 35, 650, 20),
   inv("itm_lugs", "Lugs & Connectors Kit", "Spares", "Sets", 18, 450, 10),
-  inv("itm_relay_60a", "Latching Relay 60A", "Spares", "Nos", 45, 890, 15),
-  inv("itm_do_fuse", "DO Fuse Set 11 kV", "Protection", "Sets", 15, 3200, 10),
-  inv("itm_disc_ins", "Disc Insulator 11 kV", "Line Hardware", "Nos", 0, 320, 25),
-  inv("itm_dt100", "Distribution Transformer 100 kVA", "Transformers", "Nos", 0, 285000, 2),
-]
-
-export const SERVICE_INVENTORY: InventoryItem[] = [
-  inv("itm_sp_meter", "Single Phase Smart Meter", "Meters", "Nos", 12, 2400, 10),
-  inv("itm_tp_meter", "Three Phase Smart Meter", "Meters", "Nos", 3, 6800, 5),
-  inv("itm_meter_box", "Meter Box (SMC) Single Phase", "Meters", "Nos", 20, 380, 15),
-  inv("itm_lcd_mod", "Smart Meter LCD Module", "Spares", "Nos", 28, 420, 10),
-  inv("itm_gprs_mod", "RF/GPRS Comm Modem Unit", "Spares", "Nos", 8, 1100, 6),
-  inv("itm_relay_60a", "Latching Relay 60A", "Spares", "Nos", 0, 890, 8),
-  inv("itm_rtc_bat", "RTC Lithium Battery 3.6V", "Spares", "Nos", 30, 120, 10),
-  inv("itm_term_blk", "Meter Terminal Block 4-Way", "Spares", "Nos", 22, 180, 10),
-  inv("itm_do_fuse", "DO Fuse Set 11 kV", "Protection", "Sets", 0, 3200, 5),
-  inv("itm_lugs", "Lugs & Connectors Kit", "Spares", "Sets", 14, 450, 10),
 ]
 
 const itemName = (id: string) => CENTRAL_INVENTORY.find((i) => i.id === id)!
@@ -638,43 +593,6 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     targetSiteId: SITE_IDS.distribution,
     targetSiteName: "Distribution",
   },
-  {
-    id: "rq_sc3",
-    code: "REQ-SC-3003",
-    type: "material",
-    lines: [line("itm_lcd_mod", 4), line("itm_term_blk", 2)],
-    purpose: "LCD modules & terminal blocks for meter workbench repairs",
-    priority: "Normal",
-    requestedBy: "u_vikas",
-    requestedByName: "Vikas Shinde",
-    createdAt: daysAgo(1, 11),
-    status: "Pending",
-    originSiteId: SITE_IDS.service,
-    originSiteName: "Service Centre",
-    targetSiteId: SITE_IDS.service,
-    targetSiteName: "Service Centre",
-    isOutOfStockLocally: false,
-  },
-  {
-    id: "rq_sc4",
-    code: "REQ-SC-3004",
-    type: "material",
-    lines: [line("itm_relay_60a", 5)],
-    purpose: "Latching relay 60A replacement for stuck relay meter batch",
-    priority: "Urgent",
-    requestedBy: "u_vikas",
-    requestedByName: "Vikas Shinde",
-    createdAt: daysAgo(0, 9),
-    status: "Pending",
-    originSiteId: SITE_IDS.service,
-    originSiteName: "Service Centre",
-    targetSiteId: SITE_IDS.service,
-    targetSiteName: "Service Centre",
-    isOutOfStockLocally: true,
-    localStockShortages: ["Latching Relay 60A"],
-    higherSiteId: SITE_IDS.distribution,
-    higherSiteName: "Distribution",
-  },
 ]
 
 const SERVICE_ASSIGNMENTS: Assignment[] = [
@@ -886,61 +804,6 @@ const CENTRAL_AUDITS: ProductAuditRecord[] = [
   },
 ]
 
-const SERVICE_AUDITS: ProductAuditRecord[] = [
-  {
-    id: "aud_sc_01",
-    itemId: "itm_sp_meter",
-    itemName: "Single Phase Smart Meter",
-    category: "Meters",
-    unit: "Nos",
-    field: "qty",
-    changeType: "quantity",
-    oldValue: 7,
-    newValue: 12,
-    diff: "+5",
-    reason: "Replenishment batch received from Distribution regional store (REQ-SC-3001)",
-    refCode: "REQ-SC-3001",
-    actorId: "u_service_mgr",
-    actorName: "Anjali Joshi",
-    actorRole: "Manager",
-    timestamp: daysAgo(13, 15),
-  },
-  {
-    id: "aud_sc_02",
-    itemId: "itm_relay_60a",
-    itemName: "Latching Relay 60A",
-    category: "Spares",
-    unit: "Nos",
-    field: "qty",
-    changeType: "dispatch",
-    oldValue: 2,
-    newValue: 0,
-    diff: "-2",
-    reason: "Issued for PCB repairs batch (RJ-SC-303)",
-    refCode: "RJ-SC-303",
-    actorId: "u_service_mgr",
-    actorName: "Anjali Joshi",
-    actorRole: "Manager",
-    timestamp: daysAgo(6, 11),
-  },
-  {
-    id: "aud_sc_03",
-    itemId: "itm_lcd_mod",
-    itemName: "Smart Meter LCD Module",
-    category: "Spares",
-    unit: "Nos",
-    field: "created",
-    changeType: "create",
-    oldValue: null,
-    newValue: 28,
-    reason: "Local testing bench stock initialization",
-    actorId: "u_sc_admin",
-    actorName: "Kavita Rao",
-    actorRole: "Admin",
-    timestamp: daysAgo(25, 10),
-  },
-]
-
 export function createSeedDatabase(): Database {
   const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
   const central = { id: SITE_IDS.central, name: "Central Stores", manager: "Meena Kulkarni" }
@@ -948,12 +811,11 @@ export function createSeedDatabase(): Database {
   const serviceOffice = { id: SITE_IDS.service, name: "Service Centre", manager: "Anjali Joshi" }
   // rq_d8 and rq_d10 are still with Distribution's own manager, so the "send on" step can be tried.
   const distReqs = routeRequests(DIST_REQUESTS, distributionOffice, central, ["rq_d8", "rq_d10"])
-  // rq_sc3 (in stock) and rq_sc4 (out of stock) stay with Service Centre's own manager initially
-  const serviceReqs = routeRequests(SERVICE_REQUESTS, serviceOffice, distributionOffice, ["rq_sc3", "rq_sc4"])
+  const serviceReqs = routeRequests(SERVICE_REQUESTS, serviceOffice, distributionOffice)
   const centralReqs = distReqs.filter((r) => r.forwardedAt)
   const distIncoming = serviceReqs.filter((r) => r.forwardedAt)
   return {
-    schema: 6,
+    schema: 5,
     users: clone(SEED_USERS),
     sites: {
       [SITE_IDS.central]: siteRecord(clone(centralStores)),
@@ -970,12 +832,10 @@ export function createSeedDatabase(): Database {
       },
       [SITE_IDS.service]: {
         ...emptySiteData(),
-        inventory: clone(SERVICE_INVENTORY),
         requests: clone(serviceReqs),
         repairs: clone(SERVICE_REPAIRS),
         returns: clone(SERVICE_RETURNS),
         assignments: clone(SERVICE_ASSIGNMENTS),
-        productAudits: clone(SERVICE_AUDITS),
       },
       [SITE_IDS.distribution]: {
         ...emptySiteData(),

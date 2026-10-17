@@ -1,15 +1,11 @@
 import type { Assignment, AssignmentView, SiteConfig, SiteData } from "@/lib/types"
 
 export function stockSiteOf(cfg: SiteConfig): string {
-  return cfg.siteId
+  return cfg.workflow.stockSourceSiteId || cfg.siteId
 }
 
-export function higherSiteOf(cfg: SiteConfig): string | null {
-  return cfg.workflow.stockSourceSiteId && cfg.workflow.stockSourceSiteId !== cfg.siteId ? cfg.workflow.stockSourceSiteId : null
-}
-
-export function isLinkedInventory(_cfg: SiteConfig) {
-  return false
+export function isLinkedInventory(cfg: SiteConfig) {
+  return !!cfg.workflow.stockSourceSiteId && cfg.workflow.stockSourceSiteId !== cfg.siteId
 }
 
 /** remaining = assigned − used − returned, per line */
