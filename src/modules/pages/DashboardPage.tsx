@@ -1,6 +1,18 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { AlertTriangle, ArrowRight, CircuitBoard, ClipboardList, IndianRupee, LayoutDashboard, PackageCheck, Wrench, type LucideIcon } from "lucide-react"
+import {
+  AlertTriangle,
+  ArrowRight,
+  CircuitBoard,
+  ClipboardList,
+  Eye,
+  IndianRupee,
+  LayoutDashboard,
+  PackageCheck,
+  Shield,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/PageHeader"
@@ -12,6 +24,7 @@ import { roleAtLeast } from "@/lib/roles"
 import type { InventoryItem, MaterialRequest, RepairJob, SiteStats } from "@/lib/types"
 import { useAsync } from "@/lib/useAsync"
 import { formatDate, formatINR } from "@/lib/utils"
+import { SiteAdminDashboard } from "./SiteAdminDashboard"
 
 interface Tile {
   label: string
@@ -40,6 +53,11 @@ function ListCard({ title, to, children }: { title: string; to: string; children
 export function DashboardPage() {
   const { config, role, siteApi, changeTick, basePath } = useSite()
   const navigate = useNavigate()
+  const isAdmin = role === "Admin"
+
+  // For Admins, default to the rich Site Admin Dashboard, with an option to toggle standard overview
+  const [viewMode, setViewMode] = useState<"admin" | "standard">(isAdmin ? "admin" : "standard")
+
   const has = (m: string) => config.modules.includes(m as never)
   const canSee = (path: string) => config.pages.some((p) => p.path === path && roleAtLeast(role, p.minRole))
   const ownStock = has("inventory") && !config.workflow.stockSourceSiteId
@@ -58,16 +76,71 @@ export function DashboardPage() {
     [changeTick],
   )
 
+  // If Admin and in Admin view mode, render Site Admin Dashboard with switch button
+  if (isAdmin && viewMode === "admin") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            onClick={() => setViewMode("standard")}
+          >
+            <Eye className="size-3.5 mr-1" /> View Standard Overview
+          </Button>
+        </div>
+        <SiteAdminDashboard />
+      </div>
+    )
+  }
+
   // At most four numbers, most useful first.
   const tiles: Tile[] = stats
     ? (
         [
-          has("request") && { label: "Waiting requests", value: stats.pendingRequests, icon: ClipboardList, tone: stats.pendingRequests ? "warning" : "muted", path: canSee("approvals") ? "approvals" : "requests" },
-          ownStock && { label: "Running low", value: stats.lowStock, icon: AlertTriangle, tone: stats.lowStock ? "danger" : "success", path: "inventory" },
-          has("pcb-repair") && { label: "Being repaired", value: stats.openRepairs, icon: Wrench, tone: stats.openRepairs ? "warning" : "muted", path: "repairs" },
-          ownStock && { label: "Stock value", value: formatINR(stats.stockValue), icon: IndianRupee, tone: "primary", path: "inventory" },
-          has("assignment") && { label: "Handed out", value: stats.assignments, icon: PackageCheck, tone: "success", path: canSee("assignments") ? "assignments" : "my-materials" },
-          has("pcb-repair") && { label: "Fixed meters", value: stats.fixedRepairs, icon: CircuitBoard, tone: "success", path: "repairs" },
+          has("request") && {
+            label: "Waiting requests",
+            value: stats.pendingRequests,
+            icon: ClipboardList,
+            tone: stats.pendingRequests ? "warning" : "muted",
+            path: canSee("approvals") ? "approvals" : "requests",
+          },
+          ownStock && {
+            label: "Running low",
+            value: stats.lowStock,
+            icon: AlertTriangle,
+            tone: stats.lowStock ? "danger" : "success",
+            path: "inventory",
+          },
+          has("pcb-repair") && {
+            label: "Being repaired",
+            value: stats.openRepairs,
+            icon: Wrench,
+            tone: stats.openRepairs ? "warning" : "muted",
+            path: "repairs",
+          },
+          ownStock && {
+            label: "Stock value",
+            value: formatINR(stats.stockValue),
+            icon: IndianRupee,
+            tone: "primary",
+            path: "inventory",
+          },
+          has("assignment") && {
+            label: "Handed out",
+            value: stats.assignments,
+            icon: PackageCheck,
+            tone: "success",
+            path: canSee("assignments") ? "assignments" : "my-materials",
+          },
+          has("pcb-repair") && {
+            label: "Fixed meters",
+            value: stats.fixedRepairs,
+            icon: CircuitBoard,
+            tone: "success",
+            path: "repairs",
+          },
         ].filter(Boolean) as Tile[]
       ).slice(0, 4)
     : []
@@ -123,7 +196,19 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title={config.name} description={config.description} icon={<LayoutDashboard />} />
+      <div className="flex items-start justify-between">
+        <PageHeader title={config.name} description={config.description} icon={<LayoutDashboard />} />
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 text-xs"
+            onClick={() => setViewMode("admin")}
+          >
+            <Shield className="size-3.5 mr-1" /> Open Admin Dashboard
+          </Button>
+        )}
+      </div>
 
       {loading && !stats ? (
         <CardsSkeleton />

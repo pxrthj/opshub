@@ -57,6 +57,7 @@ export function ReportsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const datasets = [
+    { id: "executive", label: "Executive summary", desc: "Operational KPIs, stock valuation, and activity totals." },
     { id: "inventory", label: "Stock list", desc: `Every item with its total value${linked ? ` (${inv?.sourceName})` : ""}.` },
     has("request") && { id: "requests", label: "Requests", desc: "Every request and its answer." },
     has("assignment") && { id: "assignments", label: "Assignments & consumption", desc: "Issued, used, returned and remaining per line." },

@@ -1,5 +1,7 @@
 import { useState } from "react"
-import { BarChart3, Table2 } from "lucide-react"
+import { Link } from "react-router-dom"
+import { BarChart3, LayoutDashboard, Table2 } from "lucide-react"
+import { roleAtLeast } from "@/lib/roles"
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -60,7 +62,7 @@ function SimpleTable({ head, rows }: { head: string[]; rows: (string | number)[]
 }
 
 export function AnalyticsPage() {
-  const { siteApi, changeTick } = useSite()
+  const { siteApi, changeTick, role, basePath } = useSite()
   const { data, loading } = useAsync(() => siteApi.get<AnalyticsData>("analytics"), [changeTick])
   // One neutral palette for every office: dark for the main series, grey for the second.
   const colorA = "var(--primary)"
@@ -72,6 +74,15 @@ export function AnalyticsPage() {
         title="Charts"
         icon={<BarChart3 />}
         description="This office's numbers at a glance."
+        actions={
+          roleAtLeast(role, "Manager") ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link to={basePath}>
+                <LayoutDashboard /> Admin Dashboard
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
       {loading && !data ? (
         <div className="grid gap-6 lg:grid-cols-2">

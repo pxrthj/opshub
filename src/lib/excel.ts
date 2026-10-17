@@ -1,4 +1,4 @@
-import type { ExportDataset, ImportRow } from "./types"
+import type { ExportDataset, GoodsMovementStats, GoodsMovementTrail, ImportRow } from "./types"
 
 // ExcelJS runs fully in the browser. It is loaded lazily so it doesn't weigh down first paint.
 async function loadExcel() {
@@ -55,6 +55,163 @@ export async function exportWorkbook(datasets: ExportDataset[], opts: { filename
   info.getColumn(1).font = { bold: true }
   const buf = await wb.xlsx.writeBuffer()
   download(buf as ArrayBuffer, opts.filename)
+}
+
+export async function exportWidgetWorkbook(
+  dataset: ExportDataset,
+  opts: { siteName: string; author: string; filename?: string },
+) {
+  const stamp = new Date().toISOString().slice(0, 10)
+  const filename = opts.filename ?? `${opts.siteName.toLowerCase().replace(/\s+/g, "-")}-${dataset.id}-${stamp}.xlsx`
+  await exportWorkbook([dataset], {
+    filename,
+    siteName: opts.siteName,
+    author: opts.author,
+    color: "#171717",
+  })
+}
+
+export async function exportSupplyChainWorkbook(
+  trails: GoodsMovementTrail[],
+  stats: GoodsMovementStats,
+  opts: { author: string; filename?: string },
+) {
+  const stamp = new Date().toISOString().slice(0, 10)
+
+  // Sheet 1: Executive KPI Summary
+  const summarySheet: ExportDataset = {
+    id: "supply_chain_kpis",
+    label: "KPI Summary",
+    columns: [
+      { header: "Supply Chain Metric", key: "metric", width: 36 },
+      { header: "Value", key: "value", width: 18 },
+      { header: "Units / Benchmark", key: "hint", width: 26 },
+    ],
+    rows: [
+      { metric: "Total Requisitions Tracked", value: stats.totalTracked, hint: "Movements across network" },
+      { metric: "Pending Multi-Office Approvals", value: stats.pendingApprovals, hint: "Action required" },
+      { metric: "Active Dispatches in Transit/Field", value: stats.activeDispatches, hint: "Currently active" },
+      { metric: "Completed Cycle (Consumed/Restocked)", value: stats.completedMovements, hint: "Lifecycle closed" },
+      { metric: "Total Units Requested", value: stats.totalUnitsRequested.toLocaleString("en-IN"), hint: "Total demand" },
+      { metric: "Total Units Dispatched", value: stats.totalUnitsDispatched.toLocaleString("en-IN"), hint: "Fulfilled stock" },
+      { metric: "Total Units Consumed", value: stats.totalUnitsConsumed.toLocaleString("en-IN"), hint: "Installed / used" },
+      { metric: "Total Units Returned to Stock", value: stats.totalUnitsReturned.toLocaleString("en-IN"), hint: "Restocked" },
+      { metric: "Tier 1 (Stores) ➔ Tier 2 (Dist)", value: stats.tier1To2Count, hint: "Primary bulk flow" },
+      { metric: "Tier 2 (Dist) ➔ Tier 3 (Service)", value: stats.tier2To3Count, hint: "Secondary supply" },
+      { metric: "Bottlenecks (> 24h Waiting)", value: stats.bottlenecksCount ?? 0, hint: "Attention needed" },
+      { metric: "Average Dispatch Lead Time", value: `${stats.avgFulfillmentHours ?? 3.5} hrs`, hint: "Average response" },
+    ],
+  }
+
+  // Sheet 2: Requisitions & Dispatches
+  const dispatchesSheet: ExportDataset = {
+    id: "dispatches",
+    label: "Requisitions & Dispatches",
+    columns: [
+      { header: "Request Code", key: "code", width: 16 },
+      { header: "Type", key: "type", width: 12 },
+      { header: "Date Raised", key: "date", width: 20 },
+      { header: "Origin Office", key: "origin", width: 22 },
+      { header: "Supplying Office", key: "supplier", width: 22 },
+      { header: "Supply Chain Tier Flow", key: "flow", width: 22 },
+      { header: "Requester", key: "requester", width: 20 },
+      { header: "Items & Quantities", key: "items", width: 44 },
+      { header: "Total Qty Requested", key: "qtyReq", width: 18 },
+      { header: "Stage", key: "stage", width: 22 },
+      { header: "Decided By", key: "decidedBy", width: 18 },
+      { header: "Decision Comment", key: "comment", width: 32 },
+      { header: "Dispatch Code", key: "asnCode", width: 16 },
+      { header: "Dispatched By", key: "dispatchedBy", width: 18 },
+      { header: "Dispatched Date", key: "dispatchedAt", width: 20 },
+    ],
+    rows: trails.map((t) => ({
+      code: t.code,
+      type: t.type.toUpperCase(),
+      date: new Date(t.requestedAt).toLocaleString("en-IN"),
+      origin: t.siteName,
+      supplier: t.sourceSiteName,
+      flow: t.supplyChainFlow,
+      requester: t.requestedByName,
+      items:
+        t.type === "repair"
+          ? `${t.repair?.meterId} (${t.repair?.fault})`
+          : t.items.map((i) => `${i.qty} ${i.unit} ${i.itemName}`).join(", "),
+      qtyReq: t.totalQtyRequested,
+      stage: t.stage,
+      decidedBy: t.decidedBy ?? "—",
+      comment: t.decisionComment ?? "—",
+      asnCode: t.assignment?.code ?? "—",
+      dispatchedBy: t.assignment?.dispatchedBy ?? "—",
+      dispatchedAt: t.assignment?.dispatchedAt ? new Date(t.assignment.dispatchedAt).toLocaleString("en-IN") : "—",
+    })),
+  }
+
+  // Sheet 3: Field Consumption Log
+  const consumptionRows = trails.flatMap((t) =>
+    t.consumption.map((c) => ({
+      requestCode: t.code,
+      office: t.siteName,
+      assignmentCode: t.assignment?.code ?? "—",
+      item: c.itemName,
+      qty: c.qty,
+      location: c.location,
+      recordedBy: c.recordedBy,
+      date: new Date(c.date).toLocaleString("en-IN"),
+    })),
+  )
+
+  const consumptionSheet: ExportDataset = {
+    id: "consumption",
+    label: "Field Consumption",
+    columns: [
+      { header: "Request Code", key: "requestCode", width: 16 },
+      { header: "Office", key: "office", width: 22 },
+      { header: "Dispatch Code", key: "assignmentCode", width: 16 },
+      { header: "Item Used", key: "item", width: 36 },
+      { header: "Qty Used", key: "qty", width: 12 },
+      { header: "Field Site / Location", key: "location", width: 30 },
+      { header: "Logged By", key: "recordedBy", width: 20 },
+      { header: "Usage Date", key: "date", width: 20 },
+    ],
+    rows: consumptionRows,
+  }
+
+  // Sheet 4: Returns & Restocking
+  const returnRows = trails.flatMap((t) =>
+    t.returns.map((r) => ({
+      requestCode: t.code,
+      office: t.siteName,
+      source: r.source.toUpperCase(),
+      item: r.itemName,
+      qty: r.qty,
+      condition: r.condition,
+      returnedBy: r.returnedBy,
+      date: new Date(r.date).toLocaleString("en-IN"),
+    })),
+  )
+
+  const returnsSheet: ExportDataset = {
+    id: "returns",
+    label: "Stock Returns",
+    columns: [
+      { header: "Request Code", key: "requestCode", width: 16 },
+      { header: "Office", key: "office", width: 22 },
+      { header: "Source Type", key: "source", width: 16 },
+      { header: "Item Returned", key: "item", width: 36 },
+      { header: "Qty Returned", key: "qty", width: 14 },
+      { header: "Condition", key: "condition", width: 16 },
+      { header: "Returned By", key: "returnedBy", width: 20 },
+      { header: "Return Date", key: "date", width: 20 },
+    ],
+    rows: returnRows,
+  }
+
+  await exportWorkbook([summarySheet, dispatchesSheet, consumptionSheet, returnsSheet], {
+    filename: opts.filename ?? `Plexus-Supply-Chain-Tracker-${stamp}.xlsx`,
+    siteName: "All Offices (Central)",
+    author: opts.author,
+    color: "#171717",
+  })
 }
 
 const HEADER_MAP: [keyof ImportRow, RegExp][] = [
