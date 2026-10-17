@@ -131,7 +131,6 @@ async function build(): Promise<Database> {
     id: p.id,
     legacyId: p.legacy_id ?? undefined,
     email: p.email,
-    phone: p.phone ?? undefined,
     name: p.name,
     title: p.title,
     password: "",

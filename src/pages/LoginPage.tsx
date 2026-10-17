@@ -134,9 +134,6 @@ export function LoginPage() {
               <Link to="/forgot-password" state={{ email }} className="block text-center text-sm text-muted-foreground underline-offset-4 hover:underline">
                 Forgot your password?
               </Link>
-              <Link to="/code-login" className="block text-center text-sm text-muted-foreground underline-offset-4 hover:underline">
-                Sign in with a code instead (email or mobile)
-              </Link>
             </form>
           </CardContent>
         </Card>
