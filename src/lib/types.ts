@@ -452,5 +452,98 @@ export interface GoodsMovementStats {
   totalUnitsReturned: number
   tier1To2Count: number
   tier2To3Count: number
+  bottlenecksCount?: number
+  avgFulfillmentHours?: number
 }
+
+// ---------- Site Admin Dashboard Types ----------
+
+export interface DashboardNeedsAttentionItem {
+  id: string
+  type: "approval" | "low_stock" | "overdue" | "stuck_repair"
+  title: string
+  subtitle: string
+  actionLabel: string
+  actionPath: string
+  severity: "urgent" | "warning"
+}
+
+export interface DashboardActivityItem {
+  id: string
+  timestamp: string
+  timeAgo: string
+  actor: string
+  action: string
+  target: string
+  type: "request" | "approval" | "assignment" | "consumption" | "return" | "repair"
+  link?: string
+}
+
+export interface DashboardTimelinePoint {
+  label: string
+  date: string
+  pending: number
+  approved: number
+  assigned: number
+  rejected: number
+  total: number
+}
+
+export interface DashboardCategoryStock {
+  category: string
+  qty: number
+  value: number
+  reorderLevelTotal: number
+  itemCount: number
+  lowStockCount: number
+}
+
+export interface DashboardTopRequestedItem {
+  itemId: string
+  name: string
+  category: string
+  unit: string
+  requestCount: number
+  totalQty: number
+}
+
+export interface DashboardLeadTimes {
+  avgApprovalHours: number
+  avgDispatchHours: number
+  approvalSparkline: { label: string; hours: number }[]
+  dispatchSparkline: { label: string; hours: number }[]
+}
+
+export interface SiteAdminDashboardKpis {
+  totalStockItems: number
+  totalUnitsOnHand: number
+  totalStockValue: number
+  lowStockCount: number
+  waitingRequestsCount: number
+  periodRequests: {
+    total: number
+    approved: number
+    rejected: number
+    assigned: number
+    pending: number
+  }
+  periodItemsIssued: number
+  openRepairsCount: number
+}
+
+export interface SiteAdminDashboardData {
+  range: "today" | "7d" | "30d" | "all" | "custom"
+  startDate: string
+  endDate: string
+  kpis: SiteAdminDashboardKpis
+  requestsTimeline: DashboardTimelinePoint[]
+  stockByCategory: DashboardCategoryStock[]
+  topRequestedItems: DashboardTopRequestedItem[]
+  statusBreakdown: { name: string; value: number }[]
+  leadTimes: DashboardLeadTimes
+  repairStages?: { stage: string; count: number }[]
+  needsAttention: DashboardNeedsAttentionItem[]
+  activityFeed: DashboardActivityItem[]
+}
+
 

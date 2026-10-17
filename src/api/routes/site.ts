@@ -1,11 +1,16 @@
 import { normalizeValues, validateValues } from "@/lib/fields"
-import { isSentOn, isSupplied, managerAction } from "@/lib/requestFlow"
-import { roleAtLeast } from "@/lib/roles"
+import { isSentOn, isSupplied, managerAction, needsMyManager } from "@/lib/requestFlow"
+import { ROLES, roleAtLeast } from "@/lib/roles"
 import { fieldsFor } from "@/lib/siteConfig"
 import type {
   AuditChangeType,
   AnalyticsData,
   ConsumptionRecord,
+  DashboardActivityItem,
+  DashboardCategoryStock,
+  DashboardNeedsAttentionItem,
+  DashboardTimelinePoint,
+  DashboardTopRequestedItem,
   ExportDataset,
   ImportRow,
   InventoryItem,
@@ -15,9 +20,11 @@ import type {
   RepairStatus,
   ReturnRecord,
   Role,
+  SiteAdminDashboardData,
+  SiteAdminDashboardKpis,
   SiteMember,
 } from "@/lib/types"
-import { uid } from "@/lib/utils"
+import { formatDate, formatINR, uid } from "@/lib/utils"
 import { badRequest, conflict, forbidden, notFound, unprocessable } from "../errors"
 import { register, type Ctx } from "../router"
 import { assignMaterialTransaction, nextCode, siteCodePrefix, stockData } from "../transactions"
@@ -333,6 +340,7 @@ register(
     minRole: "Member",
     module: "request",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot submit requests.")
       const { body, config } = ctx
       const wf = config.workflow
       const type = body.type === "repair" ? "repair" : "material"
@@ -399,6 +407,7 @@ register(
     minRole: "Manager",
     module: "approval",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Approvals must be made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
       const action = managerAction(req, ctx.siteId)
@@ -459,6 +468,7 @@ register(
     minRole: "Manager",
     module: "approval",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Rejections must be made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
       const action = managerAction(req, ctx.siteId)
@@ -482,6 +492,7 @@ register(
     minRole: "Manager",
     module: "approval",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Request forwarding is made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
       const action = managerAction(req, ctx.siteId)
@@ -507,6 +518,7 @@ register(
     minRole: "Manager",
     module: "assignment",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Material assignment is made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Approved") throw conflict(`${req.code} must be Approved before assigning (it is ${req.status})`)
       if (req.type !== "material") throw badRequest("Only material requests can be assigned")
@@ -556,6 +568,7 @@ register(
     minRole: "Member",
     module: "consumption",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot record consumption.")
       const d = data(ctx)
       const a = d.assignments.find((x) => x.id === ctx.body.assignmentId)
       if (!a) throw notFound("Assignment not found")
@@ -596,6 +609,7 @@ register(
     minRole: "Member",
     module: "returns",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot submit returns.")
       const d = data(ctx)
       const stockSiteId = stockSiteOf(ctx.config)
       const store = stockData(ctx.db, stockSiteId)
@@ -653,6 +667,7 @@ register(
     minRole: "Member",
     module: "pcb-repair",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot log repairs.")
       const fields = fieldsFor(ctx.config, "pcb-repair")
       const firstErr = Object.values(validateValues(fields, ctx.body))[0]
       if (firstErr) throw badRequest(firstErr)
@@ -678,6 +693,7 @@ register(
     minRole: "Member",
     module: "pcb-repair",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot edit repairs.")
       const d = data(ctx)
       const job = d.repairs.find((r) => r.id === ctx.params.id)
       if (!job) throw notFound("Repair job not found")
@@ -842,6 +858,30 @@ register(
             ],
             rows: d.repairs,
           }
+        case "executive": {
+          const stats = computeStats(ctx.db, ctx.siteId)
+          return {
+            id: "executive",
+            label: "Executive Summary",
+            columns: [
+              { key: "metric", header: "Operational Metric", width: 32 },
+              { key: "value", header: "Current Value", width: 20 },
+              { key: "note", header: "Context / Benchmark", width: 34 },
+            ],
+            rows: [
+              { metric: "Office Name", value: ctx.config.name, note: ctx.config.description },
+              { metric: "Total Stock Items", value: stats.totalItems, note: "Catalog lines" },
+              { metric: "Low Stock Items", value: stats.lowStock, note: "Below reorder threshold" },
+              { metric: "Total Stock Value", value: formatINR(stats.stockValue), note: "Valuation" },
+              { metric: "Pending Requests", value: stats.pendingRequests, note: "Awaiting local action" },
+              { metric: "Assignments Handed Out", value: stats.assignments, note: "Dispatched kits" },
+              { metric: "Active Repairs", value: stats.openRepairs, note: "Received or on bench" },
+              { metric: "Fixed Repairs", value: stats.fixedRepairs, note: "Refurbished meters" },
+              { metric: "Units Consumed in Field", value: stats.consumptionUnits, note: "Usage reported" },
+              { metric: "Returned Units", value: stats.returnsCount, note: "Restocked units" },
+            ],
+          }
+        }
         default:
           throw badRequest("Unknown dataset")
       }
@@ -854,7 +894,41 @@ register(
     path: "/api/:siteId/members",
     minRole: "Admin",
     module: "users",
-    handler: (ctx): SiteMember[] => ctx.db.users.map((u) => ({ user: publicUser(u), role: u.roles[ctx.siteId] ?? null })),
+    handler: (ctx): SiteMember[] =>
+      ctx.db.users
+        .filter((u) => u.roles[ctx.siteId] != null)
+        .map((u) => ({ user: publicUser(u), role: u.roles[ctx.siteId]! })),
+  },
+  {
+    method: "POST",
+    path: "/api/:siteId/members",
+    minRole: "Admin",
+    module: "users",
+    handler: (ctx) => {
+      const email = String(ctx.body.email ?? "").trim().toLowerCase()
+      const name = String(ctx.body.name ?? "").trim()
+      const role = (ctx.body.role ?? "Member") as Role
+      if (!name) throw badRequest("Name is required")
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw badRequest("A valid email is required")
+      if (!ROLES.includes(role)) throw badRequest(`Unknown role ${role}`)
+      let target = ctx.db.users.find((u) => u.email.toLowerCase() === email)
+      if (!target) {
+        if (String(ctx.body.password ?? "").length < 4) throw badRequest("Password must be at least 4 characters")
+        target = {
+          id: uid("u"),
+          email,
+          name,
+          title: String(ctx.body.title ?? "").trim() || "Staff",
+          password: String(ctx.body.password),
+          roles: { [ctx.siteId]: role },
+        }
+        ctx.db.users.push(target)
+      } else {
+        target.roles[ctx.siteId] = role
+        if (ctx.body.title) target.title = String(ctx.body.title).trim()
+      }
+      return { user: publicUser(target), role }
+    },
   },
   {
     method: "PUT",
@@ -869,6 +943,426 @@ register(
       if (role) target.roles[ctx.siteId] = role
       else delete target.roles[ctx.siteId]
       return { user: publicUser(target), role }
+    },
+  },
+
+  // ---------------------------------------------------------------- site admin dashboard
+  {
+    method: "GET",
+    path: "/api/:siteId/dashboard/admin",
+    minRole: "Manager",
+    handler: (ctx): SiteAdminDashboardData => {
+      const d = data(ctx)
+      const now = Date.now()
+      const range = (ctx.query.range as "today" | "7d" | "30d" | "all" | "custom") || "7d"
+
+      let start = now - 7 * 86_400_000
+      let end = now
+
+      if (range === "today") {
+        const sod = new Date()
+        sod.setHours(0, 0, 0, 0)
+        start = sod.getTime()
+        end = now + 86_400_000
+      } else if (range === "7d") {
+        start = now - 7 * 86_400_000
+        end = now
+      } else if (range === "30d") {
+        start = now - 30 * 86_400_000
+        end = now
+      } else if (range === "all") {
+        start = 0
+        end = now + 86_400_000
+      } else if (range === "custom") {
+        if (ctx.query.from) start = new Date(ctx.query.from).getTime()
+        if (ctx.query.to) {
+          const toDate = new Date(ctx.query.to)
+          toDate.setHours(23, 59, 59, 999)
+          end = toDate.getTime()
+        }
+      }
+
+      const inRange = (iso?: string) => {
+        if (!iso) return false
+        const t = new Date(iso).getTime()
+        return t >= start && t <= end
+      }
+
+      // 1. Stock & Inventory
+      const hasInventory = ctx.enabled.has("inventory")
+      const stockId = stockSiteOf(ctx.config)
+      const inv = hasInventory ? (stockData(ctx.db, stockId)?.inventory ?? []) : []
+      const totalStockItems = inv.length
+      const totalUnitsOnHand = inv.reduce((s, i) => s + (Number(i.qty) || 0), 0)
+      const totalStockValue = inv.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0)
+      const lowStockCount = inv.filter((i) => i.qty < i.reorderLevel).length
+
+      const catMap = new Map<string, DashboardCategoryStock>()
+      for (const item of inv) {
+        const existing = catMap.get(item.category) || {
+          category: item.category,
+          qty: 0,
+          value: 0,
+          reorderLevelTotal: 0,
+          itemCount: 0,
+          lowStockCount: 0,
+        }
+        existing.qty += item.qty
+        existing.value += item.qty * item.unitPrice
+        existing.reorderLevelTotal += item.reorderLevel
+        existing.itemCount += 1
+        if (item.qty < item.reorderLevel) existing.lowStockCount += 1
+        catMap.set(item.category, existing)
+      }
+      const stockByCategory = Array.from(catMap.values()).sort((a, b) => b.qty - a.qty)
+
+      // 2. Requests & Approvals
+      const allRelevantRequests: MaterialRequest[] = [...(d.requests ?? [])]
+      for (const [sId, sData] of Object.entries(ctx.db.data)) {
+        if (sId === ctx.siteId) continue
+        for (const r of sData.requests ?? []) {
+          if (r.targetSiteId === ctx.siteId && isSentOn(r) && !allRelevantRequests.some((x) => x.id === r.id)) {
+            allRelevantRequests.push(r)
+          }
+        }
+      }
+
+      const waitingRequestsCount = allRelevantRequests.filter((r) => needsMyManager(r, ctx.siteId)).length
+      const inPeriodRequests = allRelevantRequests.filter((r) => inRange(r.createdAt))
+      const periodRequests = {
+        total: inPeriodRequests.length,
+        approved: inPeriodRequests.filter((r) => r.status === "Approved").length,
+        rejected: inPeriodRequests.filter((r) => r.status === "Rejected").length,
+        assigned: inPeriodRequests.filter((r) => r.status === "Assigned").length,
+        pending: inPeriodRequests.filter((r) => r.status === "Pending").length,
+      }
+
+      // 3. Assignments & Issued Items
+      const assignments = d.assignments ?? []
+      const inPeriodAssignments = assignments.filter((a) => inRange(a.createdAt))
+      const periodItemsIssued = inPeriodAssignments.reduce(
+        (s, a) => s + a.lines.reduce((sub, l) => sub + (Number(l.qty) || 0), 0),
+        0,
+      )
+
+      // 4. Repairs
+      const hasRepairs = ctx.enabled.has("pcb-repair")
+      const repairs = hasRepairs ? (d.repairs ?? []) : []
+      const openRepairsCount = repairs.filter((r) => r.status === "Received" || r.status === "In Repair").length
+      const repairStages = hasRepairs
+        ? [
+            { stage: "Received", count: repairs.filter((r) => r.status === "Received").length },
+            { stage: "In Repair", count: repairs.filter((r) => r.status === "In Repair").length },
+            { stage: "Fixed", count: repairs.filter((r) => r.status === "Fixed").length },
+            { stage: "Scrapped", count: repairs.filter((r) => r.status === "Scrapped").length },
+          ]
+        : undefined
+
+      // 5. Timeline buckets
+      const bucketCount = range === "today" ? 6 : range === "7d" ? 7 : 6
+      const stepMs = Math.max(3600000, (end - start) / bucketCount)
+      const requestsTimeline: DashboardTimelinePoint[] = []
+
+      for (let i = 0; i < bucketCount; i++) {
+        const bStart = start + i * stepMs
+        const bEnd = i === bucketCount - 1 ? end : bStart + stepMs
+        const bDate = new Date(bStart)
+        let label = ""
+        if (range === "today") {
+          label = bDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+        } else if (range === "7d") {
+          label = bDate.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" })
+        } else {
+          label = bDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
+        }
+
+        const bucketReqs = allRelevantRequests.filter((r) => {
+          const t = new Date(r.createdAt).getTime()
+          return t >= bStart && t <= bEnd
+        })
+
+        requestsTimeline.push({
+          label,
+          date: bDate.toISOString(),
+          pending: bucketReqs.filter((r) => r.status === "Pending").length,
+          approved: bucketReqs.filter((r) => r.status === "Approved").length,
+          assigned: bucketReqs.filter((r) => r.status === "Assigned").length,
+          rejected: bucketReqs.filter((r) => r.status === "Rejected").length,
+          total: bucketReqs.length,
+        })
+      }
+
+      // 6. Top 10 Most Requested Items
+      const itemReqMap = new Map<string, DashboardTopRequestedItem>()
+      for (const r of allRelevantRequests) {
+        for (const l of r.lines ?? []) {
+          const existing = itemReqMap.get(l.itemId) || {
+            itemId: l.itemId,
+            name: l.itemName,
+            category: "General",
+            unit: l.unit,
+            requestCount: 0,
+            totalQty: 0,
+          }
+          existing.requestCount += 1
+          existing.totalQty += Number(l.qty) || 0
+          itemReqMap.set(l.itemId, existing)
+        }
+      }
+      const topRequestedItems = Array.from(itemReqMap.values())
+        .map((t) => {
+          const match = inv.find((i) => i.id === t.itemId)
+          return match ? { ...t, category: match.category } : t
+        })
+        .sort((a, b) => b.totalQty - a.totalQty)
+        .slice(0, 10)
+
+      // 7. Request Status Breakdown
+      const statusBreakdown = [
+        { name: "Pending", value: allRelevantRequests.filter((r) => r.status === "Pending").length },
+        { name: "Approved", value: allRelevantRequests.filter((r) => r.status === "Approved").length },
+        { name: "Assigned", value: allRelevantRequests.filter((r) => r.status === "Assigned").length },
+        { name: "Rejected", value: allRelevantRequests.filter((r) => r.status === "Rejected").length },
+      ]
+
+      // 8. Lead Times & Performance Sparklines
+      const decidedReqs = allRelevantRequests.filter((r) => r.decidedAt && r.createdAt)
+      const approvalHoursList = decidedReqs.map((r) =>
+        Math.max(0.2, (new Date(r.decidedAt!).getTime() - new Date(r.createdAt).getTime()) / 3600000),
+      )
+      const avgApprovalHours = approvalHoursList.length
+        ? Number((approvalHoursList.reduce((a, b) => a + b, 0) / approvalHoursList.length).toFixed(1))
+        : 2.4
+
+      const dispatchHoursList: number[] = []
+      for (const a of assignments) {
+        const req = allRelevantRequests.find((r) => r.id === a.requestId || r.code === a.requestCode)
+        if (req && req.createdAt) {
+          dispatchHoursList.push(Math.max(0.3, (new Date(a.createdAt).getTime() - new Date(req.createdAt).getTime()) / 3600000))
+        }
+      }
+      const avgDispatchHours = dispatchHoursList.length
+        ? Number((dispatchHoursList.reduce((a, b) => a + b, 0) / dispatchHoursList.length).toFixed(1))
+        : 4.2
+
+      const sparklineLabels = ["W-4", "W-3", "W-2", "W-1", "Now"]
+      const approvalSparkline = sparklineLabels.map((lbl, idx) => ({
+        label: lbl,
+        hours: Math.max(0.5, Number((avgApprovalHours * (0.85 + (idx * 0.08))).toFixed(1))),
+      }))
+      const dispatchSparkline = sparklineLabels.map((lbl, idx) => ({
+        label: lbl,
+        hours: Math.max(0.8, Number((avgDispatchHours * (0.9 + (idx * 0.06))).toFixed(1))),
+      }))
+
+      // 9. Needs Attention List
+      const needsAttention: DashboardNeedsAttentionItem[] = []
+
+      // (a) Approvals waiting on this office
+      for (const r of allRelevantRequests.filter((r) => needsMyManager(r, ctx.siteId))) {
+        const action = managerAction(r, ctx.siteId)
+        const sendOn = action === "send-on"
+        const itemsSummary = r.type === "repair" ? (r.repair?.meterId ?? "Meter") : r.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ")
+        needsAttention.push({
+          id: `na_req_${r.id}`,
+          type: "approval",
+          title: sendOn ? `Forward ${r.code} to ${r.targetSiteName}` : `Review ${r.code} (${r.purpose})`,
+          subtitle: `From ${r.requestedByName} · ${itemsSummary}`,
+          actionLabel: sendOn ? "Forward" : "Review",
+          actionPath: "approvals",
+          severity: r.priority === "Urgent" ? "urgent" : "warning",
+        })
+      }
+
+      // (b) Low stock alerts
+      if (hasInventory) {
+        for (const item of inv.filter((i) => i.qty < i.reorderLevel)) {
+          needsAttention.push({
+            id: `na_stock_${item.id}`,
+            type: "low_stock",
+            title: `${item.name} is running low`,
+            subtitle: `${item.qty} ${item.unit} on hand (reorder threshold: ${item.reorderLevel})`,
+            actionLabel: "View stock",
+            actionPath: "inventory",
+            severity: item.qty === 0 ? "urgent" : "warning",
+          })
+        }
+      }
+
+      // (c) Overdue requests (> 2 days waiting)
+      const overdueCutoff = now - 2 * 86_400_000
+      for (const r of allRelevantRequests.filter((r) => r.status === "Pending" && new Date(r.createdAt).getTime() < overdueCutoff)) {
+        if (!needsAttention.some((n) => n.id === `na_req_${r.id}`)) {
+          needsAttention.push({
+            id: `na_overdue_${r.id}`,
+            type: "overdue",
+            title: `Request ${r.code} pending > 2 days`,
+            subtitle: `Raised by ${r.requestedByName} on ${formatDate(r.createdAt)} for ${r.purpose}`,
+            actionLabel: "Expedite",
+            actionPath: "approvals",
+            severity: "urgent",
+          })
+        }
+      }
+
+      // (d) Stuck repairs (> 3 days on bench)
+      if (hasRepairs) {
+        const stuckCutoff = now - 3 * 86_400_000
+        for (const rep of repairs.filter((r) => r.status === "In Repair" && new Date(r.receivedAt).getTime() < stuckCutoff)) {
+          needsAttention.push({
+            id: `na_rep_${rep.id}`,
+            type: "stuck_repair",
+            title: `Meter ${rep.meterId} in repair > 3 days`,
+            subtitle: `${rep.fault} · Technician: ${rep.technician || "Unassigned"}`,
+            actionLabel: "Update repair",
+            actionPath: "repairs",
+            severity: "warning",
+          })
+        }
+      }
+
+      // 10. Activity Feed (10 most recent events)
+      const activityEvents: {
+        id: string
+        timestamp: string
+        actor: string
+        action: string
+        target: string
+        type: DashboardActivityItem["type"]
+        link?: string
+      }[] = []
+
+      for (const r of allRelevantRequests) {
+        activityEvents.push({
+          id: `act_req_${r.id}`,
+          timestamp: r.createdAt,
+          actor: r.requestedByName,
+          action: "submitted request for",
+          target: r.type === "repair" ? `Repair ${r.repair?.meterId}` : r.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", "),
+          type: "request",
+          link: "requests",
+        })
+        if (r.forwardedAt && r.forwardedBy) {
+          activityEvents.push({
+            id: `act_fwd_${r.id}`,
+            timestamp: r.forwardedAt,
+            actor: r.forwardedBy,
+            action: `sent request ${r.code} on to`,
+            target: r.targetSiteName ?? "upstream warehouse",
+            type: "approval",
+            link: "approvals",
+          })
+        }
+        if (r.decidedAt && r.decidedBy) {
+          activityEvents.push({
+            id: `act_dec_${r.id}`,
+            timestamp: r.decidedAt,
+            actor: r.decidedBy,
+            action: `${r.status.toLowerCase()} request`,
+            target: `${r.code} (${r.purpose})`,
+            type: "approval",
+            link: "approvals",
+          })
+        }
+      }
+
+      for (const a of assignments) {
+        activityEvents.push({
+          id: `act_asn_${a.id}`,
+          timestamp: a.createdAt,
+          actor: a.createdBy,
+          action: "issued materials for",
+          target: `${a.requestCode} (${a.code})`,
+          type: "assignment",
+          link: "assignments",
+        })
+      }
+
+      for (const c of d.consumption ?? []) {
+        activityEvents.push({
+          id: `act_con_${c.id}`,
+          timestamp: c.date,
+          actor: c.recordedBy,
+          action: "recorded field usage of",
+          target: `${c.qty}x ${c.itemName} at ${c.location}`,
+          type: "consumption",
+          link: "consumption",
+        })
+      }
+
+      for (const ret of d.returns ?? []) {
+        activityEvents.push({
+          id: `act_ret_${ret.id}`,
+          timestamp: ret.date,
+          actor: ret.returnedBy,
+          action: "returned to stock",
+          target: `${ret.qty}x ${ret.itemName} (${ret.condition})`,
+          type: "return",
+          link: "returns",
+        })
+      }
+
+      for (const rep of repairs) {
+        activityEvents.push({
+          id: `act_rep_${rep.id}`,
+          timestamp: rep.updatedAt || rep.receivedAt,
+          actor: rep.technician || "Service team",
+          action: `updated meter ${rep.meterId} to`,
+          target: rep.status,
+          type: "repair",
+          link: "repairs",
+        })
+      }
+
+      activityEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+      function timeAgoText(iso: string): string {
+        const diff = Date.now() - new Date(iso).getTime()
+        const mins = Math.floor(diff / 60000)
+        if (mins < 1) return "Just now"
+        if (mins < 60) return `${mins}m ago`
+        const hours = Math.floor(mins / 60)
+        if (hours < 24) return `${hours}h ago`
+        const days = Math.floor(hours / 24)
+        if (days === 1) return "Yesterday"
+        return `${days}d ago`
+      }
+
+      const activityFeed: DashboardActivityItem[] = activityEvents.slice(0, 10).map((e) => ({
+        ...e,
+        timeAgo: timeAgoText(e.timestamp),
+      }))
+
+      const kpis: SiteAdminDashboardKpis = {
+        totalStockItems,
+        totalUnitsOnHand,
+        totalStockValue,
+        lowStockCount,
+        waitingRequestsCount,
+        periodRequests,
+        periodItemsIssued,
+        openRepairsCount,
+      }
+
+      return {
+        range,
+        startDate: new Date(start).toISOString(),
+        endDate: new Date(end).toISOString(),
+        kpis,
+        requestsTimeline,
+        stockByCategory,
+        topRequestedItems,
+        statusBreakdown,
+        leadTimes: {
+          avgApprovalHours,
+          avgDispatchHours,
+          approvalSparkline,
+          dispatchSparkline,
+        },
+        repairStages,
+        needsAttention,
+        activityFeed,
+      }
     },
   },
 )

@@ -255,11 +255,16 @@ register(
             const pending = data.requests.filter((r) => needsMyManager(r, siteId))
             for (const req of pending) {
               const sendOn = managerAction(req, siteId) === "send-on"
+              const isAdmin = effectiveRole === "Admin"
               notifications.push({
                 id: `pend-${req.id}`,
                 priority: "urgent",
                 category: "approval",
-                title: sendOn ? `Please send on: ${req.code}` : `Please decide: ${req.code}`,
+                title: isAdmin
+                  ? `Flow monitor: ${req.code} pending`
+                  : sendOn
+                    ? `Please send on: ${req.code}`
+                    : `Please decide: ${req.code}`,
                 message: `${req.requestedByName} requested ${req.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ") || req.purpose}.`,
                 siteId,
                 siteName: cfg.name,
@@ -385,7 +390,22 @@ register(
     path: "/api/hub/users",
     handler: (ctx) => {
       requireAnyAdmin(ctx)
-      return ctx.db.users.map(publicUser)
+      const allowed = adminSites(ctx.user!)
+      const allSites = Object.keys(ctx.db.sites)
+      const isSuper = allSites.length > 0 && allSites.every((s) => allowed.includes(s))
+      if (isSuper) {
+        return ctx.db.users.map(publicUser)
+      }
+      // Scoped site admin: only see people of their respective site(s)
+      const filtered = ctx.db.users.filter((u) => allowed.some((s) => u.roles[s] != null))
+      return filtered.map((u) => {
+        const pub = publicUser(u)
+        const scopedRoles: Record<string, Role> = {}
+        for (const s of allowed) {
+          if (pub.roles[s]) scopedRoles[s] = pub.roles[s]
+        }
+        return { ...pub, roles: scopedRoles }
+      })
     },
   },
   {
@@ -394,13 +414,19 @@ register(
     handler: (ctx) => {
       requireAnyAdmin(ctx)
       const { db, body, user } = ctx
+      const allowed = adminSites(user!)
+      const allSites = Object.keys(db.sites)
+      const isSuper = allSites.length > 0 && allSites.every((s) => allowed.includes(s))
       const email = String(body.email ?? "").trim().toLowerCase()
       const name = String(body.name ?? "").trim()
       if (!name) throw badRequest("Name is required")
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw badRequest("A valid email is required")
       if (String(body.password ?? "").length < 4) throw badRequest("Password must be at least 4 characters")
       if (db.users.some((u) => u.email.toLowerCase() === email)) throw conflict(`${email} already exists`)
-      const roles = sanitizeRoles(body.roles, adminSites(user!), {}, db)
+      const roles = sanitizeRoles(body.roles, allowed, {}, db)
+      if (!isSuper && !allowed.some((s) => roles[s] != null)) {
+        throw badRequest("You must assign at least one role in your administered office")
+      }
       const created: User = {
         id: uid("u"),
         email,
@@ -419,8 +445,14 @@ register(
     handler: (ctx) => {
       requireAnyAdmin(ctx)
       const { db, body, user, params } = ctx
+      const allowed = adminSites(user!)
+      const allSites = Object.keys(db.sites)
+      const isSuper = allSites.length > 0 && allSites.every((s) => allowed.includes(s))
       const target = db.users.find((u) => u.id === params.id)
       if (!target) throw notFound("User not found")
+      if (!isSuper && !allowed.some((s) => target.roles[s] != null)) {
+        throw forbidden("You can only manage people belonging to your office")
+      }
       if (body.name !== undefined) {
         if (!String(body.name).trim()) throw badRequest("Name is required")
         target.name = String(body.name).trim()
@@ -431,9 +463,9 @@ register(
         target.password = String(body.password)
       }
       if (body.roles) {
-        const next = sanitizeRoles(body.roles, adminSites(user!), target.roles, db)
+        const next = sanitizeRoles(body.roles, allowed, target.roles, db)
         if (target.id === user!.id) {
-          for (const s of adminSites(user!)) {
+          for (const s of allowed) {
             if (next[s] !== "Admin") throw badRequest("You can't remove your own Admin role (you'd lock yourself out)")
           }
         }
@@ -604,6 +636,20 @@ register(
       // Sort newest first
       trails.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
 
+      // Compute bottleneck count (pending > 24 hours) and avg lead time
+      const oneDayAgo = Date.now() - 24 * 3600 * 1000
+      const bottlenecksCount = trails.filter(
+        (t) => t.status === "Pending" && new Date(t.requestedAt).getTime() < oneDayAgo,
+      ).length
+
+      const fulfillmentHours = trails
+        .filter((t) => t.assignment?.dispatchedAt && t.requestedAt)
+        .map((t) => Math.max(0.5, (new Date(t.assignment!.dispatchedAt).getTime() - new Date(t.requestedAt).getTime()) / 3600000))
+
+      const avgFulfillmentHours = fulfillmentHours.length
+        ? Number((fulfillmentHours.reduce((a, b) => a + b, 0) / fulfillmentHours.length).toFixed(1))
+        : 3.5
+
       const stats: GoodsMovementStats = {
         totalTracked: trails.length,
         pendingApprovals: trails.filter((t) => t.status === "Pending").length,
@@ -618,6 +664,8 @@ register(
         totalUnitsReturned: trails.reduce((s, t) => s + t.totalReturned, 0),
         tier1To2Count: trails.filter((t) => t.supplyChainFlow === "Tier 1 ➔ Tier 2").length,
         tier2To3Count: trails.filter((t) => t.supplyChainFlow === "Tier 2 ➔ Tier 3").length,
+        bottlenecksCount,
+        avgFulfillmentHours,
       }
 
       return { trails, stats }

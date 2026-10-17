@@ -25,7 +25,6 @@ import { cn, formatDateTime } from "@/lib/utils"
 import { DynamicForm } from "@/renderer/DynamicForm"
 import { formatFieldValue, requestSummary } from "@/lib/format"
 import { requestStatusLabel } from "@/lib/requestFlow"
-import { RequestRoute } from "@/components/RequestRoute"
 
 const STATUSES: ("All" | RequestStatus)[] = ["All", "Pending", "Approved", "Assigned", "Rejected"]
 
@@ -108,10 +107,6 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
-          <div className="space-y-1.5 rounded-lg bg-muted/50 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Where this request goes</p>
-            <RequestRoute officeName={config.name} supplierName={type === "material" && wf.stockSourceSiteId ? (inv?.sourceName ?? "the supplying office") : null} />
-          </div>
           {wf.allowMaterialRequests && wf.allowRepairRequests && (
             <Tabs value={type} onValueChange={(v) => setType(v as "material" | "repair")}>
               <TabsList>
@@ -226,8 +221,9 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
 
 export function RequestsPage() {
   const { config, role, siteApi, changeTick, notifyChange } = useSite()
+  const isAdmin = role === "Admin"
   const isManager = roleAtLeast(role, "Manager")
-  const [scope, setScope] = useState<"all" | "mine">(isManager ? "all" : "mine")
+  const [scope, setScope] = useState<"all" | "mine">(isManager || isAdmin ? "all" : "mine")
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("All")
   const [open, setOpen] = useState(false)
   const { data, loading, reload } = useAsync(() => siteApi.get<MaterialRequest[]>("requests", { scope }), [changeTick, scope])
@@ -235,8 +231,7 @@ export function RequestsPage() {
   const list = useMemo(() => (data ?? []).filter((r) => status === "All" || r.status === status), [data, status])
   const counts = useMemo(() => Object.fromEntries(STATUSES.map((s) => [s, (data ?? []).filter((r) => s === "All" || r.status === s).length])), [data])
   const canRequest = config.workflow.allowMaterialRequests || config.workflow.allowRepairRequests
-  const supplierId = config.workflow.stockSourceSiteId
-  const { data: stockInfo } = useAsync(() => (supplierId && canRequest ? siteApi.get<{ sourceName: string }>("inventory") : Promise.resolve(null)), [supplierId])
+  const canMakeRequest = canRequest && !isAdmin
   const hasApproval = config.modules.includes("approval")
 
   return (
@@ -244,25 +239,28 @@ export function RequestsPage() {
       <PageHeader
         title="Requests"
         icon={<ClipboardList />}
-        description={isManager ? "Everything people in this office have asked for." : "Ask for what you need and see how it is going."}
+        description={
+          isAdmin
+            ? "Site Admin oversight: Track request lifecycle and audit supply chain movements."
+            : isManager
+              ? "Everything people in this office have asked for."
+              : "Ask for what you need and see how it is going."
+        }
         actions={
-          canRequest && (
+          canMakeRequest && (
             <Button onClick={() => setOpen(true)}>
               <Plus /> New request
             </Button>
           )
         }
       />
-      {canRequest && !isManager && (
-        <Card className="mb-4 gap-2 p-4">
-          <p className="text-sm font-medium">How a request travels</p>
-          <RequestRoute officeName={config.name} supplierName={config.workflow.allowMaterialRequests ? (stockInfo?.sourceName ?? (supplierId ? "the supplying office" : null)) : null} />
-          <p className="text-xs text-muted-foreground">
-            {supplierId && config.workflow.allowMaterialRequests
-              ? "Items come from another office, so your manager sends your request there. Repairs stay in your own office. You never contact the other office yourself."
-              : "Your manager decides on your request."}
-          </p>
-        </Card>
+      {isAdmin && (
+        <Alert className="mb-4 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertDescription>
+            <span className="font-semibold text-foreground">Site Admin Oversight:</span> You have view-only access to oversee the flow of requests and track audit trails. Submitting requests is performed by Members, and approvals are handled by Managers.
+          </AlertDescription>
+        </Alert>
       )}
       {!hasApproval && (
         <Alert className="mb-4">

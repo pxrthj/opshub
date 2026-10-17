@@ -1,7 +1,8 @@
 import { Fragment, useMemo, useState } from "react"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { PackageCheck, Search, Send } from "lucide-react"
+import { Info, PackageCheck, Search, Send } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,7 +18,8 @@ import { ProgressLine } from "./shared"
 import { requestSummary } from "@/lib/format"
 
 export function AssignmentsPage() {
-  const { config, siteApi, changeTick, notifyChange } = useSite()
+  const { config, role, siteApi, changeTick, notifyChange } = useSite()
+  const isAdmin = role === "Admin"
   const { data, loading, reload } = useAsync(() => siteApi.get<AssignmentView[]>("assignments"), [changeTick])
   const { data: requests, reload: reloadReq } = useAsync(
     () => (config.modules.includes("request") ? siteApi.get<MaterialRequest[]>("requests") : Promise.resolve([])),
@@ -52,7 +54,24 @@ export function AssignmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Given out" icon={<PackageCheck />} description="Who was given what, and how much is left." />
+      <PageHeader
+        title={isAdmin ? "Given out (Oversight)" : "Given out"}
+        icon={<PackageCheck />}
+        description={
+          isAdmin
+            ? "Site Admin oversight: Monitoring issued stock items and balances in read-only mode."
+            : "Who was given what, and how much is left."
+        }
+      />
+
+      {isAdmin && (
+        <Alert className="mb-4 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertDescription>
+            <span className="font-semibold text-foreground">Site Admin Oversight:</span> Tracking material allocations in read-only mode. Handing out and assigning items is managed by Storekeepers and Managers.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {awaiting.length > 0 && (
         <Card className="mb-6">
@@ -67,9 +86,13 @@ export function AssignmentsPage() {
                   {requestSummary(r)} <span className="text-muted-foreground">· {r.requestedByName}</span>
                 </span>
                 {errors[r.id] && <span className="w-full text-xs text-red-600 sm:order-last">{errors[r.id]}</span>}
-                <Button size="sm" onClick={() => assign(r)} disabled={busyId === r.id}>
-                  {busyId === r.id ? <Spinner /> : <Send />} Assign now
-                </Button>
+                {isAdmin ? (
+                  <span className="text-xs text-muted-foreground italic">Approved · Awaiting assignment</span>
+                ) : (
+                  <Button size="sm" onClick={() => assign(r)} disabled={busyId === r.id}>
+                    {busyId === r.id ? <Spinner /> : <Send />} Assign now
+                  </Button>
+                )}
               </div>
             ))}
           </CardContent>

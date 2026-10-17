@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { CircuitBoard, Pencil, Plus, Search } from "lucide-react"
+import { CircuitBoard, Info, Pencil, Plus, Search } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -26,7 +27,8 @@ import { formatFieldValue } from "@/lib/format"
 const STATUSES: RepairStatus[] = ["Received", "In Repair", "Fixed", "Scrapped"]
 
 export function RepairsPage() {
-  const { config, siteApi, changeTick, notifyChange } = useSite()
+  const { config, role, siteApi, changeTick, notifyChange } = useSite()
+  const isAdmin = role === "Admin"
   const fields = fieldsFor(config, "pcb-repair")
   const { data, loading, reload } = useAsync(() => siteApi.get<RepairJob[]>("repairs"), [changeTick])
   const [filter, setFilter] = useState<"All" | RepairStatus>("All")
@@ -71,20 +73,34 @@ export function RepairsPage() {
   return (
     <div>
       <PageHeader
-        title="Meter repairs"
+        title={isAdmin ? "Meter repairs (Oversight)" : "Meter repairs"}
         icon={<CircuitBoard />}
-        description="Follow each broken meter until it is fixed."
+        description={
+          isAdmin
+            ? "Site Admin oversight: Monitoring refurbished meters and repair logs in read-only mode."
+            : "Follow each broken meter until it is fixed."
+        }
         actions={
-          <Button
-            onClick={() => {
-              setErrors({})
-              setEditing({ values: { meterType: "Single Phase Smart Meter" } })
-            }}
-          >
-            <Plus /> Log faulty meter
-          </Button>
+          !isAdmin && (
+            <Button
+              onClick={() => {
+                setErrors({})
+                setEditing({ values: { meterType: "Single Phase Smart Meter" } })
+              }}
+            >
+              <Plus /> Log faulty meter
+            </Button>
+          )
         }
       />
+      {isAdmin && (
+        <Alert className="mb-4 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertDescription>
+            <span className="font-semibold text-foreground">Site Admin Oversight:</span> You can monitor the bench queue and repair progress in read-only mode. Logging and updating repairs is performed by Service Centre technicians.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
           <TabsList>
@@ -142,18 +158,20 @@ export function RepairsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      disabled={r.returned}
-                      title={r.returned ? "Put back into stock. This repair is closed." : "Update this repair"}
-                      onClick={() => {
-                        setErrors({})
-                        setEditing({ job: r, values: { ...r } })
-                      }}
-                    >
-                      <Pencil />
-                    </Button>
+                    {!isAdmin && (
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        disabled={r.returned}
+                        title={r.returned ? "Put back into stock. This repair is closed." : "Update this repair"}
+                        onClick={() => {
+                          setErrors({})
+                          setEditing({ job: r, values: { ...r } })
+                        }}
+                      >
+                        <Pencil />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

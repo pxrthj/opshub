@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { CircuitBoard, Plus, Undo2 } from "lucide-react"
+import { CircuitBoard, Info, Plus, Undo2 } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -16,7 +17,8 @@ import { formatDateTime } from "@/lib/utils"
 import { AssignmentActionDialog } from "./shared"
 
 export function ReturnsPage() {
-  const { config, siteApi, changeTick, notifyChange } = useSite()
+  const { config, role, siteApi, changeTick, notifyChange } = useSite()
+  const isAdmin = role === "Admin"
   const hasAssign = config.modules.includes("assignment")
   const hasRepair = config.modules.includes("pcb-repair")
   const { data: returns, loading, reload } = useAsync(() => siteApi.get<ReturnRecord[]>("returns"), [changeTick])
@@ -48,17 +50,30 @@ export function ReturnsPage() {
   return (
     <div>
       <PageHeader
-        title="Giving back"
+        title={isAdmin ? "Returns ledger (Oversight)" : "Giving back"}
         icon={<Undo2 />}
-        description="Put unused or fixed items back into stock."
+        description={
+          isAdmin
+            ? "Site Admin oversight: Monitoring returned materials and restored stock in read-only mode."
+            : "Put unused or fixed items back into stock."
+        }
         actions={
-          hasAssign && (
+          hasAssign && !isAdmin && (
             <Button onClick={() => setOpen(true)}>
               <Plus /> Give back unused items
             </Button>
           )
         }
       />
+
+      {isAdmin && (
+        <Alert className="mb-4 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertDescription>
+            <span className="font-semibold text-foreground">Site Admin Oversight:</span> You can monitor returns and restocked equipment in read-only mode. Processing returns is executed by technicians and field members.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {hasRepair && (
         <Card className="mb-6">
@@ -80,9 +95,13 @@ export function ReturnsPage() {
                         {r.code} · {r.meterType} · fixed by {r.technician || "—"}
                       </p>
                     </div>
-                    <Button size="sm" onClick={() => returnRepair(r)} disabled={busyId === r.id}>
-                      {busyId === r.id ? <Spinner /> : <Undo2 />} Put back in stock
-                    </Button>
+                    {isAdmin ? (
+                      <span className="text-xs text-muted-foreground italic">Fixed · Awaiting restock</span>
+                    ) : (
+                      <Button size="sm" onClick={() => returnRepair(r)} disabled={busyId === r.id}>
+                        {busyId === r.id ? <Spinner /> : <Undo2 />} Put back in stock
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

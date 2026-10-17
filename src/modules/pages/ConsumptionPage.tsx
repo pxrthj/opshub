@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { Gauge, Plus } from "lucide-react"
+import { Gauge, Info, Plus } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,6 +16,7 @@ import { AssignmentActionDialog, ProgressLine } from "./shared"
 
 export function ConsumptionPage() {
   const { role, siteApi, changeTick, notifyChange } = useSite()
+  const isAdmin = role === "Admin"
   const isManager = roleAtLeast(role, "Manager")
   const { data: records, loading, reload } = useAsync(() => siteApi.get<ConsumptionRecord[]>("consumption"), [changeTick])
   const { data: assignments, reload: reloadA } = useAsync(() => siteApi.get<AssignmentView[]>("assignments"), [changeTick])
@@ -25,15 +27,29 @@ export function ConsumptionPage() {
   return (
     <div>
       <PageHeader
-        title="What was used"
+        title={isAdmin ? "Material usage (Oversight)" : "What was used"}
         icon={<Gauge />}
-        description="What has been used, where, and what is left."
+        description={
+          isAdmin
+            ? "Site Admin oversight: Monitoring material consumption and field deployments in read-only mode."
+            : "What has been used, where, and what is left."
+        }
         actions={
-          <Button onClick={() => setOpen(true)} disabled={!lines.some((x) => x.l.remaining > 0)}>
-            <Plus /> Write down use
-          </Button>
+          !isAdmin && (
+            <Button onClick={() => setOpen(true)} disabled={!lines.some((x) => x.l.remaining > 0)}>
+              <Plus /> Write down use
+            </Button>
+          )
         }
       />
+      {isAdmin && (
+        <Alert className="mb-4 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertDescription>
+            <span className="font-semibold text-foreground">Site Admin Oversight:</span> Tracking equipment consumption across jobs and sites in read-only mode. Field staff record usage as work progresses.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
         <Card className="gap-0 py-0">
           <CardHeader className="border-b py-3">
