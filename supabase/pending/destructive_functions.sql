@@ -1,6 +1,10 @@
 -- NOT APPLIED YET. These functions contain DELETE statements, which the Supabase MCP tool holds for an
 -- interactive confirmation. Paste this file into the Supabase SQL editor (or approve the prompt) to install them,
 -- then run the grants block at the bottom.
+--
+-- The app does not need api_inventory_delete or api_member_set: deleting stock and changing roles go through the
+-- admin-ops edge function (supabase/functions/admin-ops). They are kept here as the all-or-nothing SQL versions.
+-- api_reset_demo IS needed for the "Start over with sample data" button.
 
 create function public.api_inventory_delete(p_site text, p_id text) returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -37,3 +41,26 @@ end $$;
 grant execute on function public.api_inventory_delete(text, text) to authenticated;
 grant execute on function public.api_member_set(text, uuid, text) to authenticated;
 revoke execute on function public.api_inventory_delete(text, text), public.api_member_set(text, uuid, text) from public, anon;
+
+-- Puts the sample data back (offices, people, stock, requests, everything). Resets EVERYONE's data, so only someone who
+-- is Admin of every office may call it. All or nothing: if anything fails, nothing changes.
+create function public.api_reset_demo() returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then perform _fail('Please sign in', 401); end if;
+  if not is_super_admin() then perform _fail('Only an Admin of every office can restore the sample data', 403); end if;
+  delete from product_audits;
+  delete from returns;
+  delete from consumption;
+  delete from assignments;
+  delete from requests;
+  delete from repairs;
+  delete from inventory_items;
+  delete from site_events;
+  delete from site_versions;
+  perform _load_demo_seed();
+  return jsonb_build_object('ok', true);
+end $$;
+
+grant execute on function public.api_reset_demo() to authenticated;
+revoke execute on function public.api_reset_demo() from public, anon;

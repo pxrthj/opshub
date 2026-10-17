@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { api } from "@/api"
-import { readSession, writeSession } from "@/api/session"
+import { invalidateSnapshot } from "@/api/snapshot"
+import { supabase } from "@/lib/supabase"
 import type { PublicUser } from "@/lib/types"
 
 interface AuthContextValue {
@@ -13,44 +14,41 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+// Sign-in is Supabase Auth (email + password). Supabase keeps the session in the browser and refreshes it.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PublicUser | null>(null)
   const [ready, setReady] = useState(false)
 
   const refreshUser = useCallback(async () => {
-    if (!readSession()) {
+    const { data } = await supabase.auth.getSession()
+    if (!data.session) {
       setUser(null)
       return
     }
     try {
       setUser(await api.raw.get<PublicUser>("/api/auth/me"))
     } catch {
-      writeSession(null)
       setUser(null)
     }
   }, [])
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      if (!readSession()) {
-        if (!cancelled) setReady(true)
-        return
+    refreshUser().finally(() => {
+      if (!cancelled) setReady(true)
+    })
+    // Signing out in another tab (or an expired session) signs this one out too.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        invalidateSnapshot()
+        setUser(null)
       }
-      try {
-        const me = await api.raw.get<PublicUser>("/api/auth/me")
-        if (!cancelled) setUser(me)
-      } catch {
-        writeSession(null)
-        if (!cancelled) setUser(null)
-      } finally {
-        if (!cancelled) setReady(true)
-      }
-    })()
+    })
     return () => {
       cancelled = true
+      sub.subscription.unsubscribe()
     }
-  }, [])
+  }, [refreshUser])
 
   const login = useCallback(async (email: string, password: string) => {
     const u = await api.raw.post<PublicUser>("/api/auth/login", { email, password })

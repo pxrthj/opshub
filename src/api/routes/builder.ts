@@ -23,7 +23,7 @@ function state(ctx: Ctx): BuilderState {
 }
 
 /** Server-side re-validation of a config coming from the builder. Returns the normalised config. */
-function validateIncoming(ctx: Ctx, incoming: SiteConfig): SiteConfig {
+export function validateIncoming(ctx: Ctx, incoming: SiteConfig): SiteConfig {
   if (!incoming || !incoming.canvas) throw badRequest("Missing config")
   const known = new Set<ModuleId>(MODULE_DEFINITIONS.map((m) => m.id))
   const nodes = incoming.canvas.nodes.filter((n) => known.has(n.moduleId))

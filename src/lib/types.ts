@@ -113,6 +113,8 @@ export interface SiteRecord {
 
 export interface User {
   id: string
+  /** The id the sample data used before logins moved to Supabase (u_store, ...). Only set for sample people. */
+  legacyId?: string
   email: string
   name: string
   password: string // mock only — a real backend would store a bcrypt hash

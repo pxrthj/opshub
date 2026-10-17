@@ -1,4 +1,3 @@
-import { SEED_USERS } from "@/data/seed"
 import { managerAction, needsMyManager } from "@/lib/requestFlow"
 import { ROLES, roleAtLeast } from "@/lib/roles"
 import type {
@@ -17,11 +16,9 @@ import type {
   User,
 } from "@/lib/types"
 import { uid } from "@/lib/utils"
-import { resetDb } from "../db"
-import { badRequest, conflict, forbidden, notFound, unauthorized } from "../errors"
+import { badRequest, conflict, forbidden, notFound } from "../errors"
 import { register, type Ctx } from "../router"
 
-import { writeSession } from "../session"
 import { stockSiteOf } from "./helpers"
 
 export function publicUser(u: User): PublicUser {
@@ -84,45 +81,6 @@ function requireAnyAdmin(ctx: Ctx) {
 
 register(
   // ---------------------------------------------------------------- auth
-  {
-    method: "POST",
-    path: "/api/auth/login",
-    auth: false,
-    handler: ({ db, body }) => {
-      const email = String(body.email ?? "").trim().toLowerCase()
-      const password = String(body.password ?? "")
-      // Accept either brand domain (@plexus.demo or @opshub.demo) for the same account.
-      const altEmail = email.includes("@plexus.demo") ? email.replace("@plexus.demo", "@opshub.demo") : email.replace("@opshub.demo", "@plexus.demo")
-      const matches = (u: User) => {
-        const ue = u.email.toLowerCase()
-        return ue === email || ue === altEmail
-      }
-      let user = db.users.find(matches)
-
-      // Fallback: if user is in SEED_USERS but not in db.users (e.g. stale localStorage)
-      if (!user) {
-        const seedMatch = SEED_USERS.find(matches)
-        if (seedMatch) {
-          db.users.push(seedMatch)
-          user = seedMatch
-        }
-      }
-
-      // Mock login: plain comparison. The real backend compares a bcrypt hash and sets an HTTP-only cookie.
-      if (!user || user.password !== password) throw unauthorized("Invalid email or password")
-      writeSession({ userId: user.id, at: new Date().toISOString() })
-      return publicUser(user)
-    },
-  },
-  {
-    method: "POST",
-    path: "/api/auth/logout",
-    auth: false,
-    handler: () => {
-      writeSession(null)
-      return { ok: true }
-    },
-  },
   {
     method: "GET",
     path: "/api/auth/me",
@@ -376,16 +334,6 @@ register(
     },
   },
   {
-    method: "POST",
-    path: "/api/hub/reset",
-    handler: ({ user }) => {
-      resetDb()
-      // keep the caller signed in if they still exist in the seed
-      writeSession({ userId: user!.id, at: new Date().toISOString() })
-      return { ok: true }
-    },
-  },
-  {
     method: "GET",
     path: "/api/hub/users",
     handler: (ctx) => {
@@ -553,7 +501,8 @@ register(
             sourceSiteId = "ds-003"
             sourceSiteName = db.sites["ds-003"]?.live.name || "Distribution"
           } else if (originSiteId === "ds-003" || originConfig.slug === "distribution") {
-            if (req.requestedBy === "u_lineman" || req.requestedBy === "u_ganesh") {
+            const requesterLegacyId = db.users.find((u) => u.id === req.requestedBy)?.legacyId ?? req.requestedBy
+            if (requesterLegacyId === "u_lineman" || requesterLegacyId === "u_ganesh") {
               sourceTier = "Tier 2: Distribution Centre"
               destinationTier = "Tier 2: Distribution Centre"
               supplyChainFlow = "Internal / Field"

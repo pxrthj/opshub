@@ -10,9 +10,17 @@ JSON setup, in one shared look. An Admin sets an office up by dragging features 
 | Service Centre | `/s/service-centre` | Requests, Approvals, Meter repairs, Giving back |
 | Distribution | `/s/distribution` | Requests, Approvals, Giving out, My items, Usage |
 
-There is **no backend** in this folder. Data lives in the browser (`localStorage`, key `opshub.db.v8`) and survives a
-refresh. Use **your name (top right) → Start over with sample data** to restore it. The real backend version of this
-app lives in the separate `plexus` folder.
+The data and sign-in live in **Supabase** (Postgres + Auth), and the site is served as a static app (Vercel). Everyone
+signs in with an email and password. What a person can read is limited by row-level security, and every change goes
+through server functions that re-check the person's role, their office and the stock rules.
+
+- Database: `supabase/migrations` (tables, security rules, `api_*` functions). Sample data: `supabase/seed`.
+- Privileged actions (create a login, change a role, delete stock): the `admin-ops` edge function in `supabase/functions`.
+- `supabase/pending` holds SQL that is not installed yet (see the header of that file).
+- The app points at the project in `src/lib/supabase.ts`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to use another.
+- Deploy: import the repo in Vercel (Vite preset, `npm run build`, output `dist`). `vercel.json` handles page refreshes.
+- Regenerate the sample data after changing `src/data/seed.ts`: `npx tsx scripts/export-seed.ts > seed.json`, then `node scripts/seed-to-sql.mjs seed.json out/`.
+- `npx tsx scripts/route-smoke.ts seed.json` runs the read routes against stubbed Supabase rows (no network).
 
 ## Run it
 

@@ -1,19 +1,19 @@
 import { dispatch } from "./router"
+import "./routes/supabase"
 import "./routes/hub"
 import "./routes/site"
 import "./routes/builder"
 
 export { ApiError } from "./errors"
 
-// Public client for the mock REST API. Every call goes through the router, which
-// enforces auth, site_id isolation and roles — exactly like the future Express server:
+// Public client for the app's REST-style API. Calls go through the router, which checks the signed-in person, the
+// office and the role, reads what Supabase allows, and sends changes to the server:
 //
 //   api.get(siteId, "requests")              ->  GET    /api/:siteId/requests
 //   api.post(siteId, "requests", body)       ->  POST   /api/:siteId/requests
 //   api.put(siteId, "inventory/itm_1", body) ->  PUT    /api/:siteId/inventory/:id
 //   api.del(siteId, "inventory/itm_1")       ->  DELETE /api/:siteId/inventory/:id
 //
-// Swapping to a real backend = replacing `dispatch` with `fetch(url, { method, body, credentials: "include" })`.
 
 export interface ApiOptions {
   /** Admin preview: read the site's DRAFT config instead of the live one. */

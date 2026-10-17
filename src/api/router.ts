@@ -1,13 +1,12 @@
-import { SEED_USERS } from "@/data/seed"
 import { roleAtLeast } from "@/lib/roles"
 import type { Database, ModuleId, Role, SiteConfig, SiteRecord, User } from "@/lib/types"
 import { getModuleDef } from "@/modules/definitions"
-import { clone, loadDb, withTransaction } from "./db"
+import { clone } from "./db"
 import { ApiError, forbidden, notFound, unauthorized } from "./errors"
-import { readSession } from "./session"
+import { invalidateSnapshot, loadSnapshot } from "./snapshot"
 
-// A tiny Express-style router running in the browser.
-// Each route maps 1:1 to a future Express handler: app[method](path, requireRole(min), handler)
+// A tiny Express-style router running in the browser. Reads run against a snapshot of what Supabase lets the
+// signed-in person see; writes are routes that call the server (see routes/supabase.ts).
 
 export type Method = "GET" | "POST" | "PUT" | "DELETE"
 
@@ -36,13 +35,18 @@ export interface Route {
   minRole?: Role
   /** Site routes only: at least one of these modules must be enabled. */
   module?: ModuleId | ModuleId[]
-  handler: (ctx: Ctx) => unknown
+  handler: (ctx: Ctx) => unknown | Promise<unknown>
 }
 
 const routes: Route[] = []
 
 export function register(...defs: Route[]) {
   routes.push(...defs)
+}
+
+/** Routes that must win over any registered with `register`, whatever the import order. */
+export function registerFirst(...defs: Route[]) {
+  routes.unshift(...defs)
 }
 
 function match(pattern: string, path: string): Record<string, string> | null {
@@ -57,11 +61,9 @@ function match(pattern: string, path: string): Record<string, string> | null {
   return params
 }
 
-const ARTIFICIAL_DELAY_MS = 200
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const EMPTY_DB: Database = { schema: 5, users: [], sites: {}, data: {} }
 
 export async function dispatch<T>(method: Method, url: string, body?: unknown): Promise<T> {
-  await sleep(ARTIFICIAL_DELAY_MS)
   const [path, qs] = url.split("?")
   const query = Object.fromEntries(new URLSearchParams(qs ?? ""))
 
@@ -77,32 +79,30 @@ export async function dispatch<T>(method: Method, url: string, body?: unknown): 
   }
   if (!route || !params) throw notFound(`No route for ${method} ${path}`)
 
-  const isWrite = method !== "GET"
-  const run = (db: Database) => {
-    const ctx = buildContext(db, route!, params!, query, body)
-    return route!.handler(ctx)
+  let db = EMPTY_DB
+  let userId: string | null = null
+  if (route.auth !== false) {
+    const snap = await loadSnapshot()
+    if (!snap) throw unauthorized()
+    db = snap.db
+    userId = snap.userId
   }
-  // Every write runs inside a transaction: if the handler throws, nothing is persisted.
-  const result = isWrite ? withTransaction(run) : run(loadDb())
+  const ctx = buildContext(db, userId, route, params, query, body)
+  const result = await route.handler(ctx)
+  // Anything other than a read may have changed what is stored, so the next read starts fresh.
+  if (method !== "GET") invalidateSnapshot()
   return clone(result ?? null) as T
 }
 
 function buildContext(
   db: Database,
+  userId: string | null,
   route: Route,
   params: Record<string, string>,
   query: Record<string, string>,
   body: unknown,
 ): Ctx {
-  const session = readSession()
-  let user = session ? (db.users.find((u) => u.id === session.userId) ?? null) : null
-  if (!user && session) {
-    const seedUser = SEED_USERS.find((u) => u.id === session.userId)
-    if (seedUser) {
-      db.users.push(seedUser)
-      user = seedUser
-    }
-  }
+  const user = userId ? (db.users.find((u) => u.id === userId) ?? null) : null
   if (route.auth !== false && !user) throw unauthorized()
 
   const ctx = { db, params, query, body: body ?? {}, user } as Ctx
