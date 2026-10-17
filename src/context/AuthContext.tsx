@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { api, ApiError } from "@/api"
+import { api } from "@/api"
 import { invalidateSnapshot } from "@/api/snapshot"
 import { supabase } from "@/lib/supabase"
 import type { PublicUser } from "@/lib/types"
@@ -7,8 +7,6 @@ import type { PublicUser } from "@/lib/types"
 interface AuthContextValue {
   user: PublicUser | null
   ready: boolean
-  /** Set when someone signed in (e.g. with Google) but has no OpsHub profile, so they were signed out again. */
-  accessNotice: string | null
   login: (email: string, password: string) => Promise<PublicUser>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -20,7 +18,6 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PublicUser | null>(null)
   const [ready, setReady] = useState(false)
-  const [accessNotice, setAccessNotice] = useState<string | null>(null)
 
   const refreshUser = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
@@ -30,12 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       setUser(await api.raw.get<PublicUser>("/api/auth/me"))
-    } catch (err) {
-      // Signed in with Supabase but not known to OpsHub: an admin has to add them first, so sign them out again.
-      if (err instanceof ApiError && err.status === 401) {
-        await supabase.auth.signOut()
-        setAccessNotice("This account is not registered in OpsHub yet. Ask an admin to add your email, then try again.")
-      }
+    } catch {
       setUser(null)
     }
   }, [])
@@ -59,7 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser])
 
   const login = useCallback(async (email: string, password: string) => {
-    setAccessNotice(null)
     const u = await api.raw.post<PublicUser>("/api/auth/login", { email, password })
     setUser(u)
     return u
@@ -70,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  const value = useMemo(() => ({ user, ready, accessNotice, login, logout, refreshUser }), [user, ready, accessNotice, login, logout, refreshUser])
+  const value = useMemo(() => ({ user, ready, login, logout, refreshUser }), [user, ready, login, logout, refreshUser])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
