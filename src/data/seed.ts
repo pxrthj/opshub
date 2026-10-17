@@ -238,6 +238,8 @@ function clientOffice(siteId: string, slug: string, name: string, description: s
 const apexOffice = clientOffice(SITE_IDS.apex, "apex-motors", "Apex Motors (Client)", "Two-wheeler maker. Raises repair cases for ECUs, instrument clusters and charger boards.")
 const bajajOffice = clientOffice(SITE_IDS.bajaj, "bajaj-electricals", "Bajaj Electricals (Client)", "Fans and appliances maker. Raises repair cases for controller boards and dealer service calls.")
 
+const featureWord = (n: number) => `${n} ${n === 1 ? "feature" : "features"}`
+
 function siteRecord(config: SiteConfig): SiteRecord {
   return {
     siteId: config.siteId,
@@ -255,7 +257,7 @@ function siteRecord(config: SiteConfig): SiteRecord {
         config,
         publishedAt: daysAgo(30, 9),
         author: "Aarti Deshmukh",
-        summary: `First version with ${config.modules.filter((m) => !CORE_MODULES.includes(m)).length} features`,
+        summary: `First version with ${featureWord(config.modules.filter((m) => !CORE_MODULES.includes(m)).length)}`,
       },
     ],
   }

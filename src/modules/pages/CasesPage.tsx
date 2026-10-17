@@ -101,6 +101,18 @@ const STEP: Record<string, { label: string; icon: LucideIcon }> = {
 const stepLabel = (kind: string) => STEP[kind]?.label ?? kind
 
 const isOpen = (c: ServiceCase) => c.status !== "Closed" && c.status !== "Rejected"
+
+/** A team's part of a case, in everyday words (the badge colours follow the case statuses). */
+function TrackBadge({ status, className }: { status?: string; className?: string }) {
+  const s = status ?? "Open"
+  return s === "Done" ? (
+    <StatusBadge status="Done" label="Done" className={className} />
+  ) : s === "Assigned" ? (
+    <StatusBadge status="In Progress" label="Working on it" className={className} />
+  ) : (
+    <StatusBadge status="Open" label="Not assigned" className={className} />
+  )
+}
 const itemsText = (c: ServiceCase) => c.items.map((i) => `${i.qty} × ${i.name}`).join(", ")
 
 function trackOf(c: ServiceCase, siteId: string): Track | null {
@@ -124,7 +136,7 @@ function TrackChips({ c }: { c: ServiceCase }) {
         return (
           <span key={t} className="text-xs">
             <span className="font-medium">{i.label}:</span> {i.office}
-            {i.assignee ? ` · ${i.assignee}` : ""} <StatusBadge status={i.status ?? "Open"} className="ml-1 px-1.5 py-0 text-[10px]" />
+            {i.assignee ? ` · ${i.assignee}` : ""} <TrackBadge status={i.status} className="ml-1 px-1.5 py-0 text-[10px]" />
           </span>
         )
       })}
@@ -312,13 +324,15 @@ function CasesBoard({ mode }: { mode: Mode }) {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
-            <TabsTrigger value="open">
-              Open{" "}
-              {waitingOnMe > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">{waitingOnMe}</span>}
-            </TabsTrigger>
+            <TabsTrigger value="open">Open ({cases.filter(isOpen).length})</TabsTrigger>
             <TabsTrigger value="done">Closed ({cases.filter((c) => !isOpen(c)).length})</TabsTrigger>
           </TabsList>
         </Tabs>
+        {waitingOnMe > 0 && !isAdmin && (
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+            {waitingOnMe} {waitingOnMe === 1 ? "needs" : "need"} you
+          </span>
+        )}
         <div className="relative w-full max-w-xs">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="bg-card pl-9" placeholder="Search cases" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -339,30 +353,33 @@ function CasesBoard({ mode }: { mode: Mode }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Case</TableHead>
-                {mode !== "client" && <TableHead>Client</TableHead>}
+                {mode !== "client" && <TableHead className="hidden md:table-cell">Client</TableHead>}
                 <TableHead>What to repair</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Teams</TableHead>
-                <TableHead>Last update</TableHead>
+                <TableHead className="hidden lg:table-cell">Teams</TableHead>
+                <TableHead className="hidden sm:table-cell">Last update</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {list.map((c) => (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelectedId(c.id)}>
                   <TableCell className="pl-4 text-xs font-semibold">{c.code}</TableCell>
-                  {mode !== "client" && <TableCell>{c.clientName}</TableCell>}
-                  <TableCell className="max-w-sm whitespace-normal">
+                  {mode !== "client" && <TableCell className="hidden md:table-cell">{c.clientName}</TableCell>}
+                  <TableCell className="max-w-sm min-w-40 whitespace-normal">
                     <span className="font-medium">{c.title}</span>
                     <span className="block text-xs text-muted-foreground">{itemsText(c)}</span>
+                    {mode !== "client" && <span className="block text-xs text-muted-foreground md:hidden">{c.clientName}</span>}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={c.status} />
-                    {c.priority === "Urgent" && <StatusBadge status="Urgent" className="ml-1" />}
+                    <div className="flex flex-wrap gap-1">
+                      <StatusBadge status={c.status} />
+                      {c.priority === "Urgent" && <StatusBadge status="Urgent" />}
+                    </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <TrackChips c={c} />
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatDateTime(c.updatedAt)}</TableCell>
+                  <TableCell className="hidden text-xs text-muted-foreground sm:table-cell">{formatDateTime(c.updatedAt)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -371,7 +388,7 @@ function CasesBoard({ mode }: { mode: Mode }) {
       )}
 
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetContent className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-2xl">
           {selected && (
             <CaseDetail
               key={selected.id}
@@ -562,7 +579,7 @@ function CaseDetail({
                   <>
                     <p className="font-medium">{i.office}</p>
                     <p className="text-xs">
-                      {i.assignee ? `Technician: ${i.assignee}` : "No technician yet"} <StatusBadge status={i.status ?? "Open"} className="ml-1" />
+                      {i.assignee ? `Technician: ${i.assignee}` : "No technician yet"} <TrackBadge status={i.status} className="ml-1" />
                     </p>
                   </>
                 ) : (
@@ -585,7 +602,7 @@ function CaseDetail({
           {parts.length === 0 ? (
             <p className="text-sm text-muted-foreground">No parts asked for yet.</p>
           ) : (
-            <div className="rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>

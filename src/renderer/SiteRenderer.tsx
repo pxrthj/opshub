@@ -13,7 +13,7 @@ import { errorMessage } from "@/lib/useAsync"
 import { MODULE_DEFINITIONS } from "@/modules/definitions"
 import { PAGE_COMPONENTS } from "@/modules/registry"
 import { NotFound } from "@/pages/NotFound"
-import { SiteSidebar } from "./SiteSidebar"
+import { SiteMobileNav, SiteSidebar } from "./SiteSidebar"
 
 type Loaded = { config: SiteConfig; role: Role; liveVersion: number; hasDraft: boolean }
 
@@ -93,9 +93,10 @@ export function SiteRenderer({ mode }: { mode: "live" | "preview" }) {
     <SiteProvider value={ctx}>
       <div className="flex flex-1 flex-col">
         {preview && <PreviewBanner config={ctx.config} hasDraft={state.data.hasDraft} />}
+        <SiteMobileNav />
         <div className="flex flex-1">
           <SiteSidebar />
-          <main key={ctx.config.siteId} className="min-w-0 flex-1 px-6 py-8">
+          <main key={ctx.config.siteId} className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8">
             <div className="mx-auto w-full max-w-6xl">
               <PageOutlet segment={segment} />
             </div>

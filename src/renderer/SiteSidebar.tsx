@@ -7,17 +7,50 @@ import { useAsync } from "@/lib/useAsync"
 import { cn } from "@/lib/utils"
 import { getModuleDef } from "@/modules/definitions"
 
-/** Sidebar menu built purely from config.pages (which come from the enabled modules). */
-export function SiteSidebar() {
-  const { config, role, basePath, siteApi, changeTick, preview } = useSite()
+function useSiteMenu() {
+  const { config, role, siteApi, changeTick, preview } = useSite()
   const { data: stats } = useAsync(() => siteApi.get<SiteStats>("stats"), [config.siteId, changeTick, preview])
-
   const badges: Record<string, number | undefined> = {
     approval: stats?.pendingRequests,
     inventory: config.workflow.lowStockAlerts ? stats?.lowStock : undefined,
     "pcb-repair": stats?.openRepairs,
   }
-  const visible = config.pages.filter((p) => roleAtLeast(role, p.minRole))
+  return { badges, visible: config.pages.filter((p) => roleAtLeast(role, p.minRole)) }
+}
+
+/** On phones the sidebar is hidden, so the same pages show as a strip you can scroll sideways. */
+export function SiteMobileNav() {
+  const { basePath } = useSite()
+  const { badges, visible } = useSiteMenu()
+  return (
+    <nav className="sticky top-14 z-30 flex gap-1 overflow-x-auto border-b bg-background/95 px-3 py-2 backdrop-blur md:hidden">
+      {visible.map((p) => {
+        const badge = badges[p.moduleId]
+        return (
+          <NavLink
+            key={p.id}
+            to={p.path ? `${basePath}/${p.path}` : basePath}
+            end={!p.path}
+            className={({ isActive }) =>
+              cn(
+                "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm whitespace-nowrap",
+                isActive ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground hover:bg-accent",
+              )
+            }
+          >
+            {p.label}
+            {!!badge && <span className="rounded-full bg-muted px-1.5 text-xs font-medium text-foreground tabular-nums">{badge}</span>}
+          </NavLink>
+        )
+      })}
+    </nav>
+  )
+}
+
+/** Sidebar menu built purely from config.pages (which come from the enabled modules). */
+export function SiteSidebar() {
+  const { config, role, basePath, preview } = useSite()
+  const { badges, visible } = useSiteMenu()
 
   return (
     <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">

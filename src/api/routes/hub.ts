@@ -9,6 +9,7 @@ import type {
   NotificationPriority,
   PublicUser,
   Role,
+  SiteConfig,
   SiteStats,
   SiteSummary,
   SupplyChainBottleneck,
@@ -83,6 +84,9 @@ function requireAnyAdmin(ctx: Ctx) {
   if (!adminSites(ctx.user!).length) throw forbidden("Access denied: User Management needs the Admin role on at least one site")
 }
 
+/** A client company's office: it raises repair cases and runs nothing else operational. */
+const isClientOffice = (cfg: SiteConfig) => cfg.modules.includes("cases") && !cfg.modules.includes("inventory")
+
 function computeSiteTier(siteId: string, sites: Record<string, { live: { workflow?: { stockSourceSiteId?: string | null } } }>): number {
   let tier = 1
   let currentId: string | null = siteId
@@ -115,6 +119,8 @@ register(
     handler: ({ db, user }): SiteSummary[] =>
       Object.values(db.sites)
         .filter((s) => user!.roles[s.siteId])
+        // Own offices first (in id order: Central Hub, Service Centre, Distribution), client companies after.
+        .sort((a, b) => Number(isClientOffice(a.live)) - Number(isClientOffice(b.live)) || a.siteId.localeCompare(b.siteId))
         .map((s) => ({ config: s.live, role: user!.roles[s.siteId], liveVersion: s.liveVersion, stats: computeStats(db, s.siteId) })),
   },
   {

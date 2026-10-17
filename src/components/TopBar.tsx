@@ -42,7 +42,7 @@ export function SiteSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-40 justify-between sm:w-52">
+        <Button variant="outline" className="w-36 justify-between sm:w-52">
           <span className="flex min-w-0 items-center gap-2">
             {current ? <Building2 className="text-muted-foreground" /> : <LayoutGrid className="text-muted-foreground" />}
             <span className="truncate text-sm">{current ? current.config.name : "Home"}</span>
@@ -151,11 +151,12 @@ export function TopBar() {
   const link = ({ isActive }: { isActive: boolean }) => cn(buttonVariants({ variant: isActive ? "secondary" : "ghost", size: "sm" }))
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-      <div className="flex h-14 items-center gap-3 px-4">
+      <div className="flex h-14 items-center gap-2 px-3 sm:gap-3 sm:px-4">
         <Link to="/" className="shrink-0">
-          <Logo />
+          <Logo compact className="sm:hidden" />
+          <Logo className="hidden sm:inline-flex" />
         </Link>
-        <Separator orientation="vertical" className="mx-1 h-6!" />
+        <Separator orientation="vertical" className="mx-1 hidden h-6! sm:block" />
         <SiteSwitcher />
         {/* Mobile Navigation Dropdown */}
         <div className="flex items-center xl:hidden">
@@ -219,7 +220,7 @@ export function TopBar() {
             </>
           )}
         </nav>
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
           <NotificationsBell />
           <UserMenu />
         </div>

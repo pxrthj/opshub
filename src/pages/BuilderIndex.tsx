@@ -5,6 +5,12 @@ import { Card } from "@/components/ui/card"
 import { PageHeader } from "@/components/PageHeader"
 import { useHub } from "@/context/HubContext"
 import { getModuleDef } from "@/modules/definitions"
+import type { ModuleId } from "@/lib/types"
+
+function featureCount(modules: ModuleId[]) {
+  const n = modules.filter((m) => !getModuleDef(m).core).length
+  return `${n} ${n === 1 ? "feature" : "features"}`
+}
 
 /** /builder — pick which site to build (Admin sites only). */
 export function BuilderIndex() {
@@ -24,7 +30,7 @@ export function BuilderIndex() {
               <div>
                 <p className="font-semibold text-foreground">{s.config.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  Live v{s.liveVersion} · {s.config.modules.filter((m) => !getModuleDef(m).core).length} modules
+                  Live v{s.liveVersion} · {featureCount(s.config.modules)}
                 </p>
               </div>
             </div>
