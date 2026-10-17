@@ -641,7 +641,11 @@ register(
       // ── Per-site Comparison Metrics ──────────────────────────────────────────
       const siteMetrics: SupplyChainSiteMetrics[] = Object.entries(db.sites).map(([sId, rec]) => {
         const cfg = rec.live
-        const siteReqs = trails.filter((t) => t.siteId === sId)
+        const siteOutgoing = trails.filter((t) => t.siteId === sId)
+        const siteSupplied = trails.filter((t) => t.sourceSiteId === sId)
+        // Operational requests handled or initiated by this office
+        const siteReqs = Array.from(new Set([...siteOutgoing, ...siteSupplied]))
+
         const approved = siteReqs.filter((t) => t.status === "Approved" || t.status === "Assigned")
         const pending = siteReqs.filter((t) => t.status === "Pending")
         const rejected = siteReqs.filter((t) => t.status === "Rejected")
@@ -667,12 +671,12 @@ register(
           .filter((t) => t.sourceSiteId === sId && t.assignment)
           .reduce((sum, t) => sum + (t.assignment ? t.assignment.lines.reduce((lSum, l) => lSum + l.qty, 0) : 0), 0)
 
-        const unitsReceived = siteReqs
+        const unitsReceived = siteOutgoing
           .filter((t) => t.assignment)
           .reduce((sum, t) => sum + (t.assignment ? t.assignment.lines.reduce((lSum, l) => lSum + l.qty, 0) : 0), 0)
 
-        const unitsConsumed = siteReqs.reduce((sum, t) => sum + t.totalConsumed, 0)
-        const unitsReturned = siteReqs.reduce((sum, t) => sum + t.totalReturned, 0)
+        const unitsConsumed = siteOutgoing.reduce((sum, t) => sum + t.totalConsumed, 0)
+        const unitsReturned = siteOutgoing.reduce((sum, t) => sum + t.totalReturned, 0)
 
         return {
           siteId: sId,
