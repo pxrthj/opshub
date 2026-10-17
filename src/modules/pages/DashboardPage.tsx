@@ -60,7 +60,7 @@ export function DashboardPage() {
 
   const has = (m: string) => config.modules.includes(m as never)
   const canSee = (path: string) => config.pages.some((p) => p.path === path && roleAtLeast(role, p.minRole))
-  const ownStock = has("inventory") && !config.workflow.stockSourceSiteId
+  const ownStock = has("inventory")
 
   const { data: stats, loading } = useAsync(() => siteApi.get<SiteStats>("stats"), [changeTick])
   const { data: requests } = useAsync(

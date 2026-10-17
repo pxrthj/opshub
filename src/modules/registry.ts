@@ -3,6 +3,7 @@ import type { ModuleId } from "@/lib/types"
 import { MODULE_DEFINITIONS, type ModuleDefinition } from "./definitions"
 import { DashboardPage } from "./pages/DashboardPage"
 import { InventoryPage } from "./pages/InventoryPage"
+import { StockDashboardPage } from "./pages/StockDashboardPage"
 import { RequestsPage } from "./pages/RequestsPage"
 import { ApprovalsPage } from "./pages/ApprovalsPage"
 import { AssignmentsPage } from "./pages/AssignmentsPage"
@@ -25,6 +26,7 @@ export const PAGE_COMPONENTS: Partial<Record<ModuleId, ComponentType>> = {
   shell: DashboardPage,
   users: TeamPage,
   inventory: InventoryPage,
+  "stock-dashboard": StockDashboardPage,
   request: RequestsPage,
   approval: ApprovalsPage,
   assignment: AssignmentsPage,

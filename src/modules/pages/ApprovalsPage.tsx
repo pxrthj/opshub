@@ -147,8 +147,9 @@ export function ApprovalsPage() {
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {pending.map((r) => {
-              const sendOnly = managerAction(r, config.siteId) === "send-on"
-              const short = !sendOnly && gives(r) && r.lines.some((l) => (stockOf(r, l.itemId)?.qty ?? 0) < l.qty)
+              const isOutOfStock = r.isOutOfStockLocally || r.lines.some((l) => (stockOf(r, l.itemId)?.qty ?? 0) < l.qty)
+              const sendOnly = managerAction(r, config.siteId) === "send-on" || isOutOfStock
+              const targetOffice = r.higherSiteName || r.targetSiteName || "Higher Office"
               return (
                 <Card key={r.id} className={cn("gap-3 p-4", failures[r.id] && "ring-2 ring-destructive/40")}>
                   <div className="flex items-start justify-between gap-3">
@@ -156,6 +157,11 @@ export function ApprovalsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold">{r.code}</span>
                         {r.priority === "Urgent" && <StatusBadge status="Urgent" />}
+                        {r.isOutOfStockLocally && (
+                          <span className="rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+                            ⚠️ Out of stock locally
+                          </span>
+                        )}
                         {r.originSiteName && r.originSiteId !== config.siteId && (
                           <span className="rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
                             From: {r.originSiteName}
@@ -173,7 +179,7 @@ export function ApprovalsPage() {
                         {r.originSiteName && r.originSiteId !== config.siteId ? ` (${r.originSiteName})` : ""} · {formatDateTime(r.createdAt)}
                       </p>
                     </div>
-                    <StatusBadge status={r.status} label={sendOnly ? "Needs sending on" : undefined} />
+                    <StatusBadge status={r.status} label={sendOnly ? "Needs escalation" : undefined} />
                   </div>
                   {r.type === "material" ? (
                     <div className="overflow-hidden rounded-lg border">
@@ -182,7 +188,7 @@ export function ApprovalsPage() {
                           <TableRow>
                             <TableHead>Item</TableHead>
                             <TableHead className="text-right">Asked for</TableHead>
-                            {gives(r) && !sendOnly && <TableHead className="text-right">In stock</TableHead>}
+                            <TableHead className="text-right">In stock</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -190,16 +196,14 @@ export function ApprovalsPage() {
                             const s = stockOf(r, l.itemId)
                             const ok = (s?.qty ?? 0) >= l.qty
                             return (
-                              <TableRow key={l.itemId}>
-                                <TableCell>{l.itemName}</TableCell>
+                              <TableRow key={l.itemId} className={!ok ? "bg-red-50/30" : undefined}>
+                                <TableCell className="font-medium">{l.itemName}</TableCell>
                                 <TableCell className="text-right tabular-nums">
                                   {l.qty.toLocaleString("en-IN")} {l.unit}
                                 </TableCell>
-                                {gives(r) && !sendOnly && (
-                                  <TableCell className={cn("text-right font-medium tabular-nums", ok ? "text-emerald-700" : "text-red-600")}>
-                                    {s ? s.qty.toLocaleString("en-IN") : "—"}
-                                  </TableCell>
-                                )}
+                                <TableCell className={cn("text-right font-medium tabular-nums", ok ? "text-emerald-700" : "text-red-600 font-bold")}>
+                                  {s ? s.qty.toLocaleString("en-IN") : "0"} {l.unit}
+                                </TableCell>
                               </TableRow>
                             )
                           })}
@@ -214,16 +218,24 @@ export function ApprovalsPage() {
                       </AlertDescription>
                     </Alert>
                   )}
-                  {(failures[r.id] || short) && (
+                  {isOutOfStock && (
+                    <Alert className="border-red-200 bg-red-50/60 text-red-900">
+                      <AlertOctagon className="size-4 text-red-600" />
+                      <AlertDescription className="text-xs">
+                        <strong>Out of stock in local store:</strong> Requested items cannot be fulfilled from {config.name}'s current stock. Escalate this request to {targetOffice} Manager to supply.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {failures[r.id] && (
                     <Alert variant="destructive">
                       <AlertOctagon />
-                      <AlertDescription>{failures[r.id] || "There is not enough stock for this request."}</AlertDescription>
+                      <AlertDescription>{failures[r.id]}</AlertDescription>
                     </Alert>
                   )}
                   <div className="flex justify-end gap-2">
                     {isAdmin ? (
                       <div className="flex items-center gap-1.5 rounded-md border border-muted bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                        <Eye className="size-3.5" /> Oversight mode: {sendOnly ? `Awaiting manager forward to ${r.targetSiteName}` : "Awaiting manager decision"}
+                        <Eye className="size-3.5" /> Oversight mode: {sendOnly ? `Awaiting manager forward to ${targetOffice}` : "Awaiting manager decision"}
                       </div>
                     ) : (
                       <>
@@ -243,8 +255,9 @@ export function ApprovalsPage() {
                               setComment("")
                               setSending(r)
                             }}
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
                           >
-                            <Send /> Send to {r.targetSiteName}
+                            <Send /> Escalate to {targetOffice}
                           </Button>
                         ) : (
                           <Button
@@ -331,14 +344,14 @@ export function ApprovalsPage() {
       <ConfirmDialog
         open={!!sending}
         onOpenChange={(o) => !o && setSending(null)}
-        title={`Send ${sending?.code} to ${sending?.targetSiteName}?`}
-        description={`The manager of ${sending?.targetSiteName} will see this request and decide. ${sending?.requestedByName} will see where it is.`}
-        confirmLabel="Send it"
+        title={`Escalate ${sending?.code} to ${sending?.higherSiteName || sending?.targetSiteName}?`}
+        description={`The manager of ${sending?.higherSiteName || sending?.targetSiteName} will review this request and decide. ${sending?.requestedByName} will track the escalation.`}
+        confirmLabel="Escalate Request"
         onConfirm={sendOn}
       >
         <div className="space-y-1.5">
-          <Label>Message for their manager (optional)</Label>
-          <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="For example: needed before Friday" />
+          <Label>Escalation note for their manager (optional)</Label>
+          <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="e.g. Critical stockout at our site, please supply from your warehouse" />
         </div>
       </ConfirmDialog>
 

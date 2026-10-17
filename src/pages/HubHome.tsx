@@ -47,13 +47,13 @@ function todosFor(sites: SiteSummary[]): Todo[] {
         action: "Oversee flow",
         to: `${base}/requests`,
       })
-    if (has("inventory") && !config.workflow.stockSourceSiteId && roleAtLeast(role, "Manager") && stats.lowStock > 0)
+    if (has("inventory") && roleAtLeast(role, "Manager") && stats.lowStock > 0)
       out.push({
         key: `${config.siteId}-stock`,
         icon: AlertTriangle,
         text: `${stats.lowStock} item${stats.lowStock > 1 ? "s are" : " is"} almost out of stock in ${config.name}`,
-        action: "View stock",
-        to: `${base}/inventory`,
+        action: "Stock dashboard",
+        to: `${base}/stock-dashboard`,
       })
     if (has("pcb-repair") && stats.openRepairs > 0) {
       if (role === "Admin") {

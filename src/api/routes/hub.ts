@@ -236,7 +236,8 @@ register(
 
           const stockId = stockSiteOf(cfg)
           const inv = db.data[stockId]?.inventory ?? []
-          if (has("inventory") && !cfg.workflow.stockSourceSiteId && inv.length > 0) {
+          if (has("inventory") && inv.length > 0) {
+            const stockLink = has("stock-dashboard") ? `/s/${cfg.slug}/stock-dashboard` : `/s/${cfg.slug}/inventory`
             for (const item of inv) {
               if (item.qty <= 0) {
                 notifications.push({
@@ -250,7 +251,7 @@ register(
                   siteSlug: cfg.slug,
                   timestamp: item.updatedAt || new Date().toISOString(),
                   timeAgo: formatTimeAgo(item.updatedAt || new Date().toISOString()),
-                  link: `/s/${cfg.slug}/inventory`,
+                  link: stockLink,
                 })
               } else if (item.qty < item.reorderLevel) {
                 notifications.push({
@@ -264,7 +265,7 @@ register(
                   siteSlug: cfg.slug,
                   timestamp: item.updatedAt || new Date().toISOString(),
                   timeAgo: formatTimeAgo(item.updatedAt || new Date().toISOString()),
-                  link: `/s/${cfg.slug}/inventory`,
+                  link: stockLink,
                 })
               }
             }

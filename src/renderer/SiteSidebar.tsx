@@ -15,6 +15,7 @@ export function SiteSidebar() {
   const badges: Record<string, number | undefined> = {
     approval: stats?.pendingRequests,
     inventory: config.workflow.lowStockAlerts ? stats?.lowStock : undefined,
+    "stock-dashboard": config.workflow.lowStockAlerts ? stats?.lowStock : undefined,
     "pcb-repair": stats?.openRepairs,
   }
   const visible = config.pages.filter((p) => roleAtLeast(role, p.minRole))

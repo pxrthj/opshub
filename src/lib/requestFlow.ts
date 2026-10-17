@@ -26,7 +26,10 @@ export type ManagerAction = "decide" | "send-on" | "waiting-for-other-office"
 export function managerAction(r: MaterialRequest, siteId: string): ManagerAction | null {
   if (r.status !== "Pending") return null
   const origin = r.originSiteId ?? siteId
-  if (!isSupplied(r)) return origin === siteId ? "decide" : null
+  if (!isSupplied(r)) {
+    if (origin !== siteId) return null
+    return r.isOutOfStockLocally && (r.higherSiteId || isSentOn(r)) ? (isSentOn(r) ? "waiting-for-other-office" : "send-on") : "decide"
+  }
   if (siteId === origin) return isSentOn(r) ? "waiting-for-other-office" : "send-on"
   if (siteId === r.targetSiteId) return isSentOn(r) ? "decide" : null
   return null
@@ -43,7 +46,7 @@ export function requestStatusLabel(r: MaterialRequest, viewer: { siteId: string;
   if (r.status !== "Pending") return null
   const action = managerAction(r, viewer.siteId)
   if (action === "decide") return viewer.isManager ? "Waiting for you" : "With your manager"
-  if (action === "send-on") return viewer.isManager ? "Needs sending on" : "With your manager"
+  if (action === "send-on") return viewer.isManager ? (r.isOutOfStockLocally ? "Needs escalation" : "Needs sending on") : "With your manager"
   if (action === "waiting-for-other-office") return `With ${r.targetSiteName ?? "the other office"}`
   return null
 }
