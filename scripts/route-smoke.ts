@@ -22,6 +22,7 @@ const rows: Record<string, any[]> = {
   repairs: p.repairs.map((r: any) => ({ id: r.id, site_id: r.siteId, code: r.code, meter_id: r.meterId, meter_type: r.meterType, fault: r.fault, technician: r.technician, parts_used: r.partsUsed, status: r.status, received_at: r.receivedAt, updated_at: r.updatedAt, request_id: r.requestId, returned: r.returned, custom: r.custom })),
   product_audits: p.audits.map((a: any) => ({ id: a.id, site_id: a.siteId, item_id: a.itemId, item_name: a.itemName, category: a.category, unit: a.unit, field: a.field, change_type: a.changeType, old_value: a.oldValue, new_value: a.newValue, diff: a.diff, reason: a.reason, ref_code: a.refCode, actor_id: uuid(a.actorId), actor_name: a.actorName, actor_role: a.actorRole, at: a.timestamp })),
 }
+const centralRequests = p.requests.filter((r: any) => r.siteId === "cs-001" || (r.targetSiteId === "cs-001" && r.forwardedAt)).length
 const directory = p.sites.map((s: any) => ({ id: s.id, slug: s.slug, name: s.name }))
 
 let me = uuid("u_admin")
@@ -51,12 +52,12 @@ async function check(label: string, fn: () => Promise<unknown>, expect?: (v: any
 
 as("u_admin")
 await check("hub sites (admin sees 3, with stats)", () => api.raw.get<any[]>("/api/hub/sites"), (v) => v.length === 3 && v.every((s) => s.stats) || `got ${v.length}`)
-await check("goods movement (admin)", () => api.raw.get<any>("/api/hub/goods-movement"), (v) => v.trails.length === 22 || `trails ${v.trails.length}`)
+await check("goods movement (admin)", () => api.raw.get<any>("/api/hub/goods-movement"), (v) => v.trails.length === p.requests.length || `trails ${v.trails.length} expected ${p.requests.length}`)
 await check("notifications (admin)", () => api.raw.get<any[]>("/api/hub/notifications"))
 await check("users list (super admin sees 12)", () => api.raw.get<any[]>("/api/hub/users"), (v) => v.length === 12 || `got ${v.length}`)
 await check("central inventory", () => api.get<any>("cs-001", "inventory"), (v) => v.items.length === 16 && !v.linked || `items ${v.items.length}`)
 await check("central audit log", () => api.get<any>("cs-001", "audit-log"), (v) => v.audits.length === 6 || `audits ${v.audits.length}`)
-await check("central requests (forwarded-in from Distribution)", () => api.get<any[]>("cs-001", "requests"), (v) => v.length === 11 || `got ${v.length}`)
+await check("central requests (forwarded-in from Distribution)", () => api.get<any[]>("cs-001", "requests"), (v) => v.length === centralRequests || `got ${v.length} expected ${centralRequests}`)
 await check("central analytics", () => api.get<any>("cs-001", "analytics"))
 await check("central export", () => api.get<any>("cs-001", "reports/export", { query: { dataset: "inventory" } }))
 await check("builder state (admin)", () => api.get<any>("sc-002", "builder"), (v) => v.versions.length === 1 && v.events.length === 1 || "versions/events")
