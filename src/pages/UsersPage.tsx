@@ -22,7 +22,7 @@ import { ROLES, ROLE_DESCRIPTIONS } from "@/lib/roles"
 import type { PublicUser, Role } from "@/lib/types"
 import { errorMessage, toastError, useAsync } from "@/lib/useAsync"
 
-type Draft = { id?: string; name: string; email: string; title: string; password: string; roles: Record<string, Role | null> }
+type Draft = { id?: string; name: string; email: string; phone: string; title: string; password: string; roles: Record<string, Role | null> }
 
 const NONE = "__none__"
 
@@ -51,7 +51,7 @@ export function UsersPage() {
   const filtered = useMemo(
     () =>
       (users ?? []).filter((u) =>
-        [u.name, u.email, u.title].join(" ").toLowerCase().includes(q.trim().toLowerCase()),
+        [u.name, u.email, u.phone ?? "", u.title].join(" ").toLowerCase().includes(q.trim().toLowerCase()),
       ),
     [users, q],
   )
@@ -66,11 +66,11 @@ export function UsersPage() {
     if (visibleSites.length > 0) {
       initialRoles[visibleSites[0].config.siteId] = "Member"
     }
-    setDraft({ name: "", email: "", title: "", password: "", roles: initialRoles })
+    setDraft({ name: "", email: "", phone: "", title: "", password: "", roles: initialRoles })
   }
   function openEdit(u: PublicUser) {
     setFormError(null)
-    setDraft({ id: u.id, name: u.name, email: u.email, title: u.title, password: "", roles: { ...u.roles } })
+    setDraft({ id: u.id, name: u.name, email: u.email, phone: u.phone ?? "", title: u.title, password: "", roles: { ...u.roles } })
   }
 
   async function save() {
@@ -82,7 +82,7 @@ export function UsersPage() {
     setBusy(true)
     try {
       if (draft.id) {
-        await api.raw.put(`/api/hub/users/${draft.id}`, { name: draft.name, title: draft.title, password: draft.password || undefined, roles: draft.roles })
+        await api.raw.put(`/api/hub/users/${draft.id}`, { name: draft.name, title: draft.title, phone: draft.phone, password: draft.password || undefined, roles: draft.roles })
         toast.success(`${draft.name} was updated`)
       } else {
         await api.raw.post("/api/hub/users", draft)
@@ -162,6 +162,7 @@ export function UsersPage() {
                       {u.name} {u.id === user?.id && <span className="text-xs text-muted-foreground">(you)</span>}
                     </div>
                     <div className="text-xs text-muted-foreground">{u.email}</div>
+                    {u.phone && <div className="text-xs text-muted-foreground">{u.phone}</div>}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.title}</TableCell>
                   {visibleSites.map((s) => {
@@ -214,6 +215,10 @@ export function UsersPage() {
                 <div className="space-y-1.5">
                   <Label>Email *</Label>
                   <Input value={draft.email} disabled={!!draft.id} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Mobile number</Label>
+                  <Input value={draft.phone} placeholder="+91 98765 43210" onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{draft.id ? "New password" : "Password *"}</Label>

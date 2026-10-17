@@ -21,6 +21,20 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const ROLES = ["Public", "Member", "Manager", "Admin"]
 const MIN_PASSWORD = 6 // Supabase Auth's minimum
 
+/** International form (+919876543210). A plain 10-digit number is taken as an Indian mobile. Empty means "no phone". */
+function normalizePhone(raw: unknown): string | null {
+  const t = String(raw ?? "").replace(/[\s\-().]/g, "")
+  if (!t) return null
+  const withPlus = /^\d{10}$/.test(t) ? `+91${t}` : /^91\d{10}$/.test(t) ? `+${t}` : t
+  if (!/^\+[1-9]\d{7,14}$/.test(withPlus)) throw new HttpError(400, "Mobile number must look like +919876543210 (or a 10-digit Indian number)")
+  return withPlus
+}
+
+async function assertPhoneFree(db: Db, phone: string, exceptUserId?: string) {
+  const { data } = await db.from("profiles").select("id").eq("phone", phone).maybeSingle()
+  if (data && data.id !== exceptUserId) throw new HttpError(409, `${phone} already belongs to someone else`)
+}
+
 type Roles = Record<string, string>
 type Db = SupabaseClient
 
@@ -33,7 +47,7 @@ async function rolesOf(db: Db, userId: string): Promise<Roles> {
 async function publicUser(db: Db, userId: string) {
   const { data, error } = await db.from("profiles").select("*").eq("id", userId).maybeSingle()
   if (error || !data) throw new HttpError(404, "User not found")
-  return { id: data.id, legacyId: data.legacy_id ?? undefined, email: data.email, name: data.name, title: data.title, roles: await rolesOf(db, userId) }
+  return { id: data.id, legacyId: data.legacy_id ?? undefined, email: data.email, phone: data.phone ?? undefined, name: data.name, title: data.title, roles: await rolesOf(db, userId) }
 }
 
 async function siteIds(db: Db): Promise<string[]> {
@@ -77,10 +91,10 @@ function checkNewLogin(email: string, name: string, password: string) {
   if (password.length < MIN_PASSWORD) throw new HttpError(400, `Password must be at least ${MIN_PASSWORD} characters`)
 }
 
-async function createLogin(db: Db, email: string, name: string, title: string, password: string): Promise<string> {
-  const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true })
+async function createLogin(db: Db, email: string, name: string, title: string, password: string, phone: string | null = null): Promise<string> {
+  const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true, ...(phone ? { phone, phone_confirm: true } : {}) })
   if (error || !data.user) throw new HttpError(error?.status === 422 ? 409 : 400, error?.message ?? "Could not create the login")
-  const { error: pErr } = await db.from("profiles").insert({ id: data.user.id, email, name, title: title || "Staff" })
+  const { error: pErr } = await db.from("profiles").insert({ id: data.user.id, email, phone, name, title: title || "Staff" })
   if (pErr) {
     await db.auth.admin.deleteUser(data.user.id) // do not leave a login without a profile
     throw new HttpError(500, pErr.message)
@@ -118,11 +132,13 @@ Deno.serve(async (req) => {
         const name = String(body.name ?? "").trim()
         const password = String(body.password ?? "")
         checkNewLogin(email, name, password)
+        const phone = normalizePhone(body.phone)
+        if (phone) await assertPhoneFree(db, phone)
         const roles = await sanitizeRoles(db, body.roles, allowed, {})
         if (!isSuper && !allowed.some((s) => roles[s] != null)) throw new HttpError(400, "You must assign at least one role in your administered office")
         const { data: existing } = await db.from("profiles").select("id").eq("email", email).maybeSingle()
         if (existing) throw new HttpError(409, `${email} already exists`)
-        const id = await createLogin(db, email, name, String(body.title ?? "").trim(), password)
+        const id = await createLogin(db, email, name, String(body.title ?? "").trim(), password, phone)
         await applyRoles(db, id, {}, roles)
         return json(await publicUser(db, id))
       }
@@ -133,12 +149,19 @@ Deno.serve(async (req) => {
         const targetRoles = await rolesOf(db, id)
         await publicUser(db, id) // 404 if missing
         if (!isSuper && !allowed.some((s) => targetRoles[s] != null)) throw new HttpError(403, "You can only manage people belonging to your office")
-        const patch: Record<string, string> = {}
+        const patch: Record<string, string | null> = {}
         if (body.name !== undefined) {
           if (!String(body.name).trim()) throw new HttpError(400, "Name is required")
           patch.name = String(body.name).trim()
         }
         if (body.title !== undefined) patch.title = String(body.title).trim()
+        if (body.phone !== undefined) {
+          const phone = normalizePhone(body.phone)
+          if (phone) await assertPhoneFree(db, phone, id)
+          const { error } = await db.auth.admin.updateUserById(id, phone ? { phone, phone_confirm: true } : { phone: "" })
+          if (error) throw new HttpError(400, error.message)
+          patch.phone = phone
+        }
         if (body.password) {
           if (String(body.password).length < MIN_PASSWORD) throw new HttpError(400, `Password must be at least ${MIN_PASSWORD} characters`)
           const { error } = await db.auth.admin.updateUserById(id, { password: String(body.password) })
@@ -168,7 +191,9 @@ Deno.serve(async (req) => {
         let { data: existing } = await db.from("profiles").select("id").eq("email", email).maybeSingle()
         if (!existing) {
           checkNewLogin(email, name, String(body.password ?? ""))
-          existing = { id: await createLogin(db, email, name, String(body.title ?? "").trim(), String(body.password)) }
+          const phone = normalizePhone(body.phone)
+          if (phone) await assertPhoneFree(db, phone)
+          existing = { id: await createLogin(db, email, name, String(body.title ?? "").trim(), String(body.password), phone) }
         } else if (body.title) {
           await db.from("profiles").update({ title: String(body.title).trim() }).eq("id", existing.id)
         }

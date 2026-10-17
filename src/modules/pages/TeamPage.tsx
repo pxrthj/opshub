@@ -31,6 +31,7 @@ export function TeamPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [title, setTitle] = useState("")
   const [password, setPassword] = useState("demo123")
   const [role, setRole] = useState<Role>("Member")
@@ -62,6 +63,7 @@ export function TeamPage() {
       const res = await siteApi.post<{ user: { name: string }; role: Role }>("members", {
         name: name.trim(),
         email: email.trim().toLowerCase(),
+        phone: phone.trim(),
         title: title.trim() || "Staff",
         password,
         role,
@@ -70,6 +72,7 @@ export function TeamPage() {
       setAddOpen(false)
       setName("")
       setEmail("")
+      setPhone("")
       setTitle("")
       setPassword("demo123")
       setRole("Member")
@@ -117,6 +120,7 @@ export function TeamPage() {
                       {m.user.name} {m.user.id === user?.id && <span className="text-xs text-muted-foreground">(you)</span>}
                     </div>
                     <div className="text-xs text-muted-foreground">{m.user.email}</div>
+                    {m.user.phone && <div className="text-xs text-muted-foreground">{m.user.phone}</div>}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{m.user.title}</TableCell>
                   <TableCell>
@@ -155,6 +159,10 @@ export function TeamPage() {
             <div className="space-y-1.5">
               <Label>Email *</Label>
               <Input placeholder="e.g. staff@plexus.demo" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Mobile number</Label>
+              <Input placeholder="+91 98765 43210 (optional, for code sign-in)" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Job Title</Label>

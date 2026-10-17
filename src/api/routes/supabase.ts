@@ -33,7 +33,7 @@ export async function fetchPublicUser(userId: string): Promise<PublicUser> {
   const roles: Record<string, Role> = {}
   for (const m of members.data ?? []) roles[m.site_id] = m.role
   const p = profile.data
-  return { id: p.id, legacyId: p.legacy_id ?? undefined, email: p.email, name: p.name, title: p.title, roles }
+  return { id: p.id, legacyId: p.legacy_id ?? undefined, email: p.email, phone: p.phone ?? undefined, name: p.name, title: p.title, roles }
 }
 
 function cleanInventory(ctx: Ctx, body: Record<string, unknown>) {

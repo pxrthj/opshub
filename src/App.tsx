@@ -6,6 +6,7 @@ import { TopBar } from "@/components/TopBar"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import { HubProvider } from "@/context/HubContext"
 import { LoginPage } from "@/pages/LoginPage"
+import { CodeLoginPage } from "@/pages/CodeLoginPage"
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage"
 import { ResetPasswordPage } from "@/pages/ResetPasswordPage"
 import { HubHome } from "@/pages/HubHome"
@@ -58,6 +59,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/code-login" element={<CodeLoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<ProtectedShell />}>

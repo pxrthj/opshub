@@ -116,6 +116,8 @@ export interface User {
   /** The id the sample data used before logins moved to Supabase (u_store, ...). Only set for sample people. */
   legacyId?: string
   email: string
+  /** Mobile number in international form (+91...), used for code sign-in. */
+  phone?: string
   name: string
   password: string // mock only — a real backend would store a bcrypt hash
   title: string
