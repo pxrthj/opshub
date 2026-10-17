@@ -114,12 +114,10 @@ export function GoodsMovementPage() {
   const [timelineRequestId, setTimelineRequestId] = useState<string>("")
   const [exporting, setExporting] = useState(false)
 
-  // Global admin gate: redirect to home if not authorized
-  if (!hubLoading && !isAnyAdmin) {
-    return <Navigate to="/" replace />
-  }
+  const allowed = !hubLoading && isAnyAdmin
 
   useEffect(() => {
+    if (!allowed) return // people who may not open this page are redirected below, without a failed request
     let cancelled = false
     api.raw
       .get<SupplyChainData>("/api/hub/goods-movement")
@@ -134,7 +132,7 @@ export function GoodsMovementPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [allowed])
 
   const trails = data?.trails ?? []
   const stats = data?.stats ?? EMPTY_STATS
@@ -198,6 +196,11 @@ export function GoodsMovementPage() {
     } finally {
       setExporting(false)
     }
+  }
+
+  // Hooks above must always run in the same order, so the redirect for non-admins comes after them.
+  if (!hubLoading && !isAnyAdmin) {
+    return <Navigate to="/" replace />
   }
 
   return (
