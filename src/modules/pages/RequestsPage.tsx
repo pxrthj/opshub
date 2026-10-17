@@ -25,7 +25,6 @@ import { cn, formatDateTime } from "@/lib/utils"
 import { DynamicForm } from "@/renderer/DynamicForm"
 import { formatFieldValue, requestSummary } from "@/lib/format"
 import { requestStatusLabel } from "@/lib/requestFlow"
-import { RequestRoute } from "@/components/RequestRoute"
 
 const STATUSES: ("All" | RequestStatus)[] = ["All", "Pending", "Approved", "Assigned", "Rejected"]
 
@@ -108,10 +107,6 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
-          <div className="space-y-1.5 rounded-lg bg-muted/50 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Where this request goes</p>
-            <RequestRoute officeName={config.name} supplierName={type === "material" && wf.stockSourceSiteId ? (inv?.sourceName ?? "the supplying office") : null} />
-          </div>
           {wf.allowMaterialRequests && wf.allowRepairRequests && (
             <Tabs value={type} onValueChange={(v) => setType(v as "material" | "repair")}>
               <TabsList>
@@ -237,8 +232,6 @@ export function RequestsPage() {
   const counts = useMemo(() => Object.fromEntries(STATUSES.map((s) => [s, (data ?? []).filter((r) => s === "All" || r.status === s).length])), [data])
   const canRequest = config.workflow.allowMaterialRequests || config.workflow.allowRepairRequests
   const canMakeRequest = canRequest && !isAdmin
-  const supplierId = config.workflow.stockSourceSiteId
-  const { data: stockInfo } = useAsync(() => (supplierId && canRequest ? siteApi.get<{ sourceName: string }>("inventory") : Promise.resolve(null)), [supplierId])
   const hasApproval = config.modules.includes("approval")
 
   return (
@@ -268,17 +261,6 @@ export function RequestsPage() {
             <span className="font-semibold text-foreground">Site Admin Oversight:</span> You have view-only access to oversee the flow of requests and track audit trails. Submitting requests is performed by Members, and approvals are handled by Managers.
           </AlertDescription>
         </Alert>
-      )}
-      {(canRequest && !isManager || isAdmin) && (
-        <Card className="mb-4 gap-2 p-4">
-          <p className="text-sm font-medium">How a request travels</p>
-          <RequestRoute officeName={config.name} supplierName={config.workflow.allowMaterialRequests ? (stockInfo?.sourceName ?? (supplierId ? "the supplying office" : null)) : null} />
-          <p className="text-xs text-muted-foreground">
-            {supplierId && config.workflow.allowMaterialRequests
-              ? "Items come from another office, so your manager sends your request there. Repairs stay in your own office."
-              : "Managers decide on local requests."}
-          </p>
-        </Card>
       )}
       {!hasApproval && (
         <Alert className="mb-4">
