@@ -77,5 +77,10 @@ as("u_engineer")
 await check("dist mgr: site admin dashboard", () => api.get<any>("ds-003", "dashboard/admin"))
 await check("dist mgr: assignments", () => api.get<any[]>("ds-003", "assignments"))
 
+for (const [who, site] of [["u_admin", "cs-001"], ["u_admin", "ds-003"], ["u_admin", "sc-002"], ["u_cs_admin", "cs-001"], ["u_ds_admin", "ds-003"], ["u_sc_admin", "sc-002"]] as const) {
+  as(who)
+  await check(`site admin dashboard: ${who} @ ${site}`, () => api.get<any>(site, "dashboard/admin", { query: { range: "30d" } }), (v) => v.kpis && v.stockByCategory ? true : "missing kpis/stock")
+}
+
 console.log(failures ? `\n${failures} FAILED` : "\nall passed")
 process.exit(failures ? 1 : 0)
