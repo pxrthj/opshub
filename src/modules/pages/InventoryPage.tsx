@@ -62,15 +62,19 @@ export function InventoryPage() {
 
   // footer value sits under the Total column (or the last column if Total is hidden)
   const totalIdx = Math.max(0, tableFields.findIndex((f) => f.key === "total")) || tableFields.length - 1
+  const [reason, setReason] = useState("")
+
   const totalValue = items.reduce((s, i) => s + i.qty * i.unitPrice, 0)
   const lowCount = (data?.items ?? []).filter((i) => i.qty < i.reorderLevel).length
 
   function openNew() {
     setErrors({})
+    setReason("")
     setEditing({ values: { unit: "Nos", qty: "", unitPrice: "", reorderLevel: "" } })
   }
   function openEdit(item: InventoryItem) {
     setErrors({})
+    setReason("")
     setEditing({ id: item.id, values: { ...item } })
   }
 
@@ -88,10 +92,10 @@ export function InventoryPage() {
     setSaving(true)
     try {
       if (editing.id) {
-        await siteApi.put(`inventory/${editing.id}`, editing.values)
+        await siteApi.put(`inventory/${editing.id}`, { ...editing.values, reason: reason.trim() || undefined })
         toast.success(`Updated ${editing.values.name}`)
       } else {
-        await siteApi.post("inventory", editing.values)
+        await siteApi.post("inventory", { ...editing.values, reason: reason.trim() || undefined })
         toast.success(`Added ${editing.values.name}`)
       }
       setEditing(null)
@@ -282,15 +286,32 @@ export function InventoryPage() {
             <DialogDescription>Fields come from this site's config — Admins can add fields in the Builder.</DialogDescription>
           </DialogHeader>
           {editing && (
-            <DynamicForm
-              fields={fields}
-              values={editing.values}
-              errors={errors}
-              onChange={(values) => {
-                setEditing({ ...editing, values })
-                if (Object.keys(errors).length) setErrors(validate(values))
-              }}
-            />
+            <div className="space-y-4">
+              <DynamicForm
+                fields={fields}
+                values={editing.values}
+                errors={errors}
+                onChange={(values) => {
+                  setEditing({ ...editing, values })
+                  if (Object.keys(errors).length) setErrors(validate(values))
+                }}
+              />
+              <div className="space-y-1.5 pt-1">
+                <label htmlFor="inv-reason" className="text-xs font-medium text-muted-foreground">
+                  Reason for {editing.id ? "change" : "addition"} (logged in Audit Log)
+                </label>
+                <Input
+                  id="inv-reason"
+                  placeholder={
+                    editing.id
+                      ? "e.g., Annual count reconciliation, supplier price revision"
+                      : "e.g., New procurement batch received"
+                  }
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </div>
+            </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>

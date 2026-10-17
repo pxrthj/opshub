@@ -60,10 +60,30 @@ export function assignMaterialTransaction(
 
   // ---- Phase 2: apply all writes together ----
   const now = new Date().toISOString()
+  if (!store.productAudits) store.productAudits = []
   for (const [itemId, qty] of needed) {
     const item = store.inventory.find((i) => i.id === itemId)!
+    const oldQty = item.qty
     item.qty -= qty
     item.updatedAt = now
+    store.productAudits.unshift({
+      id: uid("aud"),
+      itemId: item.id,
+      itemName: item.name,
+      category: item.category,
+      unit: item.unit,
+      field: "qty",
+      changeType: "dispatch",
+      oldValue: oldQty,
+      newValue: item.qty,
+      diff: `-${qty}`,
+      reason: `Dispatched for ${request.code}${request.purpose ? ` (${request.purpose})` : ""}`,
+      refCode: request.code,
+      actorId: actor.id,
+      actorName: actor.name,
+      actorRole: "Manager",
+      timestamp: now,
+    })
   }
   const assignment: Assignment = {
     id: uid("as"),

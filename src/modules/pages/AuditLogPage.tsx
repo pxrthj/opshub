@@ -105,7 +105,12 @@ function DeltaBadge({ diff, unit }: { diff?: string; unit: string }) {
 }
 
 function ChangeTypeBadge({ type }: { type: AuditChangeType }) {
-  const meta = CHANGE_META[type]
+  const meta = CHANGE_META[type] ?? {
+    label: type,
+    icon: <History className="h-3.5 w-3.5" />,
+    color: "text-foreground",
+    bg: "bg-muted text-muted-foreground",
+  }
   return (
     <span
       className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium ${meta.bg}`}
@@ -328,7 +333,12 @@ export function AuditLogPage() {
             </TableHeader>
             <TableBody>
               {rows.map((audit) => {
-                const meta = CHANGE_META[audit.changeType]
+                const meta = CHANGE_META[audit.changeType] ?? {
+                  label: audit.changeType,
+                  icon: <History className="h-3.5 w-3.5" />,
+                  color: "text-foreground",
+                  bg: "bg-muted text-muted-foreground",
+                }
                 return (
                   <TableRow
                     key={audit.id}

@@ -35,7 +35,8 @@ function pushAudit(
   reason = "",
   refCode?: string,
 ) {
-  const d = ctx.db.data[ctx.siteId]
+  const stockSiteId = stockSiteOf(ctx.config)
+  const d = stockData(ctx.db, stockSiteId)
   if (!d.productAudits) d.productAudits = []
   const actor = ctx.user!
   d.productAudits.unshift({
@@ -187,9 +188,10 @@ register(
     method: "GET",
     path: "/api/:siteId/audit-log",
     minRole: "Manager",
-    module: "inventory",
+    module: ["audit-log", "inventory"],
     handler: (ctx) => {
-      const d = data(ctx)
+      const stockSiteId = stockSiteOf(ctx.config)
+      const d = stockData(ctx.db, stockSiteId)
       const audits = d.productAudits ?? []
       const { changeType, itemId, category, dateFrom, dateTo, search } = ctx.query as Record<string, string>
       let result = [...audits]
@@ -233,11 +235,17 @@ register(
         const values = normalizeValues(fieldsFor(ctx.config, "inventory"), { ...r })
         const existing = inv.find((i) => i.name.toLowerCase() === String(r.name).trim().toLowerCase())
         if (existing) {
+          const oldQty = Number(existing.qty)
           Object.assign(existing, { ...values, name: existing.name, updatedAt: now })
           updated++
+          if (Number(values.qty) !== oldQty) {
+            pushAudit(ctx, existing, "quantity", "qty", oldQty, Number(values.qty), "Bulk inventory import update")
+          }
         } else {
-          inv.push({ ...values, id: uid("itm"), updatedAt: now } as InventoryItem)
+          const newItem = { ...values, id: uid("itm"), updatedAt: now } as InventoryItem
+          inv.push(newItem)
           created++
+          pushAudit(ctx, newItem, "create", "created", null, Number(newItem.qty), "Bulk inventory import addition")
         }
       }
       return { created, updated }
@@ -471,8 +479,10 @@ register(
         if (job.returned) throw conflict(`${job.code} was already returned to stock`)
         const item = store.inventory.find((i) => i.name.toLowerCase() === job.meterType.toLowerCase())
         if (!item) throw conflict(`"${job.meterType}" is not an item in ${ctx.db.sites[stockSiteId].live.name}`)
+        const oldQty = item.qty
         item.qty += 1
         item.updatedAt = now
+        pushAudit(ctx, item, "return", "qty", oldQty, item.qty, `Repaired meter returned to stock (${job.code})`, job.code)
         job.returned = true
         job.updatedAt = now
         rec = { id: uid("rt"), source: "repair", refId: job.id, refCode: job.code, itemId: item.id, itemName: item.name, qty: 1, condition: "Repaired", stockSiteId, date: now, returnedBy: ctx.user!.name }
@@ -488,8 +498,10 @@ register(
         if (qty > line.remaining) throw badRequest(`Only ${line.remaining} ${line.unit} unused for ${line.itemName}`)
         const item = store.inventory.find((i) => i.id === line.itemId)
         if (!item) throw conflict(`${line.itemName} no longer exists in stores`)
+        const oldQty = item.qty
         item.qty += qty
         item.updatedAt = now
+        pushAudit(ctx, item, "return", "qty", oldQty, item.qty, `Unused material returned from ${a.code}`, a.code)
         rec = { id: uid("rt"), source: "assignment", refId: a.id, refCode: a.code, itemId: item.id, itemName: item.name, qty, condition: "Unused", stockSiteId, date: now, returnedBy: ctx.user!.name }
       }
       d.returns.unshift(rec)

@@ -4,8 +4,8 @@ import type { Database } from "@/lib/types"
 // The "database": one JSON document in localStorage, with data keyed by siteId.
 // In the real backend this becomes Postgres tables that all carry a site_id column.
 
-const DB_KEY = "opshub.db.v3"
-const OLD_KEYS = ["opshub.db.v1", "opshub.db.v2"]
+const DB_KEY = "opshub.db.v4"
+const OLD_KEYS = ["opshub.db.v1", "opshub.db.v2", "opshub.db.v3"]
 
 export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value))
