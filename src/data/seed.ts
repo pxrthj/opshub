@@ -121,8 +121,8 @@ const centralStores = buildConfigFromCanvas(
       lowStockAlerts: true,
     },
   }),
-  [node("n_inv", "inventory", 80, 170), node("n_ana", "analytics", 420, 60), node("n_rep", "reports", 420, 280)],
-  [edge("n_inv", "n_ana"), edge("n_inv", "n_rep")],
+  [node("n_inv", "inventory", 80, 170), node("n_ana", "analytics", 420, 60), node("n_rep", "reports", 420, 280), node("n_aud", "audit-log", 420, 500)],
+  [edge("n_inv", "n_ana"), edge("n_inv", "n_rep"), edge("n_inv", "n_aud")],
 )
 
 const serviceCentre = buildConfigFromCanvas(
@@ -175,6 +175,7 @@ const distribution = buildConfigFromCanvas(
     node("n_asg", "assignment", 580, 160),
     node("n_afe", "assignment-frontend", 870, 50),
     node("n_con", "consumption", 870, 280),
+    node("n_aud", "audit-log", 580, 400),
   ],
   [
     edge("n_req", "n_apr"),
@@ -182,6 +183,7 @@ const distribution = buildConfigFromCanvas(
     edge("n_inv", "n_asg"),
     edge("n_asg", "n_afe"),
     edge("n_asg", "n_con"),
+    edge("n_inv", "n_aud"),
   ],
 )
 

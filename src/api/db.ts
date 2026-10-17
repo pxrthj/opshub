@@ -4,13 +4,16 @@ import type { Database } from "@/lib/types"
 // The "database": one JSON document in localStorage, with data keyed by siteId.
 // In the real backend this becomes Postgres tables that all carry a site_id column.
 
-const DB_KEY = "opshub.db.v2"
+const DB_KEY = "opshub.db.v3"
+const OLD_KEYS = ["opshub.db.v1", "opshub.db.v2"]
 
 export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value))
 }
 
 export function loadDb(): Database {
+  // Remove any stale keys from previous versions
+  OLD_KEYS.forEach((k) => localStorage.removeItem(k))
   try {
     const raw = localStorage.getItem(DB_KEY)
     if (raw) {

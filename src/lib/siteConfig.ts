@@ -24,6 +24,7 @@ const PAGE_ORDER: ModuleId[] = [
   "pcb-repair",
   "analytics",
   "reports",
+  "audit-log",
   "users",
 ]
 

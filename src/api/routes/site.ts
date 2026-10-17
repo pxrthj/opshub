@@ -2,12 +2,14 @@ import { normalizeValues, validateValues } from "@/lib/fields"
 import { roleAtLeast } from "@/lib/roles"
 import { fieldsFor } from "@/lib/siteConfig"
 import type {
+  AuditChangeType,
   AnalyticsData,
   ConsumptionRecord,
   ExportDataset,
   ImportRow,
   InventoryItem,
   MaterialRequest,
+  ProductAuditRecord,
   RepairJob,
   RepairStatus,
   ReturnRecord,
@@ -20,6 +22,43 @@ import { register, type Ctx } from "../router"
 import { assignMaterialTransaction, nextCode, siteCodePrefix, stockData } from "../transactions"
 import { assignmentView, byNewest, isLinkedInventory, stockSiteOf, weekBuckets } from "./helpers"
 import { computeStats, publicUser } from "./hub"
+
+// ---------------------------------------------------------------- audit helpers
+
+function pushAudit(
+  ctx: Ctx,
+  item: InventoryItem,
+  changeType: AuditChangeType,
+  field: ProductAuditRecord["field"],
+  oldValue: string | number | null,
+  newValue: string | number | null,
+  reason = "",
+  refCode?: string,
+) {
+  const d = ctx.db.data[ctx.siteId]
+  if (!d.productAudits) d.productAudits = []
+  const actor = ctx.user!
+  d.productAudits.unshift({
+    id: uid("aud"),
+    itemId: item.id,
+    itemName: item.name as string,
+    category: item.category as string,
+    unit: item.unit as string,
+    field,
+    changeType,
+    oldValue,
+    newValue,
+    diff: oldValue != null && newValue != null && typeof newValue === "number" && typeof oldValue === "number"
+      ? (newValue - oldValue > 0 ? "+" : "") + (newValue - oldValue)
+      : undefined,
+    reason,
+    refCode,
+    actorId: actor.id,
+    actorName: actor.name,
+    actorRole: ctx.role,
+    timestamp: new Date().toISOString(),
+  } satisfies ProductAuditRecord)
+}
 
 // Site-scoped routes: /api/:siteId/<resource>. The router has already verified that the
 // caller holds a role on :siteId, that the role is high enough and that the module is enabled.
@@ -97,6 +136,7 @@ register(
         throw conflict(`"${values.name}" already exists — edit the existing item instead`)
       const item = { ...values, id: uid("itm"), updatedAt: new Date().toISOString() } as InventoryItem
       inv.push(item)
+      pushAudit(ctx, item, "create", "created", null, null, "New item added to inventory")
       return item
     },
   },
@@ -110,10 +150,21 @@ register(
       const inv = data(ctx).inventory
       const item = inv.find((i) => i.id === ctx.params.id)
       if (!item) throw notFound("Item not found")
+      const oldQty = Number(item.qty)
+      const oldPrice = Number(item.unitPrice)
+      const oldThreshold = Number(item.reorderLevel)
       const values = cleanInventory(ctx, { ...item, ...ctx.body })
       if (inv.some((i) => i.id !== item.id && i.name.toLowerCase() === String(values.name).toLowerCase()))
         throw conflict(`Another item is already called "${values.name}"`)
       Object.assign(item, values, { updatedAt: new Date().toISOString() })
+      // Log individual field changes
+      const reason = String(ctx.body.reason ?? "")
+      if (Number(values.qty) !== oldQty)
+        pushAudit(ctx, item, "quantity", "qty", oldQty, Number(values.qty), reason)
+      if (Number(values.unitPrice) !== oldPrice)
+        pushAudit(ctx, item, "price", "unitPrice", oldPrice, Number(values.unitPrice), reason)
+      if (Number(values.reorderLevel) !== oldThreshold)
+        pushAudit(ctx, item, "threshold", "reorderLevel", oldThreshold, Number(values.reorderLevel), reason)
       return item
     },
   },
@@ -125,10 +176,35 @@ register(
     handler: (ctx) => {
       assertOwnInventory(ctx)
       const d = data(ctx)
-      const before = d.inventory.length
+      const item = d.inventory.find((i) => i.id === ctx.params.id)
+      if (!item) throw notFound("Item not found")
+      pushAudit(ctx, item, "delete", "deleted", null, null, "Item removed from inventory")
       d.inventory = d.inventory.filter((i) => i.id !== ctx.params.id)
-      if (d.inventory.length === before) throw notFound("Item not found")
       return { ok: true }
+    },
+  },
+  {
+    method: "GET",
+    path: "/api/:siteId/audit-log",
+    minRole: "Manager",
+    module: "inventory",
+    handler: (ctx) => {
+      const d = data(ctx)
+      const audits = d.productAudits ?? []
+      const { changeType, itemId, category, dateFrom, dateTo, search } = ctx.query as Record<string, string>
+      let result = [...audits]
+      if (changeType && changeType !== "all") result = result.filter((a) => a.changeType === changeType)
+      if (itemId) result = result.filter((a) => a.itemId === itemId)
+      if (category) result = result.filter((a) => a.category === category)
+      if (dateFrom) result = result.filter((a) => a.timestamp >= dateFrom)
+      if (dateTo) result = result.filter((a) => a.timestamp <= dateTo + "T23:59:59Z")
+      if (search) {
+        const t = search.toLowerCase()
+        result = result.filter(
+          (a) => a.itemName.toLowerCase().includes(t) || a.actorName.toLowerCase().includes(t) || a.reason.toLowerCase().includes(t),
+        )
+      }
+      return { audits: result }
     },
   },
   {

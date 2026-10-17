@@ -13,6 +13,7 @@ import { RepairsPage } from "./pages/RepairsPage"
 import { AnalyticsPage } from "./pages/AnalyticsPage"
 import { ReportsPage } from "./pages/ReportsPage"
 import { TeamPage } from "./pages/TeamPage"
+import { AuditLogPage } from "./pages/AuditLogPage"
 
 /**
  * THE MODULE REGISTRY.
@@ -33,6 +34,7 @@ export const PAGE_COMPONENTS: Partial<Record<ModuleId, ComponentType>> = {
   "pcb-repair": RepairsPage,
   analytics: AnalyticsPage,
   reports: ReportsPage,
+  "audit-log": AuditLogPage,
 }
 
 export interface RegisteredModule extends ModuleDefinition {

@@ -16,6 +16,7 @@ export type ModuleId =
   | "pcb-repair"
   | "analytics"
   | "reports"
+  | "audit-log"
 
 /** Typed ports used by the builder to validate connections. */
 export type PortType = "stock" | "request" | "approved" | "assignment" | "usage" | "repair" | "stock-return"
@@ -237,6 +238,27 @@ export interface RepairJob {
   [custom: string]: unknown
 }
 
+export type AuditChangeType = "price" | "quantity" | "threshold" | "create" | "dispatch" | "return" | "delete"
+
+export interface ProductAuditRecord {
+  id: string
+  itemId: string
+  itemName: string
+  category: string
+  unit: string
+  field: "unitPrice" | "qty" | "reorderLevel" | "created" | "deleted" | "multiple"
+  changeType: AuditChangeType
+  oldValue: string | number | null
+  newValue: string | number | null
+  diff?: string
+  reason: string
+  refCode?: string
+  actorId: string
+  actorName: string
+  actorRole: string
+  timestamp: string
+}
+
 export interface SiteData {
   inventory: InventoryItem[]
   requests: MaterialRequest[]
@@ -244,6 +266,7 @@ export interface SiteData {
   consumption: ConsumptionRecord[]
   returns: ReturnRecord[]
   repairs: RepairJob[]
+  productAudits?: ProductAuditRecord[]
 }
 
 export interface Database {
