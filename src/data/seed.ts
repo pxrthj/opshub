@@ -9,6 +9,7 @@ import type {
   InventoryItem,
   MaterialRequest,
   ModuleId,
+  ProductAuditRecord,
   RepairJob,
   ReturnRecord,
   SiteConfig,
@@ -102,8 +103,8 @@ const centralStores = buildConfigFromCanvas(
       lowStockAlerts: true,
     },
   }),
-  [node("n_inv", "inventory", 80, 170), node("n_apr", "approval", 320, 170), node("n_ana", "analytics", 560, 60), node("n_rep", "reports", 560, 280)],
-  [edge("n_inv", "n_apr"), edge("n_inv", "n_ana"), edge("n_inv", "n_rep")],
+  [node("n_inv", "inventory", 80, 170), node("n_apr", "approval", 320, 170), node("n_ana", "analytics", 560, 60), node("n_rep", "reports", 560, 280), node("n_aud", "audit-log", 560, 480)],
+  [edge("n_inv", "n_apr"), edge("n_inv", "n_ana"), edge("n_inv", "n_rep"), edge("n_inv", "n_aud")],
 )
 
 const serviceCentre = buildConfigFromCanvas(
@@ -154,6 +155,7 @@ const distribution = buildConfigFromCanvas(
     node("n_asg", "assignment", 580, 160),
     node("n_afe", "assignment-frontend", 870, 50),
     node("n_con", "consumption", 870, 280),
+    node("n_aud", "audit-log", 580, 400),
   ],
   [
     edge("n_req", "n_apr"),
@@ -161,6 +163,7 @@ const distribution = buildConfigFromCanvas(
     edge("n_inv", "n_asg"),
     edge("n_asg", "n_afe"),
     edge("n_asg", "n_con"),
+    edge("n_inv", "n_aud"),
   ],
 )
 
@@ -661,7 +664,7 @@ const SERVICE_RETURNS: ReturnRecord[] = [
 ]
 
 export function emptySiteData(): SiteData {
-  return { inventory: [], requests: [], assignments: [], consumption: [], returns: [], repairs: [] }
+  return { inventory: [], requests: [], assignments: [], consumption: [], returns: [], repairs: [], productAudits: [] }
 }
 
 /**
@@ -692,6 +695,115 @@ function routeRequests(
   })
 }
 
+const CENTRAL_AUDITS: ProductAuditRecord[] = [
+  {
+    id: "aud_01",
+    itemId: "itm_sp_meter",
+    itemName: "Single Phase Smart Meter",
+    category: "Meters",
+    unit: "Nos",
+    field: "qty",
+    changeType: "quantity",
+    oldValue: 400,
+    newValue: 500,
+    diff: "+100",
+    reason: "New procurement batch received from Secure Meters Ltd (PO-4421)",
+    refCode: "PO-4421",
+    actorId: "u_store",
+    actorName: "Meena Kulkarni",
+    actorRole: "Manager",
+    timestamp: daysAgo(2, 14),
+  },
+  {
+    id: "aud_02",
+    itemId: "itm_lt16",
+    itemName: "LT Cable 16 sq mm (Al, armoured)",
+    category: "Cables & Wires",
+    unit: "Metres",
+    field: "unitPrice",
+    changeType: "price",
+    oldValue: 172,
+    newValue: 185,
+    diff: "+13",
+    reason: "Vendor contractual rate revision FY 2026-Q1",
+    refCode: "RTE-2026-08",
+    actorId: "u_admin",
+    actorName: "Aarti Deshmukh",
+    actorRole: "Admin",
+    timestamp: daysAgo(5, 11),
+  },
+  {
+    id: "aud_03",
+    itemId: "itm_dt100",
+    itemName: "Distribution Transformer 100 kVA",
+    category: "Transformers",
+    unit: "Nos",
+    field: "reorderLevel",
+    changeType: "threshold",
+    oldValue: 2,
+    newValue: 4,
+    diff: "+2",
+    reason: "Buffer stock increased ahead of monsoon preparedness guidelines",
+    refCode: "CIRC-MON-26",
+    actorId: "u_store",
+    actorName: "Meena Kulkarni",
+    actorRole: "Manager",
+    timestamp: daysAgo(9, 16),
+  },
+  {
+    id: "aud_04",
+    itemId: "itm_sp_meter",
+    itemName: "Single Phase Smart Meter",
+    category: "Meters",
+    unit: "Nos",
+    field: "qty",
+    changeType: "return",
+    oldValue: 399,
+    newValue: 400,
+    diff: "+1",
+    reason: "Repaired meter returned to stock (RJ-SC-301)",
+    refCode: "RJ-SC-301",
+    actorId: "u_engineer",
+    actorName: "Rahul Patil",
+    actorRole: "Manager",
+    timestamp: daysAgo(18, 10),
+  },
+  {
+    id: "aud_05",
+    itemId: "itm_service_wire",
+    itemName: "Service Wire 2C x 10 sq mm",
+    category: "Cables & Wires",
+    unit: "Metres",
+    field: "qty",
+    changeType: "dispatch",
+    oldValue: 5000,
+    newValue: 4500,
+    diff: "-500",
+    reason: "Dispatched for REQ-DS-101 (Feeder maintenance at Baramati circle)",
+    refCode: "REQ-DS-101",
+    actorId: "u_store",
+    actorName: "Meena Kulkarni",
+    actorRole: "Manager",
+    timestamp: daysAgo(20, 15),
+  },
+  {
+    id: "aud_06",
+    itemId: "itm_lugs",
+    itemName: "Lugs & Connectors Kit",
+    category: "Spares",
+    unit: "Sets",
+    field: "created",
+    changeType: "create",
+    oldValue: null,
+    newValue: 30,
+    reason: "Initial catalog entry for standardized repair connectors",
+    actorId: "u_admin",
+    actorName: "Aarti Deshmukh",
+    actorRole: "Admin",
+    timestamp: daysAgo(28, 9),
+  },
+]
+
 export function createSeedDatabase(): Database {
   const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
   const central = { id: SITE_IDS.central, name: "Central Stores", manager: "Meena Kulkarni" }
@@ -716,6 +828,7 @@ export function createSeedDatabase(): Database {
         inventory: clone(CENTRAL_INVENTORY),
         assignments: clone(CENTRAL_ASSIGNMENTS),
         requests: clone(centralReqs),
+        productAudits: clone(CENTRAL_AUDITS),
       },
       [SITE_IDS.service]: {
         ...emptySiteData(),
