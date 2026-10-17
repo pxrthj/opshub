@@ -59,7 +59,7 @@ async function select(table: string): Promise<Row[]> {
 async function build(): Promise<Database> {
   const [directory, sites, versions, events, profiles, members, inventory, requests, assignments, consumption, returns, repairs, audits] =
     await Promise.all([
-      supabase.rpc("api_site_directory").then((r) => (r.data ?? []) as { id: string; slug: string; name: string }[]),
+      supabase.rpc("api_site_directory").then((r: any) => (r.data ?? []) as { id: string; slug: string; name: string }[]),
       select("sites"),
       select("site_versions"),
       select("site_events"),
@@ -92,11 +92,11 @@ async function build(): Promise<Database> {
       draftSavedAt: s.draft_saved_at ? new Date(s.draft_saved_at).toISOString() : null,
       draftSavedBy: s.draft_saved_by ?? null,
       versions: versions
-        .filter((v) => v.site_id === s.id)
-        .map((v) => ({ version: v.version, config: v.config, publishedAt: new Date(v.published_at).toISOString(), author: v.author, summary: v.summary })),
+        .filter((v: Row) => v.site_id === s.id)
+        .map((v: Row) => ({ version: v.version, config: v.config, publishedAt: new Date(v.published_at).toISOString(), author: v.author, summary: v.summary })),
       events: events
-        .filter((e) => e.site_id === s.id)
-        .map((e) => ({ id: e.id, action: e.action, version: e.version, fromVersion: e.from_version, at: new Date(e.at).toISOString(), author: e.author, note: e.note })),
+        .filter((e: Row) => e.site_id === s.id)
+        .map((e: Row) => ({ id: e.id, action: e.action, version: e.version, fromVersion: e.from_version, at: new Date(e.at).toISOString(), author: e.author, note: e.note })),
     }
     data[s.id] ??= emptySiteData()
   }
@@ -127,7 +127,7 @@ async function build(): Promise<Database> {
 
   const rolesByUser = new Map<string, Record<string, Role>>()
   for (const m of members) rolesByUser.set(m.user_id, { ...(rolesByUser.get(m.user_id) ?? {}), [m.site_id]: m.role })
-  const users: User[] = profiles.map((p) => ({
+  const users: User[] = profiles.map((p: Row) => ({
     id: p.id,
     legacyId: p.legacy_id ?? undefined,
     email: p.email,

@@ -169,7 +169,7 @@ export function TopBar() {
                 <>
                   <DropdownMenuItem asChild>
                     <Link to="/movement" className="flex items-center gap-2">
-                      <Truck className="size-4 text-muted-foreground" /> Stock trail
+                      <Truck className="size-4 text-muted-foreground" /> Supply chain
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -199,7 +199,7 @@ export function TopBar() {
           {isAnyAdmin && (
             <>
               <NavLink to="/movement" className={link}>
-                <Truck /> Stock trail
+                <Truck /> Supply chain
               </NavLink>
               <NavLink to="/modules" className={link}>
                 <Blocks /> Features

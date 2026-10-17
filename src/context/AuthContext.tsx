@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setReady(true)
     })
     // Signing out in another tab (or an expired session) signs this one out too.
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event: any) => {
       if (event === "SIGNED_OUT") {
         invalidateSnapshot()
         setUser(null)
