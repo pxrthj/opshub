@@ -1,9 +1,9 @@
 import { normalizeValues, validateValues } from "@/lib/fields"
 import { diffConfigs, fieldsFor, summarizeDiff } from "@/lib/siteConfig"
 import { supabase } from "@/lib/supabase"
-import type { BuilderState, FieldDef, ImportRow, PublicUser, RepairStatus, Role } from "@/lib/types"
+import type { BuilderState, FieldDef, ImportRow, ModuleId, PublicUser, RepairStatus, Role } from "@/lib/types"
 import { badRequest, conflict, forbidden, notFound, unauthorized, unprocessable } from "../errors"
-import { mapAssignment, mapConsumption, mapInventory, mapRepair, mapRequest, mapReturn } from "../mappers"
+import { mapAssignment, mapCase, mapConsumption, mapInventory, mapRepair, mapRequest, mapReturn } from "../mappers"
 import { adminOp, rpc } from "../rpc"
 import { registerFirst, type Ctx } from "../router"
 import { invalidateSnapshot, loadSnapshot } from "../snapshot"
@@ -16,6 +16,7 @@ import { validateIncoming } from "./builder"
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
+const CASE_MODULES: ModuleId[] = ["cases", "case-desk", "case-work"]
 const namesOf = (ctx: Ctx) => Object.fromEntries(Object.values(ctx.db.sites).map((s) => [s.siteId, s.live.name]))
 const withoutCalculated = (fields: FieldDef[], values: Record<string, unknown>) => {
   const calc = new Set(fields.filter((f) => f.type === "calculated").map((f) => f.key))
@@ -228,7 +229,7 @@ registerFirst(
       const values = withoutCalculated(fields, normalizeValues(fields, body))
       const row = await rpc<Row>("api_request_create", {
         p_site: ctx.siteId,
-        p_body: { ...values, type, lines: body.lines ?? [], repair: body.repair ?? null },
+        p_body: { ...values, type, lines: body.lines ?? [], repair: body.repair ?? null, caseId: body.caseId ?? null },
       })
       return mapRequest(row, namesOf(ctx))
     },
@@ -341,6 +342,87 @@ registerFirst(
     minRole: "Admin",
     module: "users",
     handler: async (ctx) => adminOp("set-member-role", { siteId: ctx.siteId, userId: ctx.params.userId, role: ctx.body.role ?? null }),
+  },
+
+  {
+    // The office a manager can send their own team's request on to when this office's store is short.
+    method: "GET",
+    path: "/api/:siteId/upstream",
+    minRole: "Manager",
+    handler: async (ctx) => {
+      const id = ctx.config.workflow.upstreamSiteId
+      return id && id !== ctx.siteId ? { id, name: ctx.db.sites[id]?.live.name ?? id } : null
+    },
+  },
+
+  // ---------------------------------------------------------------- repair cases (client → hub → onsite / in-house teams)
+  {
+    method: "GET",
+    path: "/api/:siteId/cases",
+    minRole: "Member",
+    module: CASE_MODULES,
+    handler: async (ctx) => {
+      const s = ctx.siteId
+      const [cases, offices] = await Promise.all([
+        supabase
+          .from("service_cases")
+          .select("*")
+          .or(`client_site_id.eq.${s},hub_site_id.eq.${s},field_site_id.eq.${s},lab_site_id.eq.${s}`)
+          .order("created_at", { ascending: false })
+          .limit(1000),
+        supabase.rpc("api_case_offices"),
+      ])
+      if (cases.error) throw badRequest(`Could not load cases: ${cases.error.message}`)
+      const ids = (cases.data ?? []).map((c: Row) => c.id)
+      // Parts asked for these cases, as far as this person may see them (row-level security decides).
+      const parts = ids.length ? await supabase.from("requests").select("*").in("case_id", ids) : { data: [] as Row[] }
+      const names = namesOf(ctx)
+      return {
+        cases: (cases.data ?? []).map((c: Row) => mapCase(c, names)),
+        requests: (parts.data ?? []).map((r: Row) => mapRequest(r, names)),
+        offices: (offices.data ?? []) as { id: string; name: string; ownStock: boolean }[],
+      }
+    },
+  },
+  {
+    method: "GET",
+    path: "/api/:siteId/cases/people",
+    minRole: "Manager",
+    module: "case-work",
+    handler: async (ctx) => {
+      const { data, error } = await supabase.rpc("api_case_people", { p_site: ctx.siteId })
+      if (error) throw badRequest(error.message)
+      return data ?? []
+    },
+  },
+  {
+    method: "POST",
+    path: "/api/:siteId/cases",
+    minRole: "Member",
+    module: "cases",
+    handler: async (ctx) => mapCase(await rpc<Row>("api_case_create", { p_site: ctx.siteId, p_body: ctx.body }), namesOf(ctx)),
+  },
+  {
+    method: "POST",
+    path: "/api/:siteId/cases/:id/:action",
+    minRole: "Member",
+    module: CASE_MODULES,
+    handler: async (ctx) => {
+      const { id, action } = ctx.params
+      const note = String(ctx.body.note ?? "")
+      const base = { p_site: ctx.siteId, p_id: id }
+      const call: Record<string, () => Promise<Row>> = {
+        route: () => rpc("api_case_route", { ...base, p_field: ctx.body.fieldSiteId ?? null, p_lab: ctx.body.labSiteId ?? null, p_note: note }),
+        reject: () => rpc("api_case_reject", { ...base, p_note: note }),
+        close: () => rpc("api_case_close", { ...base, p_note: note }),
+        reopen: () => rpc("api_case_reopen", { ...base, p_note: note }),
+        assign: () => rpc("api_case_assign", { ...base, p_user: ctx.body.userId ?? null }),
+        log: () => rpc("api_case_log", { ...base, p_kind: String(ctx.body.kind ?? "note"), p_note: note }),
+        complete: () => rpc("api_case_complete", { ...base, p_note: note }),
+      }
+      if (!call[action]) throw notFound(`Unknown case action "${action}"`)
+      return mapCase(await call[action](), namesOf(ctx))
+    },
   },
 
   // ---------------------------------------------------------------- builder: draft, make live, go back

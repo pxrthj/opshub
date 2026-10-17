@@ -43,6 +43,12 @@ export function ApprovalsPage() {
   const [approving, setApproving] = useState<MaterialRequest | null>(null)
   const [rejecting, setRejecting] = useState<MaterialRequest | null>(null)
   const [sending, setSending] = useState<MaterialRequest | null>(null)
+  // An office with its own store may also send its own team's request on to another office (Service Centre → Central Hub).
+  const { data: upstream } = useAsync(
+    () => (config.workflow.upstreamSiteId && !isAdmin ? siteApi.get<{ id: string; name: string } | null>("upstream") : Promise.resolve(null)),
+    [config.workflow.upstreamSiteId],
+  )
+  const [askingUp, setAskingUp] = useState<MaterialRequest | null>(null)
   const [comment, setComment] = useState("")
   const [failures, setFailures] = useState<Record<string, string>>({})
 
@@ -86,6 +92,19 @@ export function ApprovalsPage() {
     try {
       await siteApi.post(`requests/${r.id}/forward`, { note: comment })
       toast.success(`${r.code} was sent to ${r.targetSiteName}`, { description: `Their manager will decide. You will see the answer here.` })
+      reload()
+      notifyChange()
+    } catch (e) {
+      toast.error(errorMessage(e))
+      throw e
+    }
+  }
+
+  async function sendUp() {
+    const r = askingUp!
+    try {
+      await siteApi.post(`requests/${r.id}/forward`, { note: comment })
+      toast.success(`${r.code} was sent to ${upstream?.name}`, { description: "Their manager will decide and give out the parts." })
       reload()
       notifyChange()
     } catch (e) {
@@ -247,14 +266,27 @@ export function ApprovalsPage() {
                             <Send /> Send to {r.targetSiteName}
                           </Button>
                         ) : (
-                          <Button
-                            onClick={() => {
-                              setComment("")
-                              setApproving(r)
-                            }}
-                          >
-                            <Check /> Approve{gives(r) ? " and give out" : ""}
-                          </Button>
+                          <>
+                            {upstream && r.type === "material" && !isSupplied(r) && (r.originSiteId ?? config.siteId) === config.siteId && (
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setComment("")
+                                  setAskingUp(r)
+                                }}
+                              >
+                                <Send /> Ask {upstream.name}
+                              </Button>
+                            )}
+                            <Button
+                              onClick={() => {
+                                setComment("")
+                                setApproving(r)
+                              }}
+                            >
+                              <Check /> Approve{gives(r) ? " and give out" : ""}
+                            </Button>
+                          </>
                         )}
                       </>
                     )}
@@ -339,6 +371,20 @@ export function ApprovalsPage() {
         <div className="space-y-1.5">
           <Label>Message for their manager (optional)</Label>
           <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="For example: needed before Friday" />
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!askingUp}
+        onOpenChange={(o) => !o && setAskingUp(null)}
+        title={`Ask ${upstream?.name} for ${askingUp?.code}?`}
+        description={`Instead of giving it out from ${config.name}'s own store, the request goes to the manager of ${upstream?.name}, who gives the parts out from their stock.`}
+        confirmLabel="Send it"
+        onConfirm={sendUp}
+      >
+        <div className="space-y-1.5">
+          <Label>Message for their manager (optional)</Label>
+          <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="For example: we are out of MCUs" />
         </div>
       </ConfirmDialog>
 

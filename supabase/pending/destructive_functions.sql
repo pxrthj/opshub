@@ -44,7 +44,7 @@ revoke execute on function public.api_inventory_delete(text, text), public.api_m
 
 -- Puts the sample data back (offices, people, stock, requests, everything). Resets EVERYONE's data, so only someone who
 -- is Admin of every office may call it. All or nothing: if anything fails, nothing changes.
-create function public.api_reset_demo() returns jsonb
+create or replace function public.api_reset_demo() returns jsonb
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then perform _fail('Please sign in', 401); end if;
@@ -55,6 +55,7 @@ begin
   delete from consumption where true;
   delete from assignments where true;
   delete from requests where true;
+  delete from service_cases where true;
   delete from repairs where true;
   delete from inventory_items where true;
   delete from site_events where true;

@@ -7,7 +7,7 @@ const db = createSeedDatabase()
 const KNOWN_REQ = new Set([
   "id", "code", "type", "lines", "repair", "purpose", "priority", "requestedBy", "requestedByName", "createdAt", "status",
   "decisionComment", "decidedBy", "decidedAt", "assignmentId", "repairJobId", "originSiteId", "originSiteName",
-  "targetSiteId", "targetSiteName", "forwardedAt", "forwardedBy", "forwardNote",
+  "targetSiteId", "targetSiteName", "forwardedAt", "forwardedBy", "forwardNote", "caseId",
 ])
 const KNOWN_INV = new Set(["id", "name", "category", "unit", "qty", "unitPrice", "reorderLevel", "updatedAt"])
 const KNOWN_REP = new Set(["id", "code", "meterId", "meterType", "fault", "technician", "partsUsed", "status", "receivedAt", "updatedAt", "requestId", "returned"])
@@ -33,6 +33,8 @@ const payload = {
   returns: [] as unknown[],
   repairs: [] as unknown[],
   audits: [] as unknown[],
+  // Repair cases keep the sample people's ids (u_vikas, ...); the loader turns them into real user ids.
+  cases: (db.cases ?? []).map((c) => ({ ...c })),
 }
 
 for (const [siteId, d] of Object.entries(db.data)) {
@@ -44,7 +46,8 @@ for (const [siteId, d] of Object.entries(db.data)) {
       purpose: r.purpose, priority: r.priority ?? "Normal", requestedBy: r.requestedBy, requestedByName: r.requestedByName,
       createdAt: r.createdAt, status: r.status, decisionComment: r.decisionComment ?? null, decidedBy: r.decidedBy ?? null,
       decidedAt: r.decidedAt ?? null, assignmentId: r.assignmentId ?? null, repairJobId: r.repairJobId ?? null,
-      forwardedAt: r.forwardedAt ?? null, forwardedBy: r.forwardedBy ?? null, forwardNote: r.forwardNote ?? null, custom: extras(r, KNOWN_REQ),
+      forwardedAt: r.forwardedAt ?? null, forwardedBy: r.forwardedBy ?? null, forwardNote: r.forwardNote ?? null, caseId: r.caseId ?? null,
+      custom: extras(r, KNOWN_REQ),
     })
   }
   for (const a of d.assignments) payload.assignments.push({ siteId, ...a })

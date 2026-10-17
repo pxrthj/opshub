@@ -54,12 +54,13 @@ async function check(label: string, fn: () => Promise<unknown>, expect?: (v: any
 }
 
 as("u_admin")
-await check("hub sites (admin sees 3, with stats)", () => api.raw.get<any[]>("/api/hub/sites"), (v) => v.length === 3 && v.every((s) => s.stats) || `got ${v.length}`)
+await check("hub sites (admin sees every office, with stats)", () => api.raw.get<any[]>("/api/hub/sites"), (v) => v.length === p.sites.length && v.every((s) => s.stats) || `got ${v.length}`)
 await check("goods movement (admin)", () => api.raw.get<any>("/api/hub/goods-movement"), (v) => v.trails.length === p.requests.length || `trails ${v.trails.length} expected ${p.requests.length}`)
 await check("notifications (admin)", () => api.raw.get<any[]>("/api/hub/notifications"))
-await check("users list (super admin sees 12)", () => api.raw.get<any[]>("/api/hub/users"), (v) => v.length === 12 || `got ${v.length}`)
+await check("users list (super admin sees everyone)", () => api.raw.get<any[]>("/api/hub/users"), (v) => v.length === p.users.length || `got ${v.length}`)
 await check("central inventory", () => api.get<any>("cs-001", "inventory"), (v) => v.items.length === centralItems && !v.linked || `items ${v.items.length} expected ${centralItems}`)
-await check("central audit log", () => api.get<any>("cs-001", "audit-log"), (v) => v.audits.length === 6 || `audits ${v.audits.length}`)
+const centralAudits = p.audits.filter((a: any) => a.siteId === "cs-001").length
+await check("central audit log", () => api.get<any>("cs-001", "audit-log"), (v) => v.audits.length === centralAudits || `audits ${v.audits.length} expected ${centralAudits}`)
 await check("central requests (incl. forwarded-in)", () => api.get<any[]>("cs-001", "requests"), (v) => v.length === centralRequests || `got ${v.length} expected ${centralRequests}`)
 await check("central analytics", () => api.get<any>("cs-001", "analytics"))
 await check("central export", () => api.get<any>("cs-001", "reports/export", { query: { dataset: "inventory" } }))
@@ -73,7 +74,7 @@ await checkDenied("member: other office is forbidden", () => api.get<any>("cs-00
 await checkDenied("member: hub users forbidden", () => api.raw.get<any>("/api/hub/users"), 403)
 
 as("u_service_mgr")
-await check("service mgr: stock names of other office resolve", () => api.get<any>("sc-002", "inventory"), (v) => v.sourceName === siteName(p.sites.find((s: any) => s.id === "sc-002").config.workflow.stockSourceSiteId) || `sourceName=${v.sourceName}`)
+await check("service mgr: stock names of other office resolve", () => api.get<any>("sc-002", "inventory"), (v) => v.sourceName === siteName(p.sites.find((s: any) => s.id === "sc-002").config.workflow.stockSourceSiteId ?? "sc-002") || `sourceName=${v.sourceName}`)
 await check("service mgr: requests incl. cross-office labels", () => api.get<any[]>("sc-002", "requests"), (v) => v.some((r) => r.targetSiteName && r.targetSiteName !== siteName("sc-002")) || "no targetSiteName")
 await check("service mgr: repairs", () => api.get<any[]>("sc-002", "repairs"), (v) => v.length === 8 && v.find((r) => r.id === "rj1").partsCost === rj1Cost || "custom fields lost")
 
@@ -81,9 +82,20 @@ as("u_engineer")
 await check("dist mgr: site admin dashboard", () => api.get<any>("ds-003", "dashboard/admin"))
 await check("dist mgr: assignments", () => api.get<any[]>("ds-003", "assignments"))
 
-for (const [who, site] of [["u_admin", "cs-001"], ["u_admin", "ds-003"], ["u_admin", "sc-002"], ["u_cs_admin", "cs-001"], ["u_ds_admin", "ds-003"], ["u_sc_admin", "sc-002"]] as const) {
+const clientSites = p.sites.filter((s: any) => s.id.startsWith("cl-")).map((s: any) => ["u_admin", s.id] as const)
+for (const [who, site] of [["u_admin", "cs-001"], ["u_admin", "ds-003"], ["u_admin", "sc-002"], ["u_cs_admin", "cs-001"], ["u_ds_admin", "ds-003"], ["u_sc_admin", "sc-002"], ...clientSites] as const) {
   as(who)
   await check(`site admin dashboard: ${who} @ ${site}`, () => api.get<any>(site, "dashboard/admin", { query: { range: "30d" } }), (v) => v.kpis && v.stockByCategory ? true : "missing kpis/stock")
+}
+
+// A client person sees only their own company's office, and its overview loads.
+const clientMember = p.users.find((u: any) => Object.keys(u.roles).length === 1 && Object.keys(u.roles)[0].startsWith("cl-") && Object.values(u.roles)[0] === "Member")
+if (clientMember) {
+  const site = Object.keys(clientMember.roles)[0]
+  as(clientMember.legacyId)
+  await check(`client member: only own office (${clientMember.legacyId})`, () => api.raw.get<any[]>("/api/hub/sites"), (v) => v.length === 1 && v[0].config.siteId === site || `got ${v.length}`)
+  await check("client member: overview stats", () => api.get<any>(site, "stats"))
+  await checkDenied("client member: hub stock is forbidden", () => api.get<any>("cs-001", "inventory"), 403)
 }
 
 console.log(failures ? `\n${failures} FAILED` : "\nall passed")

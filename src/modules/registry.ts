@@ -14,6 +14,7 @@ import { AnalyticsPage } from "./pages/AnalyticsPage"
 import { ReportsPage } from "./pages/ReportsPage"
 import { TeamPage } from "./pages/TeamPage"
 import { AuditLogPage } from "./pages/AuditLogPage"
+import { CaseDeskPage, CaseWorkPage, ClientCasesPage } from "./pages/CasesPage"
 
 /**
  * THE MODULE REGISTRY.
@@ -35,6 +36,9 @@ export const PAGE_COMPONENTS: Partial<Record<ModuleId, ComponentType>> = {
   analytics: AnalyticsPage,
   reports: ReportsPage,
   "audit-log": AuditLogPage,
+  cases: ClientCasesPage,
+  "case-desk": CaseDeskPage,
+  "case-work": CaseWorkPage,
 }
 
 export interface RegisteredModule extends ModuleDefinition {

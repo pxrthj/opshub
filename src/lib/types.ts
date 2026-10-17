@@ -17,6 +17,9 @@ export type ModuleId =
   | "analytics"
   | "reports"
   | "audit-log"
+  | "cases"
+  | "case-desk"
+  | "case-work"
 
 /** Typed ports used by the builder to validate connections. */
 export type PortType = "stock" | "request" | "approved" | "assignment" | "usage" | "repair" | "stock-return"
@@ -67,6 +70,8 @@ export interface WorkflowSettings {
   allowMaterialRequests: boolean
   maxQtyPerLine: number
   lowStockAlerts: boolean
+  /** An office with its own store can still send a request on to this office when it is short. */
+  upstreamSiteId?: string | null
 }
 
 export interface SiteConfig {
@@ -171,7 +176,55 @@ export interface MaterialRequest {
   forwardedAt?: string
   forwardedBy?: string
   forwardNote?: string
+  /** The repair case these parts are for. */
+  caseId?: string
   [custom: string]: unknown
+}
+
+export type CaseStatus = "Submitted" | "Routed" | "In Progress" | "Repaired" | "Closed" | "Rejected"
+export type CaseTrackStatus = "Open" | "Assigned" | "Done"
+
+/** One line in a case's history: who did what, from which office. */
+export interface CaseEvent {
+  id: string
+  at: string
+  siteId: string
+  siteName: string
+  actor: string
+  kind: string
+  note: string
+  data?: Record<string, unknown>
+}
+
+/** A client's repair job, routed by the Central Hub to an onsite team and/or an in-house team. */
+export interface ServiceCase {
+  id: string
+  code: string
+  clientSiteId: string
+  clientName: string
+  hubSiteId: string
+  title: string
+  description: string
+  items: { name: string; qty: number }[]
+  location: string
+  priority: string
+  status: CaseStatus
+  fieldSiteId?: string
+  fieldSiteName?: string
+  fieldStatus?: CaseTrackStatus
+  fieldAssigneeId?: string
+  fieldAssigneeName?: string
+  labSiteId?: string
+  labSiteName?: string
+  labStatus?: CaseTrackStatus
+  labAssigneeId?: string
+  labAssigneeName?: string
+  events: CaseEvent[]
+  createdBy?: string
+  createdByName: string
+  createdAt: string
+  updatedAt: string
+  closedAt?: string
 }
 
 export interface AssignmentLine {
@@ -273,6 +326,8 @@ export interface Database {
   users: User[]
   sites: Record<string, SiteRecord>
   data: Record<string, SiteData>
+  /** Repair cases (only the sample data carries them here; the app reads them from Supabase). */
+  cases?: ServiceCase[]
 }
 
 export interface SiteStats {

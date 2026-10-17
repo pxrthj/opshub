@@ -2,6 +2,7 @@ import { CORE_MODULES } from "@/modules/definitions"
 import { buildConfigFromCanvas } from "@/lib/siteConfig"
 import type {
   Assignment,
+  CaseEvent,
   CanvasEdge,
   CanvasNode,
   ConsumptionRecord,
@@ -12,6 +13,7 @@ import type {
   ProductAuditRecord,
   RepairJob,
   ReturnRecord,
+  ServiceCase,
   SiteConfig,
   SiteData,
   SiteRecord,
@@ -19,13 +21,19 @@ import type {
 } from "@/lib/types"
 
 // Seed data for Electrolyte Solutions (Navi Mumbai): an ISO 9001 L3/L4 PCB repair and refurbishment company that
-// repairs boards for OEM clients (fans, geysers, RO purifiers, mixers, LED video walls) and runs onsite field service.
+// repairs boards for OEM clients and runs onsite field service.
+//   Central Hub     — main component store and case desk: every client case arrives here and is routed.
+//   Service Centre  — in-house repair lab with its own store; asks the Central Hub when it runs short.
+//   Distribution    — onsite field service; holds no stock, takes parts from the Central Hub.
+//   Clients         — OEM companies that raise repair cases and follow them.
 // The office ids (cs-001, sc-002, ds-003) are kept from the first prototype because everything refers to them.
 
 export const SITE_IDS = {
-  central: "cs-001", // Component Stores
-  service: "sc-002", // PCB Repair Lab
-  distribution: "ds-003", // Field Service
+  central: "cs-001", // Central Hub
+  service: "sc-002", // Service Centre
+  distribution: "ds-003", // Distribution
+  apex: "cl-004", // client: Apex Motors (two-wheelers)
+  bajaj: "cl-005", // client: Bajaj Electricals
 } as const
 
 const DAY = 86_400_000
@@ -45,32 +53,40 @@ function person(id: string, email: string, name: string, title: string, roles: U
 // Each office has one Admin, one Manager and one Member. User ids are kept stable because
 // requests, assignments and cross-site routing refer to them.
 export const SEED_USERS: User[] = [
-  // Component Stores
-  person("u_cs_admin", "stores.admin", "Anil Joshi", "Admin, Component Stores", { [SITE_IDS.central]: "Admin" }),
-  person("u_store", "stores.manager", "Meena Kulkarni", "Stores In-charge", { [SITE_IDS.central]: "Manager" }),
-  person("u_clerk", "stores.member", "Pooja Gaikwad", "Stores Assistant", { [SITE_IDS.central]: "Member" }),
+  // Central Hub
+  person("u_cs_admin", "stores.admin", "Anil Joshi", "Admin, Central Hub", { [SITE_IDS.central]: "Admin" }),
+  person("u_store", "stores.manager", "Meena Kulkarni", "Central Hub Manager (stores & case desk)", { [SITE_IDS.central]: "Manager" }),
+  person("u_clerk", "stores.member", "Pooja Gaikwad", "Stores Assistant, Central Hub", { [SITE_IDS.central]: "Member" }),
 
-  // Field Service
-  person("u_ds_admin", "field.admin", "Priya Nair", "Admin, Field Service", { [SITE_IDS.distribution]: "Admin" }),
-  person("u_engineer", "field.manager", "Rahul Patil", "Field Service Supervisor", { [SITE_IDS.distribution]: "Manager" }),
-  person("u_lineman", "field.member", "Sunil Jadhav", "Field Service Technician, Navi Mumbai", { [SITE_IDS.distribution]: "Member" }),
+  // Distribution (onsite field service)
+  person("u_ds_admin", "field.admin", "Priya Nair", "Admin, Distribution", { [SITE_IDS.distribution]: "Admin" }),
+  person("u_engineer", "field.manager", "Rahul Patil", "Distribution Manager (field service)", { [SITE_IDS.distribution]: "Manager" }),
+  person("u_lineman", "field.member", "Sunil Jadhav", "Field Technician, Navi Mumbai", { [SITE_IDS.distribution]: "Member" }),
 
-  // PCB Repair Lab
-  person("u_sc_admin", "lab.admin", "Kavita Rao", "Admin, PCB Repair Lab", { [SITE_IDS.service]: "Admin" }),
-  person("u_service_mgr", "lab.manager", "Anjali Joshi", "Repair Lab Manager", { [SITE_IDS.service]: "Manager" }),
+  // Service Centre (in-house repair lab)
+  person("u_sc_admin", "lab.admin", "Kavita Rao", "Admin, Service Centre", { [SITE_IDS.service]: "Admin" }),
+  person("u_service_mgr", "lab.manager", "Anjali Joshi", "Service Centre Manager", { [SITE_IDS.service]: "Manager" }),
   person("u_vikas", "lab.member", "Vikas Shinde", "Senior PCB Repair Technician (L3/L4)", { [SITE_IDS.service]: "Member" }),
+
+  // Clients
+  person("u_apex_mgr", "apex.manager", "Neha Kulkarni", "Service Head, Apex Motors", { [SITE_IDS.apex]: "Manager" }),
+  person("u_apex", "apex.member", "Arjun Mehta", "Quality Engineer, Apex Motors", { [SITE_IDS.apex]: "Member" }),
+  person("u_bajaj_mgr", "bajaj.manager", "Rohan Desai", "After-sales Manager, Bajaj Electricals", { [SITE_IDS.bajaj]: "Manager" }),
+  person("u_bajaj", "bajaj.member", "Sneha Iyer", "Service Coordinator, Bajaj Electricals", { [SITE_IDS.bajaj]: "Member" }),
 
   // Special accounts
   person("u_admin", "admin", "Aarti Deshmukh", "Operations Head (all offices)", {
     [SITE_IDS.central]: "Admin",
     [SITE_IDS.service]: "Admin",
     [SITE_IDS.distribution]: "Admin",
+    [SITE_IDS.apex]: "Admin",
+    [SITE_IDS.bajaj]: "Admin",
   }),
-  person("u_ganesh", "ganesh", "Ganesh More", "Lab & Field Technician (PCB Repair Lab + Field Service)", {
+  person("u_ganesh", "ganesh", "Ganesh More", "Field & Bench Technician (Distribution + Service Centre)", {
     [SITE_IDS.distribution]: "Member",
     [SITE_IDS.service]: "Member",
   }),
-  person("u_suresh", "logistics", "Suresh Pawar", "Logistics & Dispatch (Component Stores + Field Service)", {
+  person("u_suresh", "logistics", "Suresh Pawar", "Logistics & Dispatch (Central Hub + Distribution)", {
     [SITE_IDS.central]: "Member",
     [SITE_IDS.distribution]: "Member",
   }),
@@ -92,9 +108,9 @@ function baseConfig(partial: Pick<SiteConfig, "siteId" | "slug" | "name" | "desc
 const centralStores = buildConfigFromCanvas(
   baseConfig({
     siteId: SITE_IDS.central,
-    slug: "component-stores",
-    name: "Component Stores",
-    description: "Holds ICs, capacitors, consumables and spare boards, and supplies the Repair Lab and Field Service.",
+    slug: "central-hub",
+    name: "Central Hub",
+    description: "Main component store and case desk: every client repair case arrives here and is routed to Distribution or the Service Centre.",
     workflow: {
       stockSourceSiteId: null,
       autoAssignOnApproval: true,
@@ -105,18 +121,26 @@ const centralStores = buildConfigFromCanvas(
       lowStockAlerts: true,
     },
   }),
-  [node("n_inv", "inventory", 80, 170), node("n_apr", "approval", 320, 170), node("n_ana", "analytics", 560, 60), node("n_rep", "reports", 560, 280), node("n_aud", "audit-log", 560, 480)],
+  [
+    node("n_inv", "inventory", 80, 170),
+    node("n_apr", "approval", 320, 170),
+    node("n_ana", "analytics", 560, 60),
+    node("n_rep", "reports", 560, 280),
+    node("n_aud", "audit-log", 560, 480),
+    node("n_desk", "case-desk", 80, 400),
+  ],
   [edge("n_inv", "n_apr"), edge("n_inv", "n_ana"), edge("n_inv", "n_rep"), edge("n_inv", "n_aud")],
 )
 
 const serviceCentre = buildConfigFromCanvas(
   baseConfig({
     siteId: SITE_IDS.service,
-    slug: "pcb-repair-lab",
-    name: "PCB Repair Lab",
-    description: "Repairs faulty client boards at component level and takes the parts it needs from Component Stores.",
+    slug: "service-centre",
+    name: "Service Centre",
+    description: "In-house PCB repair lab with its own component store. Asks the Central Hub when it runs short.",
     workflow: {
-      stockSourceSiteId: SITE_IDS.central,
+      stockSourceSiteId: null,
+      upstreamSiteId: SITE_IDS.central,
       autoAssignOnApproval: true,
       requireRejectComment: true,
       allowRepairRequests: true,
@@ -134,8 +158,12 @@ const serviceCentre = buildConfigFromCanvas(
     node("n_asg", "assignment", 600, 280),
     node("n_afe", "assignment-frontend", 880, 360),
     node("n_con", "consumption", 880, 480),
+    node("n_cw", "case-work", 40, 280),
+    node("n_aud", "audit-log", 320, 480),
   ],
   [
+    edge("n_req", "n_cw"),
+    edge("n_inv", "n_aud"),
     edge("n_req", "n_apr"),
     edge("n_apr", "n_pcb"),
     edge("n_pcb", "n_ret"),
@@ -150,9 +178,9 @@ const serviceCentre = buildConfigFromCanvas(
 const distribution = buildConfigFromCanvas(
   baseConfig({
     siteId: SITE_IDS.distribution,
-    slug: "field-service",
-    name: "Field Service",
-    description: "Onsite technicians for fan, geyser and appliance service calls, installations and AMC visits.",
+    slug: "distribution",
+    name: "Distribution",
+    description: "Onsite field service: technicians visit clients, take parts from the Central Hub and log every visit. Holds no stock.",
     workflow: {
       stockSourceSiteId: SITE_IDS.central,
       autoAssignOnApproval: true,
@@ -172,8 +200,10 @@ const distribution = buildConfigFromCanvas(
     node("n_con", "consumption", 870, 280),
     node("n_ret", "returns", 870, 420),
     node("n_aud", "audit-log", 580, 400),
+    node("n_cw", "case-work", 30, 280),
   ],
   [
+    edge("n_req", "n_cw"),
     edge("n_req", "n_apr"),
     edge("n_apr", "n_asg"),
     edge("n_inv", "n_asg"),
@@ -183,6 +213,30 @@ const distribution = buildConfigFromCanvas(
     edge("n_inv", "n_aud"),
   ],
 )
+
+function clientOffice(siteId: string, slug: string, name: string, description: string) {
+  return buildConfigFromCanvas(
+    baseConfig({
+      siteId,
+      slug,
+      name,
+      description,
+      workflow: {
+        stockSourceSiteId: null,
+        autoAssignOnApproval: false,
+        requireRejectComment: true,
+        allowRepairRequests: false,
+        allowMaterialRequests: false,
+        maxQtyPerLine: 1000,
+        lowStockAlerts: false,
+      },
+    }),
+    [node("n_cases", "cases", 80, 150)],
+    [],
+  )
+}
+const apexOffice = clientOffice(SITE_IDS.apex, "apex-motors", "Apex Motors (Client)", "Two-wheeler maker. Raises repair cases for ECUs, instrument clusters and charger boards.")
+const bajajOffice = clientOffice(SITE_IDS.bajaj, "bajaj-electricals", "Bajaj Electricals (Client)", "Fans and appliances maker. Raises repair cases for controller boards and dealer service calls.")
 
 function siteRecord(config: SiteConfig): SiteRecord {
   return {
@@ -219,7 +273,7 @@ const inv = (
   reorderLevel: number,
 ): InventoryItem => ({ id, name, category, unit, qty, unitPrice, reorderLevel, updatedAt: daysAgo(3) })
 
-// Product types the lab repairs. Component Stores also keeps refurbished spares of each, under the same name, so a
+// Product types the lab repairs. The Central Hub and the Service Centre keep refurbished spares of each, under the same name, so a
 // repaired board can be returned to stock.
 const BLDC = "BLDC Fan Controller PCB"
 const GEYSER = "Geyser Control PCB"
@@ -251,7 +305,26 @@ const CENTRAL_INVENTORY: InventoryItem[] = [
   inv("itm_element", "Geyser Heating Element 2 kW", "Field Spares", "Nos", 45, 450, 50),
 ]
 
-const itemName = (id: string) => CENTRAL_INVENTORY.find((i) => i.id === id)!
+// The Service Centre's own store. Names match the Central Hub's items, so a request it sends on can be matched there.
+const SERVICE_INVENTORY: InventoryItem[] = [
+  inv("sc_mosfet", "MOSFET IRF540N", "Semiconductors", "Nos", 140, 18, 50),
+  inv("sc_driver", "Gate Driver IC IR2101", "ICs", "Nos", 35, 65, 20),
+  inv("sc_mcu", "Microcontroller STM32F030", "ICs", "Nos", 6, 95, 15),
+  inv("sc_cap_elec", "Electrolytic Capacitor 470µF 35V", "Capacitors", "Nos", 600, 6, 200),
+  inv("sc_bridge", "Bridge Rectifier KBP307", "Semiconductors", "Nos", 60, 12, 30),
+  inv("sc_relay", "Relay 12V 16A", "Relays & Connectors", "Nos", 45, 48, 20),
+  inv("sc_solder", "Solder Wire Sn63/Pb37 0.6 mm", "Consumables", "Rolls", 8, 780, 4),
+  inv("sc_flux", "No-Clean Flux Paste", "Consumables", "Packs", 5, 420, 3),
+  inv("sc_coating", "Conformal Coating Spray", "Consumables", "Nos", 3, 650, 4),
+  inv("sc_sp_bldc", BLDC, "Spare Boards", "Nos", 14, 850, 5),
+  inv("sc_sp_geyser", GEYSER, "Spare Boards", "Nos", 6, 620, 3),
+  inv("sc_sp_ro", RO, "Spare Boards", "Nos", 4, 1150, 2),
+  inv("sc_sp_mixer", MIXER, "Spare Boards", "Nos", 5, 480, 2),
+  inv("sc_sp_led", LED, "Spare Boards", "Nos", 2, 2800, 1),
+  inv("sc_sp_iot", IOT, "Spare Boards", "Nos", 4, 1450, 2),
+]
+
+const itemName = (id: string) => [...CENTRAL_INVENTORY, ...SERVICE_INVENTORY].find((i) => i.id === id)!
 const line = (itemId: string, qty: number) => {
   const i = itemName(itemId)
   return { itemId, itemName: i.name, unit: i.unit, qty }
@@ -271,12 +344,12 @@ const CENTRAL_REQUESTS: MaterialRequest[] = [
     status: "Assigned",
     decidedBy: "Aarti Deshmukh",
     decidedAt: daysAgo(27),
-    decisionComment: "Incoming QC passed — accepted into Component Stores",
+    decisionComment: "Incoming QC passed — accepted into Central Hub",
     assignmentId: "as_c1",
     originSiteId: SITE_IDS.central,
-    originSiteName: "Component Stores",
+    originSiteName: "Central Hub",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Component Stores",
+    targetSiteName: "Central Hub",
   },
   {
     id: "rq_cs2",
@@ -293,9 +366,9 @@ const CENTRAL_REQUESTS: MaterialRequest[] = [
     decidedAt: daysAgo(13),
     decisionComment: "Approved as lab buffer stock",
     originSiteId: SITE_IDS.central,
-    originSiteName: "Component Stores",
+    originSiteName: "Central Hub",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Component Stores",
+    targetSiteName: "Central Hub",
   },
 ]
 
@@ -305,7 +378,7 @@ const DIST_REQUESTS: MaterialRequest[] = [
     code: "REQ-DS-0101",
     type: "material",
     lines: [line("itm_sp_bldc", 30), line("itm_fan_cap", 300)],
-    purpose: "Monthly van stock for Field Service technicians",
+    purpose: "Monthly van stock for Distribution technicians",
     priority: "Urgent",
     requestedBy: "u_engineer",
     requestedByName: "Rahul Patil",
@@ -313,12 +386,12 @@ const DIST_REQUESTS: MaterialRequest[] = [
     status: "Assigned",
     decidedBy: "Meena Kulkarni",
     decidedAt: daysAgo(24),
-    decisionComment: "Issued 30 BLDC boards and 300 fan capacitors to Field Service",
+    decisionComment: "Issued 30 BLDC boards and 300 fan capacitors to Distribution",
     assignmentId: "as_c1",
     originSiteId: SITE_IDS.distribution,
-    originSiteName: "Field Service",
+    originSiteName: "Distribution",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Component Stores",
+    targetSiteName: "Central Hub",
   },
   {
     id: "rq_dc2",
@@ -335,9 +408,9 @@ const DIST_REQUESTS: MaterialRequest[] = [
     decidedAt: daysAgo(11),
     assignmentId: "as_c2",
     originSiteId: SITE_IDS.distribution,
-    originSiteName: "Field Service",
+    originSiteName: "Distribution",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Component Stores",
+    targetSiteName: "Central Hub",
   },
   {
     id: "rq_dc3",
@@ -351,9 +424,9 @@ const DIST_REQUESTS: MaterialRequest[] = [
     createdAt: daysAgo(2),
     status: "Pending",
     originSiteId: SITE_IDS.distribution,
-    originSiteName: "Field Service",
+    originSiteName: "Distribution",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Component Stores",
+    targetSiteName: "Central Hub",
   },
   {
     id: "rq_d1",
@@ -497,6 +570,19 @@ const DIST_REQUESTS: MaterialRequest[] = [
     createdAt: daysAgo(1),
     status: "Pending",
   },
+  {
+    id: "rq_d11",
+    code: "REQ-DS-1011",
+    type: "material",
+    lines: [line("itm_conn", 4), line("itm_relay", 10)],
+    purpose: "Connector kits and relays for the Apex line 3 ECUs (CASE-1002)",
+    priority: "Urgent",
+    requestedBy: "u_lineman",
+    requestedByName: "Sunil Jadhav",
+    createdAt: daysAgo(2),
+    status: "Pending",
+    caseId: "case_1002",
+  },
 ]
 
 const asg = (
@@ -630,28 +716,53 @@ const SERVICE_REQUESTS: MaterialRequest[] = [
     status: "Assigned",
     decidedBy: "Meena Kulkarni",
     decidedAt: daysAgo(13),
-    decisionComment: "Issued from Component Stores",
+    decisionComment: "Issued from Central Hub",
     assignmentId: "as_sc1",
+    caseId: "case_1003",
     originSiteId: SITE_IDS.service,
-    originSiteName: "PCB Repair Lab",
+    originSiteName: "Service Centre",
     targetSiteId: SITE_IDS.central,
-    targetSiteName: "Component Stores",
+    targetSiteName: "Central Hub",
+    forwardNote: "Our MOSFET stock is too low for a 60-board batch",
   },
   {
+    // From the Service Centre's own store: its manager can give it out, or ask the Central Hub (only 6 MCUs here).
     id: "rq_sc2",
     code: "REQ-SC-3002",
     type: "material",
-    lines: [line("itm_mcu", 10)],
-    purpose: "MCUs for RO controller board repairs",
+    lines: [line("sc_mcu", 10)],
+    purpose: "MCUs for the 6 dead ECU boards (CASE-1002)",
     priority: "Urgent",
     requestedBy: "u_vikas",
     requestedByName: "Vikas Shinde",
     createdAt: daysAgo(1),
     status: "Pending",
+    caseId: "case_1002",
     originSiteId: SITE_IDS.service,
-    originSiteName: "PCB Repair Lab",
-    targetSiteId: SITE_IDS.central,
-    targetSiteName: "Component Stores",
+    originSiteName: "Service Centre",
+    targetSiteId: SITE_IDS.service,
+    targetSiteName: "Service Centre",
+  },
+  {
+    id: "rq_sc3",
+    code: "REQ-SC-3003",
+    type: "material",
+    lines: [line("sc_mosfet", 30), line("sc_driver", 15)],
+    purpose: "MOSFETs and gate drivers for the ECU boards (CASE-1002)",
+    priority: "Urgent",
+    requestedBy: "u_vikas",
+    requestedByName: "Vikas Shinde",
+    createdAt: daysAgo(5),
+    status: "Assigned",
+    decidedBy: "Anjali Joshi",
+    decidedAt: daysAgo(5, 12),
+    decisionComment: "Given out from the Service Centre store",
+    assignmentId: "as_sc2",
+    caseId: "case_1002",
+    originSiteId: SITE_IDS.service,
+    originSiteName: "Service Centre",
+    targetSiteId: SITE_IDS.service,
+    targetSiteName: "Service Centre",
   },
 ]
 
@@ -668,11 +779,25 @@ const SERVICE_ASSIGNMENTS: Assignment[] = [
     createdAt: daysAgo(13),
     createdBy: "Meena Kulkarni",
   },
+  {
+    id: "as_sc2",
+    code: "ASN-SC-501",
+    requestId: "rq_sc3",
+    requestCode: "REQ-SC-3003",
+    assigneeId: "u_vikas",
+    assigneeName: "Vikas Shinde",
+    lines: [line("sc_mosfet", 30), line("sc_driver", 15)],
+    stockSiteId: SITE_IDS.service,
+    createdAt: daysAgo(5, 12),
+    createdBy: "Anjali Joshi",
+  },
 ]
 
 const SERVICE_CONSUMPTION: ConsumptionRecord[] = [
   cons("cn9", "as_sc1", "itm_mosfet", 18, "BLDC batch BJ-B2214 — bench 2", 11, "Vikas Shinde"),
   cons("cn10", "as_sc1", "itm_cap_elec", 36, "BLDC batch BJ-B2214 — bench 2", 11, "Vikas Shinde"),
+  cons("cn11", "as_sc2", "sc_mosfet", 22, "CASE-1002 Apex ECU boards — bench 1", 4, "Vikas Shinde"),
+  cons("cn12", "as_sc2", "sc_driver", 11, "CASE-1002 Apex ECU boards — bench 1", 4, "Vikas Shinde"),
 ]
 
 const rj = (
@@ -718,11 +843,11 @@ const SERVICE_RETURNS: ReturnRecord[] = [
     source: "repair",
     refId: "rj1",
     refCode: "RJ-SC-301",
-    itemId: "itm_sp_bldc",
+    itemId: "sc_sp_bldc",
     itemName: BLDC,
     qty: 1,
     condition: "Repaired",
-    stockSiteId: SITE_IDS.central,
+    stockSiteId: SITE_IDS.service,
     date: daysAgo(18),
     returnedBy: "Vikas Shinde",
   },
@@ -750,6 +875,7 @@ function routeRequests(
     c.originSiteName ??= from.name
     c.targetSiteId ??= to.id
     c.targetSiteName ??= to.name
+    if (c.targetSiteId === c.originSiteId) return c // from the office's own store: its own manager decides
     if (!stayWithOwnManager.includes(c.id)) {
       c.forwardedAt ??= new Date(new Date(c.createdAt).getTime() + 2 * 3600_000).toISOString()
       c.forwardedBy ??= from.manager
@@ -784,21 +910,212 @@ const CENTRAL_AUDITS: ProductAuditRecord[] = [
   audit("aud_01", "itm_cap_elec", "qty", "quantity", 2000, 3000, "Purchase received from Mouser Electronics (PO-ES-4421)", "PO-ES-4421", MEENA, daysAgo(2, 14)),
   audit("aud_02", "itm_mcu", "unitPrice", "price", 88, 95, "Supplier rate revision FY 2026-Q3", "RTE-2026-08", AARTI, daysAgo(5, 11)),
   audit("aud_03", "itm_coating", "reorderLevel", "threshold", 8, 12, "Higher coating use on LED video wall batches", "QC-NOTE-26", MEENA, daysAgo(9, 16)),
-  audit("aud_04", "itm_sp_bldc", "qty", "return", 59, 60, "Repaired board returned to stock (RJ-SC-301)", "RJ-SC-301", ANJALI, daysAgo(18, 10)),
-  audit("aud_05", "itm_fan_cap", "qty", "dispatch", 1200, 900, "Dispatched for REQ-DS-0101 (Monthly van stock for Field Service technicians)", "REQ-DS-0101", MEENA, daysAgo(20, 15)),
+  audit("aud_05", "itm_fan_cap", "qty", "dispatch", 1200, 900, "Dispatched for REQ-DS-0101 (Monthly van stock for Distribution technicians)", "REQ-DS-0101", MEENA, daysAgo(20, 15)),
   audit("aud_06", "itm_conn", "created", "create", null, 30, "Initial catalogue entry for standard connector kits", undefined, AARTI, daysAgo(28, 9)),
+]
+
+const SERVICE_AUDITS: ProductAuditRecord[] = [
+  audit("aud_04", "sc_sp_bldc", "qty", "return", 13, 14, "Repaired board returned to stock (RJ-SC-301)", "RJ-SC-301", ANJALI, daysAgo(18, 10)),
+  audit("aud_07", "sc_mosfet", "qty", "dispatch", 170, 140, "Dispatched for REQ-SC-3003 (MOSFETs and gate drivers for the ECU boards (CASE-1002))", "REQ-SC-3003", ANJALI, daysAgo(5, 12)),
+]
+
+// ---------------------------------------------------------------- repair cases
+
+const HUB = { siteId: SITE_IDS.central, siteName: "Central Hub" }
+const DIST = { siteId: SITE_IDS.distribution, siteName: "Distribution" }
+const LAB = { siteId: SITE_IDS.service, siteName: "Service Centre" }
+const APEX = { siteId: SITE_IDS.apex, siteName: "Apex Motors (Client)" }
+const BAJAJ = { siteId: SITE_IDS.bajaj, siteName: "Bajaj Electricals (Client)" }
+let eventNo = 0
+const ev = (office: { siteId: string; siteName: string }, actor: string, kind: string, note: string, d: number, hour = 10): CaseEvent => ({
+  id: `ce_${++eventNo}`,
+  at: daysAgo(d, hour),
+  ...office,
+  actor,
+  kind,
+  note,
+})
+
+const CASES: ServiceCase[] = [
+  {
+    id: "case_1001",
+    code: "CASE-1001",
+    clientSiteId: SITE_IDS.apex,
+    clientName: "Apex Motors (Client)",
+    hubSiteId: SITE_IDS.central,
+    title: "Instrument cluster boards blank on the 2024 batch",
+    description: "Speedometer cluster shows nothing after 2–3 weeks. Seen on 25 scooters returned by dealers.",
+    items: [{ name: "Instrument cluster PCB", qty: 25 }],
+    location: "Apex Motors plant, Chakan, Pune",
+    priority: "Urgent",
+    status: "Submitted",
+    events: [ev(APEX, "Arjun Mehta", "submitted", "Asked to repair 25 × Instrument cluster PCB", 1, 9)],
+    createdBy: "u_apex",
+    createdByName: "Arjun Mehta",
+    createdAt: daysAgo(1, 9),
+    updatedAt: daysAgo(1, 9),
+  },
+  {
+    id: "case_1002",
+    code: "CASE-1002",
+    clientSiteId: SITE_IDS.apex,
+    clientName: "Apex Motors (Client)",
+    hubSiteId: SITE_IDS.central,
+    title: "ECU boards failing on assembly line 3",
+    description: "Engine control units stop responding during end-of-line testing. Line 3 is running at half speed.",
+    items: [
+      { name: "Engine control unit (ECU) board", qty: 40 },
+      { name: "ECU wiring harness connector", qty: 40 },
+    ],
+    location: "Apex Motors plant, Chakan, Pune — line 3",
+    priority: "Urgent",
+    status: "In Progress",
+    fieldSiteId: SITE_IDS.distribution,
+    fieldStatus: "Assigned",
+    fieldAssigneeId: "u_lineman",
+    fieldAssigneeName: "Sunil Jadhav",
+    labSiteId: SITE_IDS.service,
+    labStatus: "Assigned",
+    labAssigneeId: "u_vikas",
+    labAssigneeName: "Vikas Shinde",
+    events: [
+      ev(APEX, "Neha Kulkarni", "submitted", "Asked to repair 40 × Engine control unit (ECU) board, 40 × ECU wiring harness connector", 8, 9),
+      ev(HUB, "Meena Kulkarni", "routed", "Onsite work: Distribution and In-house work: Service Centre — line stopped, please visit first", 7, 10),
+      ev(DIST, "Rahul Patil", "assigned", "Assigned to Sunil Jadhav", 7, 11),
+      ev(LAB, "Anjali Joshi", "assigned", "Assigned to Vikas Shinde", 7, 12),
+      ev(DIST, "Sunil Jadhav", "visit", "Inspected line 3: 12 ECUs show no power, harness connectors corroded. Took 28 boards to the Service Centre.", 6, 15),
+      ev(LAB, "Vikas Shinde", "diagnosis", "22 boards: MOSFET and gate driver failure. 6 boards: MCU dead, need new MCUs.", 5, 10),
+      ev(LAB, "Vikas Shinde", "parts-requested", "REQ-SC-3003: 30 × MOSFET IRF540N, 15 × Gate Driver IC IR2101", 5, 11),
+      ev(LAB, "Anjali Joshi", "parts-approved", "REQ-SC-3003 approved: Given out from the Service Centre store", 5, 12),
+      ev(LAB, "Anjali Joshi", "parts-issued", "REQ-SC-3003 issued to Vikas Shinde: Given out from the Service Centre store", 5, 12),
+      ev(DIST, "Sunil Jadhav", "parts-requested", "REQ-DS-1011: 4 × JST Connector Kit (2–6 pin), 10 × Relay 12V 16A", 2, 10),
+      ev(DIST, "Rahul Patil", "parts-forwarded", "REQ-DS-1011 sent to Central Hub", 2, 12),
+      ev(DIST, "Sunil Jadhav", "visit", "Second visit: replaced corroded connectors on 6 ECUs onsite. Waiting for connector kits for the rest.", 2, 16),
+      ev(LAB, "Vikas Shinde", "parts-requested", "REQ-SC-3002: 10 × Microcontroller STM32F030", 1, 10),
+    ],
+    createdBy: "u_apex_mgr",
+    createdByName: "Neha Kulkarni",
+    createdAt: daysAgo(8, 9),
+    updatedAt: daysAgo(1, 10),
+  },
+  {
+    id: "case_1003",
+    code: "CASE-1003",
+    clientSiteId: SITE_IDS.bajaj,
+    clientName: "Bajaj Electricals (Client)",
+    hubSiteId: SITE_IDS.central,
+    title: "BLDC fan controller boards — warranty returns",
+    description: "Warranty returns from dealers in Navi Mumbai. Fans hum but do not start.",
+    items: [{ name: BLDC, qty: 60 }],
+    location: "Bajaj service depot, Turbhe MIDC",
+    priority: "Normal",
+    status: "Repaired",
+    labSiteId: SITE_IDS.service,
+    labStatus: "Done",
+    labAssigneeId: "u_vikas",
+    labAssigneeName: "Vikas Shinde",
+    events: [
+      ev(BAJAJ, "Sneha Iyer", "submitted", `Asked to repair 60 × ${BLDC}`, 20, 9),
+      ev(HUB, "Meena Kulkarni", "routed", "In-house work: Service Centre", 19, 10),
+      ev(LAB, "Anjali Joshi", "assigned", "Assigned to Vikas Shinde", 19, 12),
+      ev(LAB, "Vikas Shinde", "diagnosis", "MOSFET failure on most boards, a few with dried electrolytic capacitors.", 17, 11),
+      ev(LAB, "Vikas Shinde", "parts-requested", "REQ-SC-3001: 40 × MOSFET IRF540N, 100 × Electrolytic Capacitor 470µF 35V", 14, 10),
+      ev(LAB, "Anjali Joshi", "parts-forwarded", "REQ-SC-3001 sent to Central Hub", 14, 12),
+      ev(HUB, "Meena Kulkarni", "parts-approved", "REQ-SC-3001 approved: Issued from Central Hub", 13, 10),
+      ev(HUB, "Meena Kulkarni", "parts-issued", "REQ-SC-3001 issued to Vikas Shinde: Issued from Central Hub", 13, 10),
+      ev(LAB, "Vikas Shinde", "work-done", "56 of 60 boards repaired and tested, 4 beyond repair — Central Hub informed", 2, 17),
+    ],
+    createdBy: "u_bajaj",
+    createdByName: "Sneha Iyer",
+    createdAt: daysAgo(20, 9),
+    updatedAt: daysAgo(2, 17),
+  },
+  {
+    id: "case_1004",
+    code: "CASE-1004",
+    clientSiteId: SITE_IDS.bajaj,
+    clientName: "Bajaj Electricals (Client)",
+    hubSiteId: SITE_IDS.central,
+    title: "Ceiling fans not starting at dealer showrooms",
+    description: "Display fans at three showrooms do not start from the remote.",
+    items: [{ name: "BLDC ceiling fan (installed)", qty: 15 }],
+    location: "Bajaj dealers — Vashi, Nerul and CBD Belapur",
+    priority: "Normal",
+    status: "Routed",
+    fieldSiteId: SITE_IDS.distribution,
+    fieldStatus: "Open",
+    events: [
+      ev(BAJAJ, "Rohan Desai", "submitted", "Asked to repair 15 × BLDC ceiling fan (installed)", 3, 9),
+      ev(HUB, "Meena Kulkarni", "routed", "Onsite work: Distribution", 2, 11),
+    ],
+    createdBy: "u_bajaj_mgr",
+    createdByName: "Rohan Desai",
+    createdAt: daysAgo(3, 9),
+    updatedAt: daysAgo(2, 11),
+  },
+  {
+    id: "case_1005",
+    code: "CASE-1005",
+    clientSiteId: SITE_IDS.apex,
+    clientName: "Apex Motors (Client)",
+    hubSiteId: SITE_IDS.central,
+    title: "EV scooter charger control boards",
+    description: "Chargers trip after 10 minutes of charging.",
+    items: [{ name: "Charger control board", qty: 20 }],
+    location: "Apex Motors service centre, Pimpri",
+    priority: "Normal",
+    status: "Closed",
+    labSiteId: SITE_IDS.service,
+    labStatus: "Done",
+    labAssigneeId: "u_ganesh",
+    labAssigneeName: "Ganesh More",
+    events: [
+      ev(APEX, "Arjun Mehta", "submitted", "Asked to repair 20 × Charger control board", 26, 9),
+      ev(HUB, "Meena Kulkarni", "routed", "In-house work: Service Centre", 25, 10),
+      ev(LAB, "Anjali Joshi", "assigned", "Assigned to Ganesh More", 25, 12),
+      ev(LAB, "Ganesh More", "diagnosis", "Bridge rectifier and X2 capacitor failures from voltage spikes.", 24, 11),
+      ev(LAB, "Ganesh More", "work-done", "All 20 boards repaired, burn-in tested for 4 hours — Central Hub informed", 15, 16),
+      ev(HUB, "Meena Kulkarni", "closed", "Client confirmed all chargers working", 12, 10),
+    ],
+    createdBy: "u_apex",
+    createdByName: "Arjun Mehta",
+    createdAt: daysAgo(26, 9),
+    updatedAt: daysAgo(12, 10),
+    closedAt: daysAgo(12, 10),
+  },
+  {
+    id: "case_1006",
+    code: "CASE-1006",
+    clientSiteId: SITE_IDS.bajaj,
+    clientName: "Bajaj Electricals (Client)",
+    hubSiteId: SITE_IDS.central,
+    title: "Mixer grinder speed control boards",
+    description: "Speed control does not work on 30 units.",
+    items: [{ name: MIXER, qty: 30 }],
+    location: "",
+    priority: "Low",
+    status: "Rejected",
+    events: [
+      ev(BAJAJ, "Sneha Iyer", "submitted", `Asked to repair 30 × ${MIXER}`, 10, 9),
+      ev(HUB, "Meena Kulkarni", "rejected", "These units are still under the board maker's warranty — please return them to the maker.", 9, 11),
+    ],
+    createdBy: "u_bajaj",
+    createdByName: "Sneha Iyer",
+    createdAt: daysAgo(10, 9),
+    updatedAt: daysAgo(9, 11),
+    closedAt: daysAgo(9, 11),
+  },
 ]
 
 export function createSeedDatabase(): Database {
   const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
-  const central = { id: SITE_IDS.central, name: "Component Stores", manager: "Meena Kulkarni" }
-  const fieldOffice = { id: SITE_IDS.distribution, name: "Field Service", manager: "Rahul Patil" }
-  const labOffice = { id: SITE_IDS.service, name: "PCB Repair Lab", manager: "Anjali Joshi" }
-  // rq_d8 and rq_d10 are still with Field Service's own manager, so the "send on" step can be tried.
+  const central = { id: SITE_IDS.central, name: "Central Hub", manager: "Meena Kulkarni" }
+  const fieldOffice = { id: SITE_IDS.distribution, name: "Distribution", manager: "Rahul Patil" }
+  const labOffice = { id: SITE_IDS.service, name: "Service Centre", manager: "Anjali Joshi" }
+  // rq_d8 and rq_d10 are still with Distribution's own manager, so the "send on" step can be tried.
   const fieldReqs = routeRequests(DIST_REQUESTS, fieldOffice, central, ["rq_d8", "rq_d10"])
-  // rq_sc2 is still with the lab manager.
-  const labReqs = routeRequests(SERVICE_REQUESTS, labOffice, central, ["rq_sc2"])
-  // Component Stores sees every request that was sent on to it.
+  const labReqs = routeRequests(SERVICE_REQUESTS, labOffice, central)
+  // Central Hub sees every request that was sent on to it.
   const centralIncoming = [...fieldReqs, ...labReqs].filter((r) => r.forwardedAt)
   return {
     schema: 5,
@@ -807,7 +1124,10 @@ export function createSeedDatabase(): Database {
       [SITE_IDS.central]: siteRecord(clone(centralStores)),
       [SITE_IDS.service]: siteRecord(clone(serviceCentre)),
       [SITE_IDS.distribution]: siteRecord(clone(distribution)),
+      [SITE_IDS.apex]: siteRecord(clone(apexOffice)),
+      [SITE_IDS.bajaj]: siteRecord(clone(bajajOffice)),
     },
+    cases: clone(CASES),
     data: {
       [SITE_IDS.central]: {
         ...emptySiteData(),
@@ -818,7 +1138,9 @@ export function createSeedDatabase(): Database {
       },
       [SITE_IDS.service]: {
         ...emptySiteData(),
+        inventory: clone(SERVICE_INVENTORY),
         requests: clone(labReqs),
+        productAudits: clone(SERVICE_AUDITS),
         repairs: clone(SERVICE_REPAIRS),
         returns: clone(SERVICE_RETURNS),
         assignments: clone(SERVICE_ASSIGNMENTS),
@@ -830,6 +1152,8 @@ export function createSeedDatabase(): Database {
         assignments: clone(DIST_ASSIGNMENTS),
         consumption: clone(DIST_CONSUMPTION),
       },
+      [SITE_IDS.apex]: emptySiteData(),
+      [SITE_IDS.bajaj]: emptySiteData(),
     },
   }
 }

@@ -6,6 +6,7 @@ import type {
   ProductAuditRecord,
   RepairJob,
   ReturnRecord,
+  ServiceCase,
 } from "@/lib/types"
 
 // Database rows (snake_case, as returned by Supabase) <-> the shapes the pages already use (camelCase).
@@ -56,6 +57,41 @@ export function mapRequest(r: Row, names: Record<string, string> = {}): Material
       forwardedAt: iso(r.forwarded_at),
       forwardedBy: r.forwarded_by,
       forwardNote: r.forward_note,
+      caseId: r.case_id,
+    }),
+  }
+}
+
+export function mapCase(r: Row, names: Record<string, string> = {}): ServiceCase {
+  return {
+    id: r.id,
+    code: r.code,
+    clientSiteId: r.client_site_id,
+    clientName: r.client_name,
+    hubSiteId: r.hub_site_id,
+    title: r.title,
+    description: r.description ?? "",
+    items: r.items ?? [],
+    location: r.location ?? "",
+    priority: r.priority ?? "Normal",
+    status: r.status,
+    events: (r.events ?? []).map((e: Row) => ({ ...e, at: iso(e.at)! })),
+    createdByName: r.created_by_name,
+    createdAt: iso(r.created_at)!,
+    updatedAt: iso(r.updated_at)!,
+    ...keep({
+      fieldSiteId: r.field_site_id,
+      fieldSiteName: r.field_site_id ? names[r.field_site_id] : undefined,
+      fieldStatus: r.field_status,
+      fieldAssigneeId: r.field_assignee_id,
+      fieldAssigneeName: r.field_assignee_name,
+      labSiteId: r.lab_site_id,
+      labSiteName: r.lab_site_id ? names[r.lab_site_id] : undefined,
+      labStatus: r.lab_status,
+      labAssigneeId: r.lab_assignee_id,
+      labAssigneeName: r.lab_assignee_name,
+      createdBy: r.created_by,
+      closedAt: iso(r.closed_at),
     }),
   }
 }

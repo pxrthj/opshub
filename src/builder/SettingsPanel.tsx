@@ -49,6 +49,26 @@ function WorkflowControl({
           </span>
           <Switch checked={value} onCheckedChange={(v) => set(v)} />
         </Label>
+      ) : k === "upstreamSiteId" ? (
+        <div className="space-y-1.5">
+          <Label className="text-sm">{meta.label}</Label>
+          <Select value={(value as string | null | undefined) ?? OWN} onValueChange={(v) => set(v === OWN || v === config.siteId ? null : v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={OWN}>Nobody (give out from own store only)</SelectItem>
+              {sites
+                .filter((s) => s.config.siteId !== config.siteId)
+                .map((s) => (
+                  <SelectItem key={s.config.siteId} value={s.config.siteId}>
+                    Ask {s.config.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{meta.help}</p>
+        </div>
       ) : k === "stockSourceSiteId" ? (
         <div className="space-y-1.5">
           <Label className="text-sm">{meta.label}</Label>

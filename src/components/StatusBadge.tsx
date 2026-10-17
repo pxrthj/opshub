@@ -9,6 +9,12 @@ const BAD = "border-red-200 bg-red-50 text-red-800"
 const TONES: Record<string, string> = {
   Pending: WAITING,
   "In Repair": WAITING,
+  Submitted: WAITING,
+  Routed: WAITING,
+  "In Progress": WAITING,
+  Open: WAITING,
+  Closed: GOOD,
+  Done: GOOD,
   Approved: GOOD,
   Assigned: GOOD,
   Fixed: GOOD,
@@ -26,6 +32,8 @@ const DISPLAY: Record<string, string> = {
   Received: "Received",
   Returned: "Given back",
   Unused: "Not used",
+  Submitted: "New",
+  Open: "Not assigned",
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

@@ -27,15 +27,15 @@ const SAMPLE_PEOPLE: { group: string; people: Account[] }[] = [
     people: [{ email: "admin@plexus.demo", name: "Aarti Deshmukh", role: "Admin in every office" }],
   },
   {
-    group: "Component Stores",
+    group: "Central Hub",
     people: [
       { email: "stores.admin@plexus.demo", name: "Anil Joshi", role: "Admin" },
-      { email: "stores.manager@plexus.demo", name: "Meena Kulkarni", role: "Stores In-charge" },
+      { email: "stores.manager@plexus.demo", name: "Meena Kulkarni", role: "Manager (stores & case desk)" },
       { email: "stores.member@plexus.demo", name: "Pooja Gaikwad", role: "Stores Assistant" },
     ],
   },
   {
-    group: "PCB Repair Lab",
+    group: "Service Centre",
     people: [
       { email: "lab.admin@plexus.demo", name: "Kavita Rao", role: "Admin" },
       { email: "lab.manager@plexus.demo", name: "Anjali Joshi", role: "Manager" },
@@ -43,11 +43,20 @@ const SAMPLE_PEOPLE: { group: string; people: Account[] }[] = [
     ],
   },
   {
-    group: "Field Service",
+    group: "Distribution (onsite)",
     people: [
       { email: "field.admin@plexus.demo", name: "Priya Nair", role: "Admin" },
-      { email: "field.manager@plexus.demo", name: "Rahul Patil", role: "Supervisor" },
-      { email: "field.member@plexus.demo", name: "Sunil Jadhav", role: "Technician" },
+      { email: "field.manager@plexus.demo", name: "Rahul Patil", role: "Manager" },
+      { email: "field.member@plexus.demo", name: "Sunil Jadhav", role: "Field Technician" },
+    ],
+  },
+  {
+    group: "Clients",
+    people: [
+      { email: "apex.manager@plexus.demo", name: "Neha Kulkarni", role: "Apex Motors · Manager" },
+      { email: "apex.member@plexus.demo", name: "Arjun Mehta", role: "Apex Motors · Member" },
+      { email: "bajaj.manager@plexus.demo", name: "Rohan Desai", role: "Bajaj Electricals · Manager" },
+      { email: "bajaj.member@plexus.demo", name: "Sneha Iyer", role: "Bajaj Electricals · Member" },
     ],
   },
 ]

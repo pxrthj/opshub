@@ -5,11 +5,13 @@ repair and refurbishment company that repairs boards for OEM clients and runs on
 several **offices** (sites). Each office has its own menu, pages and data, and all of them are drawn by the same code
 from a JSON setup, in one shared look. An Admin sets an office up by dragging features onto a board.
 
-| Office | Address | Features switched on |
+| Office | Address | What it does |
 |---|---|---|
-| Component Stores | `/s/component-stores` | Stock, Approvals, Charts, Excel files, Audit log |
-| PCB Repair Lab | `/s/pcb-repair-lab` | Requests, Approvals, PCB repairs, Giving out, My items, Usage, Returns |
-| Field Service | `/s/field-service` | Requests, Approvals, Giving out, My items, Usage, Returns, Audit log |
+| Central Hub | `/s/central-hub` | Main component store and **case desk**: routes every client case, approves parts, closes cases |
+| Service Centre | `/s/service-centre` | In-house repair lab with **its own store**; asks the Central Hub when short; PCB repairs |
+| Distribution | `/s/distribution` | Onsite field service; **no stock**, takes parts from the Central Hub; logs site visits |
+| Apex Motors (Client) | `/s/apex-motors` | A client company: raises repair cases and follows them |
+| Bajaj Electricals (Client) | `/s/bajaj-electricals` | A second client, to show that clients never see each other's cases |
 
 The data and sign-in live in **Supabase** (Postgres + Auth), and the site is served as a static app (Vercel). Everyone
 signs in with an email and password. What a person can read is limited by row-level security, and every change goes
@@ -38,9 +40,11 @@ Stack: React 19, Vite, TypeScript, Tailwind 4 + shadcn/ui, React Router, React F
 
 | Office | Admin | Manager | Member |
 |---|---|---|---|
-| Component Stores | stores.admin | stores.manager | stores.member |
-| PCB Repair Lab | lab.admin | lab.manager | lab.member |
-| Field Service | field.admin | field.manager | field.member |
+| Central Hub | stores.admin | stores.manager | stores.member |
+| Service Centre | lab.admin | lab.manager | lab.member |
+| Distribution | field.admin | field.manager | field.member |
+| Apex Motors (Client) | — | apex.manager | apex.member |
+| Bajaj Electricals (Client) | — | bajaj.manager | bajaj.member |
 
 Also: `admin@plexus.demo` is an Admin in every office; `ganesh@plexus.demo` and `logistics@plexus.demo` work in two
 offices each. (All addresses end in `@plexus.demo`. The old `dist.*` and `service.*` addresses still sign in.)
@@ -67,24 +71,36 @@ PCB repairs, Charts, Excel files, People (only what is switched on and allowed f
 ## Demo script
 
 1. Sign in as `admin@plexus.demo`. The switcher at the top lists all three offices. Open each one: different look, menu and data.
-2. **Edit offices → Field Service.** Drag **Charts** onto the board and link it after **Stock Inventory**. Linked features show what they need in the right-hand panel (use *Link this to another feature*, or drag from one box to the other).
+2. **Edit offices → Distribution.** Drag **Charts** onto the board and link it after **Stock Inventory**. Linked features show what they need in the right-hand panel (use *Link this to another feature*, or drag from one box to the other).
    Press **Preview**, then **Make live**. A **Charts** page now appears. **History → Go back to this** on version 1 removes it again.
 3. **Ask, send on, decide, give out** (see "How offices talk to each other" below).
-   `field.member` asks for 20 fan capacitors. Only `field.manager` sees it. `field.manager` opens *Approvals* and clicks **Send to Component Stores**. Now `stores.manager` sees it under *Approvals* and clicks **Approve and give out**. Component Stores stock drops by 20 and the technician sees the items under *My items*. Asking for more than is in stock fails and nothing changes.
+   `field.member` asks for 20 fan capacitors. Only `field.manager` sees it. `field.manager` opens *Approvals* and clicks **Send to Central Hub**. Now `stores.manager` sees it under *Approvals* and clicks **Approve and give out**. Central Hub stock drops by 20 and the technician sees the items under *My items*. Asking for more than is in stock fails and nothing changes.
 4. **Use and give back.** As `field.member`, write down 15 used at a customer and give 5 back.
 5. **Repairs.** `lab.member` sends in a faulty board, `lab.manager` approves, `lab.member` marks it Fixed and returns it to spares stock. Stock goes up by one.
 6. **Excel.** `stores.manager` can download. `stores.member` has the buttons switched off. `stores.admin` can also load a stock list (with a preview first).
-7. **Privacy between offices.** Sign in as `field.member`. Only Field Service is listed, and the other offices' addresses say "You can't open this".
+7. **Privacy between offices.** Sign in as `field.member`. Only Distribution is listed, and the other offices' addresses say "You can't open this".
+
+## Repair cases (client → Central Hub → Distribution / Service Centre)
+
+1. **Client raises a case** (*Repair cases*): what to repair, how many, where, how urgent.
+2. **Central Hub routes it** (*Case desk*, `stores.manager`): onsite work to Distribution, in-house work to the Service Centre, or both. It can also turn a case down.
+3. **Each team's manager assigns a technician** (*Cases*, `field.manager` / `lab.manager`).
+4. **The technician works the case**: logs site visits (onsite) or a diagnosis, and asks for parts. A parts request goes to their own manager:
+   - Distribution has no stock, so its manager sends it on to the Central Hub, which gives the parts out.
+   - The Service Centre manager gives parts out from its own store, or clicks **Ask Central Hub** when it is short.
+   This can repeat — more visits, more parts — until the case is closed.
+5. **The technician reports the work done.** When every team on the case is done, the case shows **Repaired** at the Central Hub, which **closes** it (or sends it back for more work).
+6. **Everything is recorded.** Every step (who, when, which office, what) is in the case history, and **Excel** on any cases page downloads three sheets: *Cases*, *Case history* and *Parts for cases*.
 
 ## How offices talk to each other
 
-Both the PCB Repair Lab and Field Service take their stock from **Component Stores** (the "Take stock from" setting of each office).
+Distribution takes its stock from the **Central Hub** ("Take stock from"). The Service Centre has its own store and asks the Central Hub when it is short ("Ask another office when short").
 Requests follow one rule: **members never contact another office. Managers do.**
 
 1. A member asks. The request goes to **their own office's managers only**.
 2. If the stock lives in another office, their manager clicks **Send to (that office)**, with an optional message. Until then the other office cannot see the request at all.
 3. A manager of the supplying office decides. Approving gives the items out and lowers *that* office's stock in one step. If there is not enough, nothing changes.
-4. The member sees the status move: *With your manager → With Component Stores → Given out*.
+4. The member sees the status move: *With your manager → With Central Hub → Given out*.
 
 Details: their own manager can also **turn it down** before sending it on; after it is sent on only the supplying office can decide; an office that is not the asker or the supplier cannot see or change the request. Repairs and requests for an office's own stock never leave the office.
 
