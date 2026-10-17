@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link, NavLink, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Blocks, Building2, Check, ChevronsUpDown, LayoutGrid, LogOut, Menu, RotateCcw, Truck, Users, Workflow } from "lucide-react"
+import { Blocks, Building2, Check, ChevronsUpDown, LayoutGrid, LogOut, Menu, RotateCcw, Truck, UserRound, Users, Workflow } from "lucide-react"
 import { api } from "@/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import { useAuth } from "@/context/AuthContext"
 import { Separator } from "@/components/ui/separator"
 import { useHub } from "@/context/HubContext"
 import { NotificationsBell } from "@/components/NotificationsBell"
+import { ProfileDialog } from "@/components/ProfileDialog"
 import { useCurrentSiteKey } from "@/lib/useCurrentSiteKey"
 import { toastError } from "@/lib/useAsync"
 import { cn } from "@/lib/utils"
@@ -78,6 +79,7 @@ function UserMenu() {
   const navigate = useNavigate()
   const key = useCurrentSiteKey()
   const [resetOpen, setResetOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   if (!user) return null
   const current = sites.find((s) => s.config.slug === key || s.config.siteId === key)
 
@@ -101,6 +103,9 @@ function UserMenu() {
             <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setProfileOpen(true)}>
+            <UserRound /> My profile
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setResetOpen(true)}>
             <RotateCcw /> Start over with sample data
           </DropdownMenuItem>
@@ -116,6 +121,7 @@ function UserMenu() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {profileOpen && <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />}
       <ConfirmDialog
         open={resetOpen}
         onOpenChange={setResetOpen}

@@ -103,6 +103,30 @@ registerFirst(
     },
   },
 
+  {
+    // The signed-in person edits their own name and title; a new password needs the current one.
+    method: "PUT",
+    path: "/api/auth/me",
+    auth: false,
+    handler: async ({ body }) => {
+      const { data } = await supabase.auth.getSession()
+      const session = data.session
+      if (!session) throw unauthorized()
+      const newPassword = String(body.newPassword ?? "")
+      if (newPassword) {
+        if (newPassword.length < 6) throw badRequest("Password must be at least 6 characters")
+        const check = await supabase.auth.signInWithPassword({ email: session.user.email ?? "", password: String(body.currentPassword ?? "") })
+        if (check.error) throw badRequest("Your current password is not right")
+      }
+      await rpc("api_profile_update", { p_name: String(body.name ?? ""), p_title: String(body.title ?? "") })
+      if (newPassword) {
+        const { error } = await supabase.auth.updateUser({ password: newPassword })
+        if (error) throw badRequest(error.message)
+      }
+      return fetchPublicUser(session.user.id)
+    },
+  },
+
   // ---------------------------------------------------------------- hub: people and sample data
   {
     // Puts the sample data back. Only someone who is Admin of every office may do this: it resets everyone's data.
