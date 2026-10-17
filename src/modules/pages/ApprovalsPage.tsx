@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { AlertOctagon, Check, CheckCheck, Clock, Send, Wrench, X } from "lucide-react"
+import { AlertOctagon, Check, CheckCheck, Clock, Eye, Info, Send, Wrench, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -22,7 +22,8 @@ import { isSupplied, managerAction } from "@/lib/requestFlow"
 import { Input } from "@/components/ui/input"
 
 export function ApprovalsPage() {
-  const { config, siteApi, changeTick, notifyChange } = useSite()
+  const { config, role, siteApi, changeTick, notifyChange } = useSite()
+  const isAdmin = role === "Admin"
   const [tab, setTab] = useState<"pending" | "history">("pending")
   const { data, loading, reload } = useAsync(() => siteApi.get<MaterialRequest[]>("requests"), [changeTick])
   const hasInventory = config.modules.includes("inventory")
@@ -113,10 +114,22 @@ export function ApprovalsPage() {
   return (
     <div>
       <PageHeader
-        title="Decide on requests"
+        title={isAdmin ? "Approval stream (Oversight)" : "Decide on requests"}
         icon={<CheckCheck />}
-        description="Requests from your own team, and requests other offices have sent to you. Nothing reaches another office until its manager is asked."
+        description={
+          isAdmin
+            ? "Site Admin oversight: Monitoring pending decisions and cross-office requests in read-only mode."
+            : "Requests from your own team, and requests other offices have sent to you. Nothing reaches another office until its manager is asked."
+        }
       />
+      {isAdmin && (
+        <Alert className="mb-4 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertDescription>
+            <span className="font-semibold text-foreground">Site Admin Oversight:</span> You can monitor request flows and review pending approval queues in read-only mode. Operational decisions (Approve, Turn down, Send on) are made by Managers.
+          </AlertDescription>
+        </Alert>
+      )}
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mb-4">
         <TabsList>
           <TabsTrigger value="pending">
@@ -208,34 +221,42 @@ export function ApprovalsPage() {
                     </Alert>
                   )}
                   <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      className="text-destructive"
-                      onClick={() => {
-                        setComment("")
-                        setRejecting(r)
-                      }}
-                    >
-                      <X /> Turn down
-                    </Button>
-                    {sendOnly ? (
-                      <Button
-                        onClick={() => {
-                          setComment("")
-                          setSending(r)
-                        }}
-                      >
-                        <Send /> Send to {r.targetSiteName}
-                      </Button>
+                    {isAdmin ? (
+                      <div className="flex items-center gap-1.5 rounded-md border border-muted bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                        <Eye className="size-3.5" /> Oversight mode: {sendOnly ? `Awaiting manager forward to ${r.targetSiteName}` : "Awaiting manager decision"}
+                      </div>
                     ) : (
-                      <Button
-                        onClick={() => {
-                          setComment("")
-                          setApproving(r)
-                        }}
-                      >
-                        <Check /> Approve{gives(r) ? " and give out" : ""}
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          className="text-destructive"
+                          onClick={() => {
+                            setComment("")
+                            setRejecting(r)
+                          }}
+                        >
+                          <X /> Turn down
+                        </Button>
+                        {sendOnly ? (
+                          <Button
+                            onClick={() => {
+                              setComment("")
+                              setSending(r)
+                            }}
+                          >
+                            <Send /> Send to {r.targetSiteName}
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => {
+                              setComment("")
+                              setApproving(r)
+                            }}
+                          >
+                            <Check /> Approve{gives(r) ? " and give out" : ""}
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </Card>

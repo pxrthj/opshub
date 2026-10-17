@@ -1,6 +1,6 @@
 import { normalizeValues, validateValues } from "@/lib/fields"
 import { isSentOn, isSupplied, managerAction, needsMyManager } from "@/lib/requestFlow"
-import { roleAtLeast } from "@/lib/roles"
+import { ROLES, roleAtLeast } from "@/lib/roles"
 import { fieldsFor } from "@/lib/siteConfig"
 import type {
   AnalyticsData,
@@ -256,6 +256,7 @@ register(
     minRole: "Member",
     module: "request",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot submit requests.")
       const { body, config } = ctx
       const wf = config.workflow
       const type = body.type === "repair" ? "repair" : "material"
@@ -322,6 +323,7 @@ register(
     minRole: "Manager",
     module: "approval",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Approvals must be made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
       const action = managerAction(req, ctx.siteId)
@@ -382,6 +384,7 @@ register(
     minRole: "Manager",
     module: "approval",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Rejections must be made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
       const action = managerAction(req, ctx.siteId)
@@ -405,6 +408,7 @@ register(
     minRole: "Manager",
     module: "approval",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Request forwarding is made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
       const action = managerAction(req, ctx.siteId)
@@ -430,6 +434,7 @@ register(
     minRole: "Manager",
     module: "assignment",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site. Material assignment is made by Managers.")
       const req = findRequest(ctx)
       if (req.status !== "Approved") throw conflict(`${req.code} must be Approved before assigning (it is ${req.status})`)
       if (req.type !== "material") throw badRequest("Only material requests can be assigned")
@@ -479,6 +484,7 @@ register(
     minRole: "Member",
     module: "consumption",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot record consumption.")
       const d = data(ctx)
       const a = d.assignments.find((x) => x.id === ctx.body.assignmentId)
       if (!a) throw notFound("Assignment not found")
@@ -519,6 +525,7 @@ register(
     minRole: "Member",
     module: "returns",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot submit returns.")
       const d = data(ctx)
       const stockSiteId = stockSiteOf(ctx.config)
       const store = stockData(ctx.db, stockSiteId)
@@ -572,6 +579,7 @@ register(
     minRole: "Member",
     module: "pcb-repair",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot log repairs.")
       const fields = fieldsFor(ctx.config, "pcb-repair")
       const firstErr = Object.values(validateValues(fields, ctx.body))[0]
       if (firstErr) throw badRequest(firstErr)
@@ -597,6 +605,7 @@ register(
     minRole: "Member",
     module: "pcb-repair",
     handler: (ctx) => {
+      if (ctx.role === "Admin") throw forbidden("Admins oversee the site and cannot edit repairs.")
       const d = data(ctx)
       const job = d.repairs.find((r) => r.id === ctx.params.id)
       if (!job) throw notFound("Repair job not found")
@@ -797,7 +806,41 @@ register(
     path: "/api/:siteId/members",
     minRole: "Admin",
     module: "users",
-    handler: (ctx): SiteMember[] => ctx.db.users.map((u) => ({ user: publicUser(u), role: u.roles[ctx.siteId] ?? null })),
+    handler: (ctx): SiteMember[] =>
+      ctx.db.users
+        .filter((u) => u.roles[ctx.siteId] != null)
+        .map((u) => ({ user: publicUser(u), role: u.roles[ctx.siteId]! })),
+  },
+  {
+    method: "POST",
+    path: "/api/:siteId/members",
+    minRole: "Admin",
+    module: "users",
+    handler: (ctx) => {
+      const email = String(ctx.body.email ?? "").trim().toLowerCase()
+      const name = String(ctx.body.name ?? "").trim()
+      const role = (ctx.body.role ?? "Member") as Role
+      if (!name) throw badRequest("Name is required")
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw badRequest("A valid email is required")
+      if (!ROLES.includes(role)) throw badRequest(`Unknown role ${role}`)
+      let target = ctx.db.users.find((u) => u.email.toLowerCase() === email)
+      if (!target) {
+        if (String(ctx.body.password ?? "").length < 4) throw badRequest("Password must be at least 4 characters")
+        target = {
+          id: uid("u"),
+          email,
+          name,
+          title: String(ctx.body.title ?? "").trim() || "Staff",
+          password: String(ctx.body.password),
+          roles: { [ctx.siteId]: role },
+        }
+        ctx.db.users.push(target)
+      } else {
+        target.roles[ctx.siteId] = role
+        if (ctx.body.title) target.title = String(ctx.body.title).trim()
+      }
+      return { user: publicUser(target), role }
+    },
   },
   {
     method: "PUT",

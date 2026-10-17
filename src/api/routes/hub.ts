@@ -255,11 +255,16 @@ register(
             const pending = data.requests.filter((r) => needsMyManager(r, siteId))
             for (const req of pending) {
               const sendOn = managerAction(req, siteId) === "send-on"
+              const isAdmin = effectiveRole === "Admin"
               notifications.push({
                 id: `pend-${req.id}`,
                 priority: "urgent",
                 category: "approval",
-                title: sendOn ? `Please send on: ${req.code}` : `Please decide: ${req.code}`,
+                title: isAdmin
+                  ? `Flow monitor: ${req.code} pending`
+                  : sendOn
+                    ? `Please send on: ${req.code}`
+                    : `Please decide: ${req.code}`,
                 message: `${req.requestedByName} requested ${req.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ") || req.purpose}.`,
                 siteId,
                 siteName: cfg.name,
@@ -385,7 +390,22 @@ register(
     path: "/api/hub/users",
     handler: (ctx) => {
       requireAnyAdmin(ctx)
-      return ctx.db.users.map(publicUser)
+      const allowed = adminSites(ctx.user!)
+      const allSites = Object.keys(ctx.db.sites)
+      const isSuper = allSites.length > 0 && allSites.every((s) => allowed.includes(s))
+      if (isSuper) {
+        return ctx.db.users.map(publicUser)
+      }
+      // Scoped site admin: only see people of their respective site(s)
+      const filtered = ctx.db.users.filter((u) => allowed.some((s) => u.roles[s] != null))
+      return filtered.map((u) => {
+        const pub = publicUser(u)
+        const scopedRoles: Record<string, Role> = {}
+        for (const s of allowed) {
+          if (pub.roles[s]) scopedRoles[s] = pub.roles[s]
+        }
+        return { ...pub, roles: scopedRoles }
+      })
     },
   },
   {
@@ -394,13 +414,19 @@ register(
     handler: (ctx) => {
       requireAnyAdmin(ctx)
       const { db, body, user } = ctx
+      const allowed = adminSites(user!)
+      const allSites = Object.keys(db.sites)
+      const isSuper = allSites.length > 0 && allSites.every((s) => allowed.includes(s))
       const email = String(body.email ?? "").trim().toLowerCase()
       const name = String(body.name ?? "").trim()
       if (!name) throw badRequest("Name is required")
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw badRequest("A valid email is required")
       if (String(body.password ?? "").length < 4) throw badRequest("Password must be at least 4 characters")
       if (db.users.some((u) => u.email.toLowerCase() === email)) throw conflict(`${email} already exists`)
-      const roles = sanitizeRoles(body.roles, adminSites(user!), {}, db)
+      const roles = sanitizeRoles(body.roles, allowed, {}, db)
+      if (!isSuper && !allowed.some((s) => roles[s] != null)) {
+        throw badRequest("You must assign at least one role in your administered office")
+      }
       const created: User = {
         id: uid("u"),
         email,
@@ -419,8 +445,14 @@ register(
     handler: (ctx) => {
       requireAnyAdmin(ctx)
       const { db, body, user, params } = ctx
+      const allowed = adminSites(user!)
+      const allSites = Object.keys(db.sites)
+      const isSuper = allSites.length > 0 && allSites.every((s) => allowed.includes(s))
       const target = db.users.find((u) => u.id === params.id)
       if (!target) throw notFound("User not found")
+      if (!isSuper && !allowed.some((s) => target.roles[s] != null)) {
+        throw forbidden("You can only manage people belonging to your office")
+      }
       if (body.name !== undefined) {
         if (!String(body.name).trim()) throw badRequest("Name is required")
         target.name = String(body.name).trim()
@@ -431,9 +463,9 @@ register(
         target.password = String(body.password)
       }
       if (body.roles) {
-        const next = sanitizeRoles(body.roles, adminSites(user!), target.roles, db)
+        const next = sanitizeRoles(body.roles, allowed, target.roles, db)
         if (target.id === user!.id) {
-          for (const s of adminSites(user!)) {
+          for (const s of allowed) {
             if (next[s] !== "Admin") throw badRequest("You can't remove your own Admin role (you'd lock yourself out)")
           }
         }

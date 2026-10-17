@@ -14,7 +14,8 @@ import { AssignmentActionDialog, ProgressLine } from "./shared"
 
 /** Assignment Frontend: the field-team view of material issued to the signed-in user. */
 export function MyMaterialsPage() {
-  const { config, siteApi, changeTick, notifyChange, basePath } = useSite()
+  const { config, role, siteApi, changeTick, notifyChange, basePath } = useSite()
+  const isAdmin = role === "Admin"
   const { data, loading, reload } = useAsync(() => siteApi.get<AssignmentView[]>("assignments", { scope: "mine" }), [changeTick])
   const [dialog, setDialog] = useState<{ mode: "usage" | "return"; assignmentId: string; itemId?: string } | null>(null)
   const hasUsage = config.modules.includes("consumption")
@@ -86,7 +87,7 @@ export function MyMaterialsPage() {
                       </span>
                     </div>
                     <ProgressLine assigned={l.qty} used={l.used} returned={l.returned} />
-                    {l.remaining > 0 && (hasUsage || hasReturns) && (
+                    {l.remaining > 0 && !isAdmin && (hasUsage || hasReturns) && (
                       <div className="mt-1.5 flex gap-1.5">
                         {hasUsage && (
                           <Button size="xs" variant="outline" onClick={() => setDialog({ mode: "usage", assignmentId: a.id, itemId: l.itemId })}>

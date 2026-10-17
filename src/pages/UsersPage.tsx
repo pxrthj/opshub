@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertTitle } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
-import { Pencil, Search, UserPlus, Users, AlertCircle } from "lucide-react"
+import { Info, Pencil, Search, UserPlus, Users, AlertCircle } from "lucide-react"
 import { api } from "@/api"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -35,6 +35,19 @@ export function UsersPage() {
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  const adminSitesList = useMemo(
+    () => Object.entries(user?.roles ?? {}).filter(([, r]) => r === "Admin").map(([s]) => s),
+    [user],
+  )
+  const isSuperAdmin = useMemo(
+    () => sites.length > 0 && sites.every((s) => adminSitesList.includes(s.config.siteId)),
+    [sites, adminSitesList],
+  )
+  const visibleSites = useMemo(
+    () => (isSuperAdmin ? sites : sites.filter((s) => adminSitesList.includes(s.config.siteId))),
+    [sites, isSuperAdmin, adminSitesList],
+  )
+
   const filtered = useMemo(
     () =>
       (users ?? []).filter((u) =>
@@ -49,7 +62,11 @@ export function UsersPage() {
 
   function openNew() {
     setFormError(null)
-    setDraft({ name: "", email: "", title: "", password: "", roles: {} })
+    const initialRoles: Record<string, Role | null> = {}
+    if (visibleSites.length > 0) {
+      initialRoles[visibleSites[0].config.siteId] = "Member"
+    }
+    setDraft({ name: "", email: "", title: "", password: "", roles: initialRoles })
   }
   function openEdit(u: PublicUser) {
     setFormError(null)
@@ -87,7 +104,13 @@ export function UsersPage() {
     <div>
       <PageHeader
         title="People"
-        description="Everyone who can sign in, and what they can do in each office."
+        description={
+          isSuperAdmin
+            ? "Platform Administrator view: Everyone across the company and their assigned office roles."
+            : visibleSites.length === 1
+              ? `Site Admin view: People and roles for ${visibleSites[0]?.config.name}.`
+              : "Site Admin view: People and roles in your respective offices."
+        }
         icon={<Users />}
         actions={
           <Button onClick={openNew}>
@@ -95,6 +118,16 @@ export function UsersPage() {
           </Button>
         }
       />
+
+      {!isSuperAdmin && (
+        <Alert className="mb-4 border-primary/20 bg-primary/5">
+          <Info className="text-primary" />
+          <AlertDescription>
+            <span className="font-semibold text-foreground">Site Admin Isolation:</span> You are viewing and managing team members and roles strictly for your administered site ({visibleSites.map((s) => s.config.name).join(", ")}).
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-sm">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -113,7 +146,7 @@ export function UsersPage() {
               <TableRow>
                 <TableHead className="pl-4">Person</TableHead>
                 <TableHead>Job</TableHead>
-                {sites.map((s) => (
+                {visibleSites.map((s) => (
                   <TableHead key={s.config.siteId}>
                     {s.config.name}
                   </TableHead>
@@ -131,7 +164,7 @@ export function UsersPage() {
                     <div className="text-xs text-muted-foreground">{u.email}</div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.title}</TableCell>
-                  {sites.map((s) => {
+                  {visibleSites.map((s) => {
                     const r = u.roles[s.config.siteId]
                     return (
                       <TableCell key={s.config.siteId}>
@@ -161,7 +194,11 @@ export function UsersPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{draft?.id ? "Change this person" : "Add a person"}</DialogTitle>
-            <DialogDescription>Choose what they can do in each office.</DialogDescription>
+            <DialogDescription>
+              {isSuperAdmin
+                ? "Choose what they can do in each office."
+                : `Assign their role for ${visibleSites.map((s) => s.config.name).join(", ")}.`}
+            </DialogDescription>
           </DialogHeader>
           {draft && (
             <div className="grid gap-4">
@@ -185,7 +222,7 @@ export function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>What they can do in each office</Label>
-                {sites.map((s) => {
+                {visibleSites.map((s) => {
                   const id = s.config.siteId
                   const editable = adminOn(id)
                   return (
@@ -213,11 +250,11 @@ export function UsersPage() {
                 })}
               </div>
               {formError && (
-            <Alert variant="destructive">
-              <AlertCircle />
-              <AlertTitle>{formError}</AlertTitle>
-            </Alert>
-          )}
+                <Alert variant="destructive">
+                  <AlertCircle />
+                  <AlertTitle>{formError}</AlertTitle>
+                </Alert>
+              )}
             </div>
           )}
           <DialogFooter>

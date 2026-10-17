@@ -31,13 +31,21 @@ function todosFor(sites: SiteSummary[]): Todo[] {
   for (const { config, stats, role } of sites) {
     const has = (m: string) => config.modules.includes(m as never)
     const base = `/s/${config.slug}`
-    if (has("approval") && roleAtLeast(role, "Manager") && stats.pendingRequests > 0)
+    if (has("approval") && role === "Manager" && stats.pendingRequests > 0)
       out.push({
         key: `${config.siteId}-approve`,
         icon: ClipboardList,
         text: `${stats.pendingRequests} request${stats.pendingRequests > 1 ? "s" : ""} waiting for you to decide in ${config.name}`,
         action: "Decide",
         to: `${base}/approvals`,
+      })
+    if (has("approval") && role === "Admin" && stats.pendingRequests > 0)
+      out.push({
+        key: `${config.siteId}-approve-admin`,
+        icon: ClipboardList,
+        text: `${stats.pendingRequests} request${stats.pendingRequests > 1 ? "s" : ""} flowing through ${config.name}`,
+        action: "Oversee flow",
+        to: `${base}/requests`,
       })
     if (has("inventory") && !config.workflow.stockSourceSiteId && roleAtLeast(role, "Manager") && stats.lowStock > 0)
       out.push({
@@ -47,14 +55,25 @@ function todosFor(sites: SiteSummary[]): Todo[] {
         action: "View stock",
         to: `${base}/inventory`,
       })
-    if (has("pcb-repair") && roleAtLeast(role, "Member") && stats.openRepairs > 0)
-      out.push({
-        key: `${config.siteId}-repairs`,
-        icon: Wrench,
-        text: `${stats.openRepairs} meter${stats.openRepairs > 1 ? "s" : ""} being repaired in ${config.name}`,
-        action: "View repairs",
-        to: `${base}/repairs`,
-      })
+    if (has("pcb-repair") && stats.openRepairs > 0) {
+      if (role === "Admin") {
+        out.push({
+          key: `${config.siteId}-repairs-admin`,
+          icon: Wrench,
+          text: `${stats.openRepairs} meter${stats.openRepairs > 1 ? "s" : ""} undergoing repair in ${config.name}`,
+          action: "Oversee repairs",
+          to: `${base}/repairs`,
+        })
+      } else if (roleAtLeast(role, "Member")) {
+        out.push({
+          key: `${config.siteId}-repairs`,
+          icon: Wrench,
+          text: `${stats.openRepairs} meter${stats.openRepairs > 1 ? "s" : ""} being repaired in ${config.name}`,
+          action: "View repairs",
+          to: `${base}/repairs`,
+        })
+      }
+    }
   }
   return out
 }
