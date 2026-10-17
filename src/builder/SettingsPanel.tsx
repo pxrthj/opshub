@@ -19,7 +19,7 @@ const OWN = "__own__"
 function Section({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) {
   return (
     <div className="space-y-2.5">
-      <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+      <p className="flex items-center gap-1.5 text-sm font-medium">
         {icon}
         {title}
       </p>
@@ -43,7 +43,7 @@ function WorkflowControl({
   const set = (v: WorkflowSettings[typeof k]) => setConfig({ ...config, workflow: { ...config.workflow, [k]: v } })
   const value = config.workflow[k]
   return (
-    <div className="rounded-lg border bg-white p-2.5">
+    <div className="rounded-lg border bg-card p-2.5">
       {typeof value === "boolean" ? (
         <Label className="cursor-pointer items-start justify-between gap-3 leading-normal">
           <span className="space-y-0.5">
@@ -60,23 +60,23 @@ function WorkflowControl({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={OWN}>This unit's own store</SelectItem>
+              <SelectItem value={OWN}>This office's own store</SelectItem>
               {sites
                 .filter((s) => s.config.siteId !== config.siteId)
                 .map((s) => (
                   <SelectItem key={s.config.siteId} value={s.config.siteId}>
-                    Linked: {s.config.name}
+                    Take from {s.config.name}
                   </SelectItem>
                 ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-slate-500">{meta.help}</p>
+          <p className="text-xs text-muted-foreground">{meta.help}</p>
         </div>
       ) : (
         <div className="space-y-1.5">
           <Label className="text-sm">{meta.label}</Label>
           <Input type="number" min={1} value={String(value)} onChange={(e) => set(Math.max(1, Number(e.target.value) || 1))} />
-          <p className="text-xs text-slate-500">{meta.help}</p>
+          <p className="text-xs text-muted-foreground">{meta.help}</p>
         </div>
       )}
     </div>
@@ -95,7 +95,6 @@ export function SettingsPanel({
   canvasEdges = [],
   onConnectNodes,
   onDisconnectEdge,
-  onStartWire,
 }: {
   config: SiteConfig
   setConfig: (c: SiteConfig) => void
@@ -108,7 +107,6 @@ export function SettingsPanel({
   canvasEdges?: CanvasEdge[]
   onConnectNodes?: (sourceId: string, targetId: string) => void
   onDisconnectEdge?: (edgeId: string) => void
-  onStartWire?: (sourceId: string) => void
 }) {
   if (node) {
     const def = getModuleDef(node.moduleId)
@@ -131,120 +129,67 @@ export function SettingsPanel({
             <def.icon className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-slate-900">{def.name}</p>
-            <p className="text-xs text-slate-500">{def.description}</p>
+            <p className="font-semibold text-foreground">{def.name}</p>
+            <p className="text-xs text-muted-foreground">{def.description}</p>
           </div>
-          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close module settings">
+          <Button size="icon-sm" variant="ghost" onClick={onClose} aria-label="Close">
             <X />
           </Button>
         </div>
         <Section title="Connections">
-          <dl className="grid grid-cols-[70px_1fr] gap-1 text-xs">
-            <dt className="text-slate-500">Requires</dt>
-            <dd>{def.requires.length ? def.requires.map(requirementLabel).join(" + ") : "Nothing — starting module"}</dd>
-            <dt className="text-slate-500">Inputs</dt>
-            <dd>{def.inputs.map((p) => PORT_LABELS[p]).join(", ") || "—"}</dd>
-            <dt className="text-slate-500">Outputs</dt>
-            <dd>{def.outputs.map((p) => PORT_LABELS[p]).join(", ") || "—"}</dd>
-            <dt className="text-slate-500">Page</dt>
-            <dd>{def.page ? `${def.page.label} (/${def.page.path}) · ${def.page.minRole}+` : "No page"}</dd>
+          <dl className="grid grid-cols-[84px_1fr] gap-1 text-xs">
+            <dt className="text-muted-foreground">Needs first</dt>
+            <dd>{def.requires.length ? def.requires.map(requirementLabel).join(" + ") : "Nothing"}</dd>
+            <dt className="text-muted-foreground">Receives</dt>
+            <dd>{def.inputs.map((p) => PORT_LABELS[p]).join(", ") || "Nothing"}</dd>
+            <dt className="text-muted-foreground">Passes on</dt>
+            <dd>{def.outputs.map((p) => PORT_LABELS[p]).join(", ") || "Nothing"}</dd>
+            <dt className="text-muted-foreground">Menu item</dt>
+            <dd>{def.page ? `${def.page.label} (${def.page.minRole} and above)` : "None"}</dd>
           </dl>
 
-          {/* Connected Wires */}
           {(incomingEdges.length > 0 || outgoingEdges.length > 0) && (
-            <div className="mt-2 space-y-1.5 rounded-lg border bg-white p-2">
-              <p className="text-[11px] font-semibold text-slate-600">Active Wires</p>
-              {incomingEdges.map((e) => {
-                const src = nodeMap.get(e.source)
-                const srcDef = src ? getModuleDef(src.moduleId) : null
-                return (
-                  <div key={e.id} className="flex items-center justify-between gap-1 text-xs text-slate-700 bg-slate-50 px-2 py-1 rounded">
-                    <span className="truncate">⬅ {srcDef?.name ?? "Source"}</span>
-                    {onDisconnectEdge && (
-                      <button
-                        type="button"
-                        onClick={() => onDisconnectEdge(e.id)}
-                        className="text-red-500 hover:text-red-700 text-[10px] font-medium px-1 rounded hover:bg-red-50"
-                        title="Disconnect wire"
-                      >
-                        Disconnect
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-              {outgoingEdges.map((e) => {
-                const tgt = nodeMap.get(e.target)
-                const tgtDef = tgt ? getModuleDef(tgt.moduleId) : null
-                return (
-                  <div key={e.id} className="flex items-center justify-between gap-1 text-xs text-slate-700 bg-slate-50 px-2 py-1 rounded">
-                    <span className="truncate">➔ {tgtDef?.name ?? "Target"}</span>
-                    {onDisconnectEdge && (
-                      <button
-                        type="button"
-                        onClick={() => onDisconnectEdge(e.id)}
-                        className="text-red-500 hover:text-red-700 text-[10px] font-medium px-1 rounded hover:bg-red-50"
-                        title="Disconnect wire"
-                      >
-                        Disconnect
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
+            <div className="space-y-1.5 rounded-lg border bg-card p-2">
+              <p className="text-xs font-medium">Linked to</p>
+              {[...incomingEdges.map((e) => ({ e, other: nodeMap.get(e.source), label: "From" })), ...outgoingEdges.map((e) => ({ e, other: nodeMap.get(e.target), label: "To" }))].map(({ e, other, label }) => (
+                <div key={e.id} className="flex items-center justify-between gap-2 rounded bg-muted px-2 py-1 text-xs">
+                  <span className="truncate">
+                    {label} {other ? getModuleDef(other.moduleId).name : "another feature"}
+                  </span>
+                  {onDisconnectEdge && (
+                    <Button type="button" variant="ghost" size="xs" className="text-destructive" onClick={() => onDisconnectEdge(e.id)}>
+                      Unlink
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Quick Connect / Wire Dropdown */}
-          {def.outputs.length > 0 && (
-            <div className="mt-2 space-y-1.5 rounded-lg border border-sky-100 bg-sky-50/60 p-2.5">
-              <p className="text-[11px] font-semibold text-sky-900 flex items-center justify-between">
-                <span>Quick Wire to Block</span>
-                {onStartWire && (
-                  <button
-                    type="button"
-                    onClick={() => onStartWire(node.id)}
-                    className="text-[10px] font-medium text-amber-700 hover:underline flex items-center gap-0.5"
-                  >
-                    ⚡ Wire Mode
-                  </button>
-                )}
-              </p>
-              {availableTargets.length === 0 ? (
-                <p className="text-[11px] text-slate-500">No other blocks with input ports on the board.</p>
-              ) : (
-                <div className="space-y-1">
-                  <Select
-                    value=""
-                    onValueChange={(tgtId) => {
-                      if (tgtId && onConnectNodes) {
-                        onConnectNodes(node.id, tgtId)
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-8 bg-white text-xs">
-                      <SelectValue placeholder="Choose block to wire..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTargets.map((tgt) => {
-                        const tDef = getModuleDef(tgt.moduleId)
-                        const alreadyConnected = outgoingEdges.some((e) => e.target === tgt.id)
-                        return (
-                          <SelectItem key={tgt.id} value={tgt.id} disabled={alreadyConnected}>
-                            {tDef.name} {alreadyConnected ? "(Already connected)" : ""}
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[10px] text-slate-500">Pick a module to wire directly without mouse dragging.</p>
-                </div>
-              )}
+          {def.outputs.length > 0 && availableTargets.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Link this to another feature</Label>
+              <Select value="" onValueChange={(tgtId) => tgtId && onConnectNodes?.(node.id, tgtId)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a feature…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTargets.map((tgt) => {
+                    const already = outgoingEdges.some((e) => e.target === tgt.id)
+                    return (
+                      <SelectItem key={tgt.id} value={tgt.id} disabled={already}>
+                        {getModuleDef(tgt.moduleId).name}
+                        {already ? " (already linked)" : ""}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
           {nodeIssues.length ? (
-            <div className="space-y-1 rounded-lg bg-red-50 p-2.5 text-xs text-red-700 ring-1 ring-red-200">
+            <div className="space-y-1 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">
               {nodeIssues.map((i) => (
                 <p key={i.message} className="flex gap-1.5">
                   <AlertTriangle className="mt-px size-3.5 shrink-0" />
@@ -254,25 +199,25 @@ export function SettingsPanel({
             </div>
           ) : (
             <p className="flex items-center gap-1.5 text-xs text-emerald-700">
-              <CheckCircle2 className="size-3.5" /> All requirements connected
+              <CheckCircle2 className="size-3.5" /> Everything this needs is linked
             </p>
           )}
         </Section>
         {def.settings.length > 0 && (
-          <Section title="Workflow options" icon={<Settings2 className="size-3.5" />}>
+          <Section title="Options" icon={<Settings2 className="size-4" />}>
             {def.settings.map((k) => (
               <WorkflowControl key={k} k={k} config={config} setConfig={setConfig} sites={sites} />
             ))}
           </Section>
         )}
         {hasFields && (
-          <Section title={`Fields (${fields.length})`}>
+          <Section title={`Form fields (${fields.length})`}>
             <FieldEditor fields={fields} onChange={(next) => setConfig({ ...config, fields: { ...config.fields, [node.moduleId]: next } })} />
           </Section>
         )}
         <Separator />
         <Button variant="destructive" className="w-full" onClick={() => onRemoveNode(node.id)}>
-          <Trash2 /> Remove from board
+          <Trash2 /> Remove from this office
         </Button>
       </div>
     )
@@ -290,10 +235,10 @@ export function SettingsPanel({
   return (
     <div className="space-y-5 p-4">
       <div>
-        <p className="font-semibold text-slate-900">Office settings</p>
-        <p className="text-xs text-slate-500">Click a block on the board to change it.</p>
+        <p className="font-semibold text-foreground">Office settings</p>
+        <p className="text-xs text-muted-foreground">Click a box on the board to change it.</p>
       </div>
-      <Section title="Identity">
+      <Section title="Name">
         <div className="space-y-1.5">
           <Label>Office name</Label>
           <Input value={config.name} onChange={(e) => setConfig({ ...config, name: e.target.value })} />
@@ -302,9 +247,9 @@ export function SettingsPanel({
           <Label>Description</Label>
           <Textarea rows={2} value={config.description} onChange={(e) => setConfig({ ...config, description: e.target.value })} />
         </div>
-        <p className="text-xs text-muted-foreground">Address: /s/{config.slug}</p>
+        <p className="text-xs text-muted-foreground">Web address: /s/{config.slug}</p>
       </Section>
-      <Section title="Theme" icon={<Palette className="size-3.5" />}>
+      <Section title="Look" icon={<Palette className="size-4" />}>
         <div className="space-y-2">
           <Label>Main colour</Label>
           <ToggleGroup
@@ -330,7 +275,7 @@ export function SettingsPanel({
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Sidebar style</Label>
+          <Label>Menu style</Label>
           <ToggleGroup type="single" variant="outline" size="sm" value={t.sidebar} onValueChange={(v) => v && setTheme({ sidebar: v as SiteConfig["theme"]["sidebar"] })} className="w-full">
             {(["solid", "tinted", "light"] as const).map((st) => (
               <ToggleGroupItem key={st} value={st} className="flex-1 capitalize">
@@ -340,7 +285,7 @@ export function SettingsPanel({
           </ToggleGroup>
         </div>
         <div className="space-y-1.5">
-          <Label>Corner roundness</Label>
+          <Label>Rounded corners</Label>
           <Slider min={0} max={1.2} step={0.05} value={[t.radius]} onValueChange={([v]) => setTheme({ radius: v })} />
         </div>
         <div className="overflow-hidden rounded-lg border" style={{ borderRadius: `${t.radius}rem` }}>
@@ -354,8 +299,8 @@ export function SettingsPanel({
               ))}
             </div>
             <div className="flex-1 space-y-1.5 p-2" style={{ background: t.background }}>
-              <div className="h-2 w-16 rounded bg-slate-300" />
-              <div className="h-8 rounded border bg-white" style={{ borderRadius: `${t.radius * 0.8}rem` }} />
+              <div className="h-2 w-16 rounded bg-muted-foreground/30" />
+              <div className="h-8 rounded border bg-card" style={{ borderRadius: `${t.radius * 0.8}rem` }} />
               <div className="h-5 w-14 rounded text-xs leading-5 font-semibold text-white" style={{ background: t.primary, borderRadius: `${t.radius * 0.6}rem`, textAlign: "center" }}>
                 Button
               </div>
@@ -363,13 +308,13 @@ export function SettingsPanel({
           </div>
         </div>
       </Section>
-      <Section title="Validation">
+      <Section title="Ready to publish?">
         {issues.length === 0 ? (
           <p className="flex items-center gap-1.5 text-xs text-emerald-700">
-            <CheckCircle2 className="size-3.5" /> Ready to publish.
+            <CheckCircle2 className="size-3.5" /> Yes, everything is in place.
           </p>
         ) : (
-          <div className="space-y-1 rounded-lg bg-red-50 p-2.5 text-xs text-red-700 ring-1 ring-red-200">
+          <div className="space-y-1 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">
             {issues.map((i) => (
               <p key={i.nodeId + i.message} className="flex gap-1.5">
                 <AlertTriangle className="mt-px size-3.5 shrink-0" />

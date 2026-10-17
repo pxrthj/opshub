@@ -1,158 +1,113 @@
-# OpsHub — one platform, many business sites
+# OpsHub (Plexus) — one app, many offices
 
-Frontend-only clickable prototype built for a hackathon. One codebase runs several business **sites**
-for the fictional utility **MahaPower Utility (Demo)**. An Admin builds each site by dragging modules
-onto a canvas; every site has its own theme, pages, workflow and data.
+A clickable prototype for a hackathon. One codebase runs several **offices** (sites) for a made-up business
+group. Each office has its own colours, menu, pages and data, and all of them are drawn by the same code from a
+JSON setup. An Admin sets an office up by dragging features onto a board.
 
-| Unit | URL | Theme | Live modules (v1) |
+| Office | Address | Look | Features switched on |
 |---|---|---|---|
-| Central Stores | `/s/central-stores` | deep blue | Inventory → Analytics, Reports |
-| Service Centre | `/s/service-centre` | orange | Request → Approval → PCB Repair → Returns |
-| Distribution | `/s/distribution` | green | Request → Approval → Material Assignment (+ linked Inventory) → My Materials, Consumption |
+| Central Stores | `/s/central-stores` | blue | Stock, Charts, Excel files |
+| Service Centre | `/s/service-centre` | orange | Requests, Approvals, Meter repairs, Giving back |
+| Distribution | `/s/distribution` | green | Requests, Approvals, Giving out, My items, Usage |
 
-There is **no backend**. All data is mock data in the browser (React state + `localStorage`, key `opshub.db.v3`),
-so it survives a refresh. Use **user menu → Reset data** to restore the seed.
+There is **no backend** in this folder. Data lives in the browser (`localStorage`, key `opshub.db.v7`) and survives a
+refresh. Use **your name (top right) → Start over with sample data** to restore it. The real backend version of this
+app lives in the separate `plexus` folder.
 
-## How to run
+## Run it
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
 npm run build    # type-check + production build
+npm run lint
 ```
 
-Stack: React 19 + Vite + TypeScript, Tailwind CSS v4 + shadcn/ui, React Router, React Flow (`@xyflow/react`),
-Recharts, ExcelJS (in-browser), lucide-react. State is React Context + `useState` only.
+Stack: React 19, Vite, TypeScript, Tailwind 4 + shadcn/ui, React Router, React Flow, Recharts, ExcelJS.
 
-## Sample accounts (also on the login page — click a name to sign in)
-
-Every office has one login for each level. **All passwords are `demo123`.**
+## Sample people (click a name on the sign-in page). Password for everyone: `demo123`
 
 | Office | Admin | Manager | Member |
 |---|---|---|---|
-| Central Stores (Tier 1) | stores.admin@plexus.demo (Anil) | stores.manager@plexus.demo (Meena) | stores.member@plexus.demo (Pooja) |
-| Distribution (Tier 2) | dist.admin@plexus.demo (Priya) | dist.manager@plexus.demo (Rahul) | dist.member@plexus.demo (Sunil) |
-| Service Centre (Tier 3) | service.admin@plexus.demo (Kavita) | service.manager@plexus.demo (Anjali) | service.member@plexus.demo (Vikas) |
+| Central Stores | stores.admin | stores.manager | stores.member |
+| Distribution | dist.admin | dist.manager | dist.member |
+| Service Centre | service.admin | service.manager | service.member |
 
-People who work across offices:
+Also: `admin@plexus.demo` is an Admin in every office; `ganesh@plexus.demo` and `logistics@plexus.demo` work in two
+offices each. (All addresses end in `@plexus.demo`.)
 
-| Email | Name | Access |
-|---|---|---|
-| admin@plexus.demo | Aarti Deshmukh | Admin on all 3 offices (sees Goods Movement) |
-| ganesh@plexus.demo | Ganesh More | Member on Distribution + Service Centre |
-| logistics@plexus.demo | Suresh Pawar | Member on Central Stores + Distribution |
+Roles, lowest to highest: **Public, Member, Manager, Admin**. Roles are per office. No role in an office means no access.
 
-Sign-in also accepts the same names with `@opshub.demo`.
+- **Member**: asks for things, writes down what was used, gives items back.
+- **Manager**: says yes or no to requests, changes stock, downloads Excel.
+- **Admin**: also edits offices, manages people, uploads Excel.
 
-- **Member** does the work: asks for material, records usage, logs repairs.
-- **Manager** approves requests, edits stock and downloads Excel.
-- **Admin** also uses the Builder, manages users and uploads Excel.
+## Screens, in plain words
 
-Roles: Public < Member < Manager < Admin. Roles are **per office**; no role in an office = no access to it.
+| Menu name | What it is |
+|---|---|
+| Home | Your to-do list and one card per office |
+| Stock trail (Admins) | Follow each request from asked to used or given back; download to Excel |
+| Features (Admins) | The list of everything an office can switch on |
+| Edit offices (Admins) | The board where you add features, link them, preview and make a version live |
+| People (Admins) | Who can sign in and what they can do in each office |
+
+Inside an office: Overview, Stock, Requests, Decide on requests, Give out, My items, What was used, Giving back,
+Meter repairs, Charts, Excel files, People (only what is switched on and allowed for you is shown).
 
 ## Demo script
 
-1. **Log in as `dist.admin`.** The home page shows your office. Open **Distribution**: green theme, its own menu and data. Log out and sign in as `service.admin` and then `stores.admin` to see the other offices — different colours, menus, pages and data, all drawn by the same renderer.
-2. **Builder** (as `dist.admin` → *Change this office*, or `/builder/ds-003`):
-   - Drag **Return Management** onto the board. It turns red (something it needs is missing) and *Save/Publish are blocked*.
-   - Try connecting *Inventory → Return Management*: blocked with a message explaining why.
-   - Connect *Material Assignment → Return Management* (right dot to left dot).
-   - **Preview** → the draft appears under a "Preview mode" banner with a new **Returns** menu.
-   - **Back to builder → Publish** → v2 is live. **History → Rollback** on v1 removes Returns again (skip the rollback if you want to try returns in step 4).
-3. **Request → approve → stock:**
-   - `dist.member` → Requests → *New request*: 20 × Single Phase Smart Meter.
-   - `dist.manager` → Approve requests → *Approve & hand over*. Central Stores stock drops **500 → 480**, and the lineman now has the material under **My material**.
-   - Ask for 900 meters and approve it: "Insufficient stock — nothing was changed". Stock and the request stay as they were.
-4. **Use and return:** as `dist.member` → My material → *Record usage* 15, then *Return unused* 5.
-5. **Repairs:** `service.member` asks for a repair → `service.manager` approves → `service.member` sets the job to **Fixed** and returns it → Central Stores stock goes up by 1.
-6. **Excel:** `stores.manager` can download from Excel reports; `stores.member` sees the buttons disabled with a tooltip; `stores.admin` can also upload a stock sheet (with a preview first).
-7. **Isolation:** sign in as `dist.member`. The switcher shows only Distribution. `/s/central-stores`, `/builder/ds-003` and `/s/distribution/approvals` all show **Access denied**.
+1. Sign in as `admin@plexus.demo`. The switcher at the top lists all three offices. Open each one: different look, menu and data.
+2. **Edit offices → Distribution.** Drag **Stock Returns** onto the board. It shows a red "needs" message until you link it after **Giving Out Stock** (use *Link this to another feature* in the right-hand panel, or drag from one box to the other).
+   Press **Preview**, then **Make live**. A **Giving back** page now appears. **History → Go back to this** on version 1 removes it again.
+3. **Ask, send on, decide, give out** (see "How offices talk to each other" below).
+   `dist.member` asks for 20 of an item. Only `dist.manager` sees it. `dist.manager` opens *Approvals* and clicks **Send to Central Stores**. Now `stores.manager` sees it under *Approvals* and clicks **Approve and give out**. Central Stores stock drops by 20 and the member sees the items under *My items*. Asking for more than is in stock fails and nothing changes.
+4. **Use and give back.** As `dist.member`, write down 15 used and give 5 back.
+5. **Repairs.** `service.member` sends in a meter, `service.manager` approves, `service.member` marks it Fixed and gives it back. Stock goes up by one.
+6. **Excel.** `stores.manager` can download. `stores.member` has the buttons switched off. `stores.admin` can also load a stock list (with a preview first).
+7. **Privacy between offices.** Sign in as `dist.member`. Only Distribution is listed, and the other offices' addresses say "You can't open this".
 
-## About the sample data
+## How offices talk to each other
 
-A 3-tier supply chain: Central Stores (25 stock items) supplies Distribution (its own field stock), which works alongside the Service Centre. There are 13 Distribution and 5 Service Centre requests across every status, some handed-out material with usage, and 8 repair jobs. Admins can follow every item end to end on the **Goods Movement** page.
+Offices get stock from each other in a chain: **Central Stores → Distribution → Service Centre** (the "Take stock from" setting of each office).
+Requests follow one rule: **members never contact another office. Managers do.**
 
-## Architecture
+1. A member asks. The request goes to **their own office's managers only**.
+2. If the stock lives in another office, their manager clicks **Send to (that office)**, with an optional message. Until then the other office cannot see the request at all.
+3. A manager of the supplying office decides. Approving gives the items out and lowers *that* office's stock in one step. If there is not enough, nothing changes.
+4. The member sees the status move: *With your manager → With Central Stores → Given out*.
+
+Details: their own manager can also **turn it down** before sending it on; after it is sent on only the supplying office can decide; an office that is not the asker or the supplier cannot see or change the request. Repairs and requests for an office's own stock never leave the office.
+
+## How it is built
 
 ```
 src/
-  api/          mock REST API (router, db, session, transactions, routes/*)
-  modules/      registry.ts (the 13 modules) + definitions.ts (metadata) + pages/* (module pages)
-  renderer/     SiteRenderer (the ONE generic renderer), SiteSidebar, DynamicForm
-  builder/      React Flow canvas, custom node, settings panel, field editor, presets, deploy history
-  pages/        hub-level pages: login, hub, users, module catalogue, builder index, 404
-  components/   shared UI (top bar, site switcher, dialogs, badges) + components/ui (shadcn)
+  api/          pretend server in the browser: router, db, session, transactions, routes/*
+  modules/      registry.ts (the 13 features) + definitions.ts (names, needs, fields) + pages/*
+  renderer/     SiteRenderer (the one generic page builder), SiteSidebar, DynamicForm
+  builder/      React Flow board, box component, side panel, field editor, templates, history page
+  pages/        hub pages: sign-in, home, people, features list, edit-offices list, stock trail, 404
+  components/   shared pieces (top bar, notification bell, dialogs, badges) and components/ui (shadcn)
   context/      AuthContext, HubContext, SiteContext
-  data/         seed.ts
-  lib/          types, theme → CSS vars, safe formula parser, field validation, site-config helpers, Excel
+  data/         seed.ts (sample data)
+  lib/          types, theme → CSS variables, safe formula parser, field checks, format helpers, Excel
 ```
 
-### 1. Config-driven sites
-Every site is one JSON object: `{ siteId, slug, name, theme, modules, pages, roles, fields, workflow, canvas }`.
-`SiteRenderer` draws any site from its config: `theme` → CSS variables, `pages` → sidebar + routes, each page's
-`moduleId` → component from `modules/registry.ts`. There is no per-site code. `pages` is derived from `modules`
-(`lib/siteConfig.ts › derivePages`), so adding a module to a config makes its menu item and page appear.
+- **Config-driven.** An office is `{ siteId, slug, name, theme, modules, pages, roles, fields, workflow, canvas }`.
+  `SiteRenderer` turns that into the theme, the menu and the pages. The board is the source of truth: saving derives the
+  features, pages and default fields from the boxes on it.
+- **Every call is checked.** For `/api/:siteId/*` the pretend server checks, in order: signed in, office exists, the person
+  has a role in *that* office (this is the office-to-office isolation), role is high enough, feature is switched on.
+- **All or nothing.** Giving out stock checks every line first, then lowers stock and creates the record in one step. If
+  anything is short, nothing changes (`api/transactions.ts`, with the matching SQL in a comment).
+- **Safe formulas.** Calculated fields (like `qty * unitPrice`) go through a small parser in `lib/formula.ts`. No `eval`.
+- **Look.** The Hub uses plain shadcn neutral colours. Each office overrides colours, corner roundness and menu style from
+  its own theme. Only three status colours carry meaning: amber = waiting, green = good, red = a problem.
+- **Versions.** Making a version live saves a numbered snapshot. History lists them and can go back to any one.
 
-**The canvas is the source of truth**: on save/publish, `buildConfigFromCanvas` derives `modules` (+ pages, roles,
-default fields) from the nodes on the canvas.
+## Limits of this prototype
 
-### 2. Mock API (`src/api`)
-All data access goes through async functions that mimic REST routes and are dispatched by a tiny Express-style router
-with a 200 ms artificial delay:
-
-```ts
-api.get(siteId, "requests")                    // GET    /api/:siteId/requests
-api.post(siteId, "requests", body)             // POST   /api/:siteId/requests
-api.post(siteId, `requests/${id}/approve`)     // POST   /api/:siteId/requests/:id/approve
-api.put(siteId, `inventory/${id}`, body)       // PUT    /api/:siteId/inventory/:id
-api.del(siteId, `inventory/${id}`)             // DELETE /api/:siteId/inventory/:id
-```
-
-For every `/api/:siteId/*` route the router checks, before the handler runs:
-1. the session user exists (401), 2. the site exists (404), 3. **the user holds a role on that siteId** (403 — site_id isolation),
-4. the role is ≥ the route's `minRole` (403), 5. the route's module is enabled on that site (403).
-Data is stored keyed by `siteId` (`db.data[siteId].inventory`, …). Every write runs inside `withTransaction`
-(work on a copy, commit only if nothing threw).
-
-**Mapping to a future Express backend** — each `register({ method, path, minRole, module, handler })` becomes:
-
-```ts
-app[method](path, requireAuth, requireSiteRole(minRole), requireModule(module), handler)
-// e.g. app.post("/api/:siteId/requests/:id/approve", requireAuth, requireSiteRole("Manager"), requireModule("approval"), approve)
-```
-
-and `dispatch()` in `src/api/router.ts` is replaced by `fetch(url, { method, body, credentials: "include" })`.
-The UI does not change. Hub routes: `/api/auth/login|logout|me`, `/api/hub/sites|users|resolve/:key|reset`.
-
-### 3. All-or-nothing material assignment
-`api/transactions.ts › assignMaterialTransaction` validates **every** line against stock first; if anything is short it throws
-409 and nothing is touched. Only then does it decrement stock, create the assignment and mark the request Assigned.
-It is commented with the exact Postgres `BEGIN … SELECT … FOR UPDATE … COMMIT` it maps to.
-
-Distribution has no store of its own: its **Inventory** node is configured with *Stock source = Central Stores*
-(builder → Inventory node → Workflow options). Approvals in Distribution therefore issue from Central Stores, and
-Distribution's Inventory page is a read-only linked view. Service Centre returns repaired meters to Central Stores the same way.
-
-### 4. Themes
-`lib/theme.ts` turns `{ primary, accent, background, radius, sidebar }` into shadcn CSS variables
-(`--primary`, `--background`, `--accent`, `--radius`, `--sidebar*`, `--chart-*`) applied to `<html>` while inside a site,
-so dialogs, menus and toasts are themed too.
-
-### 5. Builder
-Palette (drag or ＋) → React Flow canvas with typed ports (`stock`, `request`, `approved`, `assignment`, …) → settings panel.
-Invalid edges are blocked with an explanatory toast; nodes whose requirements are missing or not connected upstream are red and
-block Save/Preview/Publish. Settings: per-module fields (text, number, select, date, calculated), workflow options, site name & theme.
-Calculated fields use `lib/formula.ts`, a tokenizer + recursive-descent parser supporting `+ - * /`, parentheses, numbers and field
-names only — **no `eval`/`new Function`**. Publish creates v1, v2, v3…; **Deploy History** lists versions + activity and can roll back.
-
-## The 13 modules
-
-1 Authentication & RBAC (core) · 2 User Management (core) · 3 Dashboard Shell/Nav/Forms (core) · 4 Inventory · 5 Request ·
-6 Approval (needs Request) · 7 Material Assignment (needs Approval + Inventory) · 8 Assignment Frontend (needs Material Assignment) ·
-9 Consumption Tracking (needs Material Assignment) · 10 Return Management (needs Material Assignment **or** PCB Repair) ·
-11 PCB Repair (needs Approval) · 12 Analytics Dashboard (needs Inventory) · 13 Reports with Excel (needs Inventory).
-
-## Notes / limits of the prototype
-- Passwords are compared in plain text against mock users (demo only). Session is a `localStorage` entry standing in for a cookie.
-- Responsive down to laptop width (≥1024 px); the site sidebar hides below 768 px.
-- All company names and data are fictional.
+- Passwords are plain text and the "session" is a `localStorage` entry. Demo only.
+- Works down to laptop width (1024 px); the office menu hides below 768 px.
+- All company names, people and data are made up.

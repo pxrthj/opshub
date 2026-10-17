@@ -14,7 +14,7 @@ import type { AssignmentView, MaterialRequest } from "@/lib/types"
 import { errorMessage, useAsync } from "@/lib/useAsync"
 import { formatDateTime } from "@/lib/utils"
 import { ProgressLine } from "./shared"
-import { requestSummary } from "./RequestsPage"
+import { requestSummary } from "@/lib/format"
 
 export function AssignmentsPage() {
   const { config, siteApi, changeTick, notifyChange } = useSite()
@@ -36,7 +36,7 @@ export function AssignmentsPage() {
     setBusyId(r.id)
     try {
       const a = await siteApi.post<AssignmentView>(`requests/${r.id}/assign`)
-      toast.success(`${a.code} created for ${a.assigneeName}`, { description: "Stock decremented and assignment created together." })
+      toast.success(`Items given to ${a.assigneeName}`, { description: "Stock went down at the same time." })
       setErrors((e) => ({ ...e, [r.id]: "" }))
       reload()
       reloadReq()
@@ -44,7 +44,7 @@ export function AssignmentsPage() {
     } catch (e) {
       const msg = errorMessage(e)
       setErrors((x) => ({ ...x, [r.id]: msg }))
-      toast.error(`Couldn't assign ${r.code}`, { description: msg })
+      toast.error(`We couldn't give out ${r.code}`, { description: msg })
     } finally {
       setBusyId(null)
     }
@@ -52,7 +52,7 @@ export function AssignmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Handed-out material" icon={<PackageCheck />} description="Who has what, and how much is left." />
+      <PageHeader title="Given out" icon={<PackageCheck />} description="Who was given what, and how much is left." />
 
       {awaiting.length > 0 && (
         <Card className="mb-6">
@@ -79,7 +79,7 @@ export function AssignmentsPage() {
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-xs">
           <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="bg-card pl-8" placeholder="Search person, item, code…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="bg-card pl-8" placeholder="Search by name or item" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <span className="text-sm text-muted-foreground">{list.length} assignments</span>
       </div>
@@ -87,19 +87,19 @@ export function AssignmentsPage() {
       {loading && !data ? (
         <TableSkeleton />
       ) : list.length === 0 ? (
-        <EmptyState icon={PackageCheck} title="No assignments yet" description="Material appears here once a request is approved." />
+        <EmptyState icon={PackageCheck} title="Nothing given out yet" description="Items show up here once a request is approved." />
       ) : (
         <Card className="py-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
-                <TableHead className="pl-4">Assignment</TableHead>
-                <TableHead>Issued to</TableHead>
+                <TableHead className="pl-4">Number</TableHead>
+                <TableHead>Given to</TableHead>
                 <TableHead>Item</TableHead>
-                <TableHead className="text-right">Assigned</TableHead>
+                <TableHead className="text-right">Given</TableHead>
                 <TableHead className="text-right">Used</TableHead>
-                <TableHead className="text-right">Returned</TableHead>
-                <TableHead className="text-right">Remaining</TableHead>
+                <TableHead className="text-right">Given back</TableHead>
+                <TableHead className="text-right">Left</TableHead>
                 <TableHead className="w-40">Progress</TableHead>
               </TableRow>
             </TableHeader>

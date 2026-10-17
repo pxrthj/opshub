@@ -64,7 +64,7 @@ export function DashboardPage() {
         [
           has("request") && { label: "Waiting requests", value: stats.pendingRequests, icon: ClipboardList, tone: stats.pendingRequests ? "warning" : "muted", path: canSee("approvals") ? "approvals" : "requests" },
           ownStock && { label: "Running low", value: stats.lowStock, icon: AlertTriangle, tone: stats.lowStock ? "danger" : "success", path: "inventory" },
-          has("pcb-repair") && { label: "On repair bench", value: stats.openRepairs, icon: Wrench, tone: stats.openRepairs ? "warning" : "muted", path: "repairs" },
+          has("pcb-repair") && { label: "Being repaired", value: stats.openRepairs, icon: Wrench, tone: stats.openRepairs ? "warning" : "muted", path: "repairs" },
           ownStock && { label: "Stock value", value: formatINR(stats.stockValue), icon: IndianRupee, tone: "primary", path: "inventory" },
           has("assignment") && { label: "Handed out", value: stats.assignments, icon: PackageCheck, tone: "success", path: canSee("assignments") ? "assignments" : "my-materials" },
           has("pcb-repair") && { label: "Fixed meters", value: stats.fixedRepairs, icon: CircuitBoard, tone: "success", path: "repairs" },
@@ -92,8 +92,8 @@ export function DashboardPage() {
     )
   if (inv)
     lists.push(
-      <ListCard key="low" title="Running low" to={`${basePath}/inventory`}>
-        {low.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nothing is running low.</p>}
+      <ListCard key="low" title="Almost out" to={`${basePath}/inventory`}>
+        {low.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nothing is almost out.</p>}
         {low.slice(0, 6).map((i) => (
           <div key={i.id} className="flex items-center justify-between gap-3 py-1">
             <span className="truncate text-sm">{i.name}</span>
@@ -106,14 +106,14 @@ export function DashboardPage() {
     )
   if (repairs?.length)
     lists.push(
-      <ListCard key="rep" title="Repair bench" to={`${basePath}/repairs`}>
+      <ListCard key="rep" title="Repairs" to={`${basePath}/repairs`}>
         {repairs.slice(0, 5).map((r) => (
           <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
                 <span className="font-medium">{r.meterId}</span> · {r.fault}
               </p>
-              <p className="text-xs text-muted-foreground">{r.technician || "Not assigned yet"}</p>
+              <p className="text-xs text-muted-foreground">{r.technician || "Nobody yet"}</p>
             </div>
             <StatusBadge status={r.status} />
           </div>
@@ -144,7 +144,7 @@ export function DashboardPage() {
 
       {lists.length > 0 && <div className="mt-6 grid gap-6 lg:grid-cols-2">{lists.slice(0, 2)}</div>}
 
-      {role === "Public" && <p className="mt-6 text-sm text-muted-foreground">You can view this summary only.</p>}
+      {role === "Public" && <p className="mt-6 text-sm text-muted-foreground">You can look, but not change anything.</p>}
     </div>
   )
 }

@@ -11,30 +11,12 @@ import type { FieldDef, FieldType } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const TYPES: { value: FieldType; label: string }[] = [
-  { value: "text", label: "Text" },
+  { value: "text", label: "Short text" },
   { value: "number", label: "Number" },
-  { value: "select", label: "Select" },
+  { value: "select", label: "Pick from a list" },
   { value: "date", label: "Date" },
-  { value: "calculated", label: "Calculated" },
+  { value: "calculated", label: "Worked out" },
 ]
-
-/** Formula errors for a field list — used by the builder to block saving. */
-export function fieldListErrors(fields: FieldDef[]): string[] {
-  const errs: string[] = []
-  const keys = new Set<string>()
-  for (const f of fields) {
-    if (!f.label.trim()) errs.push("Every field needs a label")
-    if (!f.key) errs.push(`"${f.label}" needs a valid name`)
-    else if (keys.has(f.key)) errs.push(`Two fields are called "${f.key}"`)
-    keys.add(f.key)
-    if (f.type === "calculated") {
-      const e = validateFormula(f.formula ?? "", numericFieldKeys(fields, f.key))
-      if (e) errs.push(`${f.label}: ${e}`)
-    }
-    if (f.type === "select" && !(f.options ?? []).length) errs.push(`${f.label}: add at least one option`)
-  }
-  return errs
-}
 
 /** Comma-separated options; edited as free text and parsed when the input loses focus. */
 function OptionsInput({ options, onCommit }: { options: string[]; onCommit: (o: string[]) => void }) {
@@ -53,7 +35,7 @@ function OptionsInput({ options, onCommit }: { options: string[]; onCommit: (o: 
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && commit()}
-      placeholder="Comma-separated options"
+      placeholder="Choices, separated by commas"
     />
   )
 }
@@ -84,9 +66,9 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
       {fields.map((f, i) => {
         const formulaErr = f.type === "calculated" ? validateFormula(f.formula ?? "", numericFieldKeys(fields, f.key)) : null
         return (
-          <div key={f.key + i} className={cn("space-y-2 rounded-lg border bg-white p-2.5", formulaErr && "border-red-300 bg-red-50/50")}>
+          <div key={f.key + i} className={cn("space-y-2 rounded-lg border bg-card p-2.5", formulaErr && "border-destructive")}>
             <div className="flex items-center gap-1.5">
-              <Input className="h-7 flex-1 text-sm" value={f.label} onChange={(e) => update(i, { label: e.target.value })} aria-label="Field label" />
+              <Input className="h-7 flex-1 text-sm" value={f.label} onChange={(e) => update(i, { label: e.target.value })} aria-label="Field name" />
               <Select value={f.type} disabled={f.builtin} onValueChange={(v) => update(i, { type: v as FieldType, ...(v === "calculated" && !f.formula ? { formula: "0" } : {}), ...(v === "select" && !f.options ? { options: ["Option A"] } : {}) })}>
                 <SelectTrigger size="sm" className="w-28">
                   <SelectValue />
@@ -100,55 +82,54 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
                 </SelectContent>
               </Select>
               {f.builtin ? (
-                <span className="flex size-7 items-center justify-center text-slate-400" title="Built-in field — can be relabelled but not removed">
+                <span className="flex size-7 items-center justify-center text-muted-foreground" title="This field is needed, so it can be renamed but not removed">
                   <Lock className="size-3.5" />
                 </span>
               ) : (
-                <Button size="icon-sm" variant="ghost" className="text-red-600" onClick={() => onChange(fields.filter((_, j) => j !== i))} aria-label={`Remove ${f.label}`}>
+                <Button size="icon-sm" variant="ghost" className="text-destructive" onClick={() => onChange(fields.filter((_, j) => j !== i))} aria-label={`Remove ${f.label}`}>
                   <Trash2 />
                 </Button>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-              <code className="rounded bg-slate-100 px-1">{f.key}</code>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               {f.type !== "calculated" && (
                 <Label className="text-xs font-normal">
-                  <Switch size="sm" checked={!!f.required} disabled={f.builtin && f.required} onCheckedChange={(v) => update(i, { required: v })} /> Required
+                  <Switch size="sm" checked={!!f.required} disabled={f.builtin && f.required} onCheckedChange={(v) => update(i, { required: v })} /> Must be filled in
                 </Label>
               )}
               <Label className="text-xs font-normal">
-                <Switch size="sm" checked={!!f.showInTable} onCheckedChange={(v) => update(i, { showInTable: v })} /> In table
+                <Switch size="sm" checked={!!f.showInTable} onCheckedChange={(v) => update(i, { showInTable: v })} /> Show in the list
               </Label>
             </div>
             {f.type === "select" && <OptionsInput options={f.options ?? []} onCommit={(options) => update(i, { options })} />}
             {f.type === "calculated" && (
               <div className="space-y-1">
                 <div className="relative">
-                  <Calculator className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-slate-400" />
+                  <Calculator className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="h-7 pl-7 text-xs"
                     value={f.formula ?? ""}
                     onChange={(e) => update(i, { formula: e.target.value })}
-                    placeholder="e.g. qty * unitPrice"
+                    placeholder="For example: qty * unitPrice"
                     aria-invalid={!!formulaErr}
                   />
                 </div>
                 {formulaErr ? (
-                  <p className="text-xs text-red-600">{formulaErr}</p>
+                  <p className="text-xs text-destructive">{formulaErr}</p>
                 ) : (
                   <p className="text-xs text-emerald-700">
-                    ✓ Valid · e.g. {numericFieldKeys(fields, f.key).filter((k) => (f.formula ?? "").includes(k)).map((k) => `${k}=${sample[k] ?? 0}`).join(", ")} →{" "}
+                    Example: {numericFieldKeys(fields, f.key).filter((k) => (f.formula ?? "").includes(k)).map((k) => `${k}=${sample[k] ?? 0}`).join(", ")} →{" "}
                     {computeFormula(f.formula, sample).toLocaleString("en-IN")}
                   </p>
                 )}
-                <p className="text-xs text-slate-400">Allowed: + − × ÷ ( ) and {numericFieldKeys(fields, f.key).join(", ") || "no numeric fields yet"}</p>
+                <p className="text-xs text-muted-foreground">You can use + − × ÷ ( ) and these fields: {numericFieldKeys(fields, f.key).join(", ") || "none yet"}</p>
               </div>
             )}
           </div>
         )
       })}
       <div className="flex items-center gap-1.5 rounded-lg border border-dashed p-2">
-        <Input className="h-7 flex-1 text-sm" placeholder="New field label" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+        <Input className="h-7 flex-1 text-sm" placeholder="Name of a new field" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
         <Select value={newType} onValueChange={(v) => setNewType(v as FieldType)}>
           <SelectTrigger size="sm" className="w-28">
             <SelectValue />
@@ -161,7 +142,7 @@ export function FieldEditor({ fields, onChange }: { fields: FieldDef[]; onChange
             ))}
           </SelectContent>
         </Select>
-        <Button size="icon-sm" onClick={add} disabled={!newLabel.trim()} aria-label="Add field">
+        <Button size="icon-sm" onClick={add} disabled={!newLabel.trim()} aria-label="Add this field">
           <Plus />
         </Button>
       </div>

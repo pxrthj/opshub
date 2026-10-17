@@ -23,7 +23,8 @@ import { roleAtLeast } from "@/lib/roles"
 import type { FieldDef, InventoryItem } from "@/lib/types"
 import { toastError, useAsync } from "@/lib/useAsync"
 import { formatINR } from "@/lib/utils"
-import { DynamicForm, formatFieldValue } from "@/renderer/DynamicForm"
+import { DynamicForm } from "@/renderer/DynamicForm"
+import { formatFieldValue } from "@/lib/format"
 
 interface InventoryResponse {
   items: InventoryItem[]
@@ -79,7 +80,7 @@ export function InventoryPage() {
 
   function validate(values: Record<string, unknown>) {
     const errs = validateValues(fields, values)
-    if (!errs.qty && values.qty !== "" && !Number.isInteger(Number(values.qty))) errs.qty = "Qty must be a whole number"
+    if (!errs.qty && values.qty !== "" && !Number.isInteger(Number(values.qty))) errs.qty = "Type a whole number, like 12"
     return errs
   }
 
@@ -92,10 +93,10 @@ export function InventoryPage() {
     try {
       if (editing.id) {
         await siteApi.put(`inventory/${editing.id}`, editing.values)
-        toast.success(`Updated ${editing.values.name}`)
+        toast.success(`${editing.values.name} was updated`)
       } else {
         await siteApi.post("inventory", editing.values)
-        toast.success(`Added ${editing.values.name}`)
+        toast.success(`${editing.values.name} was added`)
       }
       setEditing(null)
       reload()
@@ -118,7 +119,7 @@ export function InventoryPage() {
               <Link2 className="size-3.5" /> Stock held in {data?.sourceName}. View only.
             </span>
           ) : (
-            "Everything on the shelves and how many are left."
+            "Everything we have, and how many are left."
           )
         }
         actions={
@@ -135,7 +136,7 @@ export function InventoryPage() {
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Managers and Admins can add or edit stock</TooltipContent>
+              <TooltipContent>Only managers and admins can change stock</TooltipContent>
             </Tooltip>
           ) : null
         }
@@ -144,7 +145,7 @@ export function InventoryPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-xs">
           <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="bg-card pl-8" placeholder="Search items…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="bg-card pl-8" placeholder="Search for an item" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Select value={cat} onValueChange={setCat}>
           <SelectTrigger className="w-48 bg-card">
@@ -176,8 +177,8 @@ export function InventoryPage() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={Boxes}
-          title={data?.items.length ? "No items match your filters" : "No stock items yet"}
-          description={data?.items.length ? "Clear the search or category filter." : canEdit ? "Add your first item to start tracking stock." : undefined}
+          title={data?.items.length ? "Nothing matches" : "No stock yet"}
+          description={data?.items.length ? "Try a different search or category." : canEdit ? "Add your first item to start." : undefined}
           action={
             data?.items.length ? (
               <Button variant="outline" onClick={() => (setQ(""), setCat(ALL), setLowOnly(false))}>
@@ -244,7 +245,7 @@ export function InventoryPage() {
                           </TooltipContent>
                         </Tooltip>
                       ) : (
-                        <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">In stock</Badge>
+                        <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">In stock</Badge>
                       )}
                     </TableCell>
                     {(canEdit || canDelete) && (
@@ -281,8 +282,8 @@ export function InventoryPage() {
       <Dialog open={!!editing} onOpenChange={(o) => !o && !saving && setEditing(null)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{editing?.id ? "Edit item" : "Add stock item"}</DialogTitle>
-            <DialogDescription>Fields come from this site's config — Admins can add fields in the Builder.</DialogDescription>
+            <DialogTitle>{editing?.id ? "Edit item" : "Add an item"}</DialogTitle>
+            <DialogDescription>Fill in the details below. Admins can add more boxes by editing the office.</DialogDescription>
           </DialogHeader>
           {editing && (
             <DynamicForm
@@ -311,13 +312,13 @@ export function InventoryPage() {
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
         title={`Delete ${deleting?.name}?`}
-        description="This removes the item from the stock list."
-        confirmLabel="Delete item"
+        description="It will be taken off the stock list."
+        confirmLabel="Delete"
         destructive
         onConfirm={async () => {
           try {
             await siteApi.del(`inventory/${deleting!.id}`)
-            toast.success(`Deleted ${deleting!.name}`)
+            toast.success(`${deleting!.name} was deleted`)
             reload()
             notifyChange()
           } catch (e) {

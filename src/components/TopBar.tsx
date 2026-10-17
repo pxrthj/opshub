@@ -1,17 +1,7 @@
 import { useState } from "react"
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom"
+import { Link, NavLink, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import {
-  Blocks,
-  Check,
-  ChevronsUpDown,
-  LayoutGrid,
-  LogOut,
-  RotateCcw,
-  Truck,
-  Users,
-  Workflow,
-} from "lucide-react"
+import { Blocks, Check, ChevronsUpDown, LayoutGrid, LogOut, Menu, RotateCcw, Truck, Users, Workflow } from "lucide-react"
 import { api } from "@/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -27,17 +17,11 @@ import { useAuth } from "@/context/AuthContext"
 import { Separator } from "@/components/ui/separator"
 import { useHub } from "@/context/HubContext"
 import { NotificationsBell } from "@/components/NotificationsBell"
+import { useCurrentSiteKey } from "@/lib/useCurrentSiteKey"
 import { toastError } from "@/lib/useAsync"
 import { cn } from "@/lib/utils"
 import { ConfirmDialog } from "./ConfirmDialog"
 import { Logo } from "./Logo"
-
-/** Works out which site (if any) the current URL belongs to. */
-export function useCurrentSiteKey(): string | null {
-  const { pathname } = useLocation()
-  const m = pathname.match(/^\/(s|preview|builder)\/([^/]+)/)
-  return m ? decodeURIComponent(m[2]) : null
-}
 
 function initials(name: string) {
   return name
@@ -57,21 +41,21 @@ export function SiteSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-52 justify-between">
+        <Button variant="outline" className="w-36 sm:w-52 justify-between">
           <span className="flex min-w-0 items-center gap-2">
             {current ? (
-              <span className="size-3 shrink-0 rounded-full ring-2 ring-white" style={{ background: current.config.theme.primary }} />
+              <span className="size-3 shrink-0 rounded-full ring-2 ring-background" style={{ background: current.config.theme.primary }} />
             ) : (
               <LayoutGrid className="text-muted-foreground" />
             )}
             <span className="truncate text-sm">{current ? current.config.name : "Home"}</span>
           </span>
-          <ChevronsUpDown className="text-muted-foreground" />
+          <ChevronsUpDown className="text-muted-foreground shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuItem onClick={() => navigate("/")}>
-          <LayoutGrid className="text-slate-500" />
+          <LayoutGrid className="text-muted-foreground" />
           <span className="flex-1">Home</span>
           {!current && <Check className="size-4" />}
         </DropdownMenuItem>
@@ -122,13 +106,13 @@ function UserMenu() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setResetOpen(true)}>
-            <RotateCcw /> Reset data
+            <RotateCcw /> Start over with sample data
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={async () => {
               await logout()
-              toast.success("Signed out")
+              toast.success("You are signed out")
               navigate("/login")
             }}
           >
@@ -139,15 +123,15 @@ function UserMenu() {
       <ConfirmDialog
         open={resetOpen}
         onOpenChange={setResetOpen}
-        title="Reset all data?"
+        title="Start over with sample data?"
         description="Everything goes back to the starting data. This can't be undone."
-        confirmLabel="Reset"
+        confirmLabel="Start over"
         destructive
         onConfirm={async () => {
           try {
             await api.raw.post("/api/hub/reset")
             bumpData()
-            toast.success("Data reset")
+            toast.success("Sample data restored")
             navigate("/")
           } catch (e) {
             toastError(e)
@@ -171,6 +155,47 @@ export function TopBar() {
         </Link>
         <Separator orientation="vertical" className="mx-1 h-6!" />
         <SiteSwitcher />
+        {/* Mobile Navigation Dropdown */}
+        <div className="flex items-center md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Open navigation menu">
+                <Menu className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuItem asChild>
+                <Link to="/" className="flex items-center gap-2">
+                  <LayoutGrid className="size-4 text-muted-foreground" /> Home
+                </Link>
+              </DropdownMenuItem>
+              {isAnyAdmin && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link to="/movement" className="flex items-center gap-2">
+                      <Truck className="size-4 text-muted-foreground" /> Stock trail
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/modules" className="flex items-center gap-2">
+                      <Blocks className="size-4 text-muted-foreground" /> Features
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/builder" className="flex items-center gap-2">
+                      <Workflow className="size-4 text-muted-foreground" /> Edit offices
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/users" className="flex items-center gap-2">
+                      <Users className="size-4 text-muted-foreground" /> People
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <nav className="ml-2 hidden items-center gap-1 md:flex">
           <NavLink to="/" end className={link}>
             <LayoutGrid /> Home
@@ -178,16 +203,16 @@ export function TopBar() {
           {isAnyAdmin && (
             <>
               <NavLink to="/movement" className={link}>
-                <Truck className="size-4" /> Movement
+                <Truck /> Stock trail
               </NavLink>
               <NavLink to="/modules" className={link}>
-                <Blocks /> Modules
+                <Blocks /> Features
               </NavLink>
               <NavLink to="/builder" className={link}>
-                <Workflow /> Builder
+                <Workflow /> Edit offices
               </NavLink>
               <NavLink to="/users" className={link}>
-                <Users /> Users
+                <Users /> People
               </NavLink>
             </>
           )}

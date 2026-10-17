@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
 export function AccessDenied({
-  title = "Access denied",
+  title = "You can't open this",
   message,
   backTo = "/",
   backLabel = "Back to home",
@@ -17,7 +17,7 @@ export function AccessDenied({
   return (
     <Empty className="min-h-[60vh]">
       <EmptyHeader>
-        <EmptyMedia variant="icon" className="bg-red-50 text-red-600">
+        <EmptyMedia variant="icon" className="bg-destructive/10 text-destructive">
           <ShieldX />
         </EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>

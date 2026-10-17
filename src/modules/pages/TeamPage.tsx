@@ -29,7 +29,7 @@ export function TeamPage() {
     setBusy(m.user.id)
     try {
       await siteApi.put(`members/${m.user.id}`, { role })
-      toast.success(role ? `${m.user.name} is now ${role} on ${config.name}` : `Removed ${m.user.name} from ${config.name}`)
+      toast.success(role ? `${m.user.name} is now a ${role} in ${config.name}` : `${m.user.name} can no longer open ${config.name}`)
       reload()
       bumpData()
     } catch (e) {
@@ -41,7 +41,7 @@ export function TeamPage() {
 
   return (
     <div>
-      <PageHeader title="Team" icon={<Users />} description="Who can use this office." />
+      <PageHeader title="People" icon={<Users />} description="Who can open this office, and what they can do." />
       {loading && !data ? (
         <TableSkeleton />
       ) : (
@@ -49,8 +49,8 @@ export function TeamPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
-                <TableHead className="pl-4">User</TableHead>
-                <TableHead>Title</TableHead>
+                <TableHead className="pl-4">Person</TableHead>
+                <TableHead>Job</TableHead>
                 <TableHead className="w-64">Role on {config.name}</TableHead>
               </TableRow>
             </TableHeader>

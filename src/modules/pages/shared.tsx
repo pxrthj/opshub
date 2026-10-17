@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Alert, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { Spinner } from "@/components/ui/spinner"
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 export function ProgressLine({ assigned, used, returned }: { assigned: number; used: number; returned: number }) {
   // share of the material that is used up or given back
   const done = assigned ? Math.min(100, ((used + returned) / assigned) * 100) : 0
-  return <Progress value={done} className="h-2" title={`Used ${used}, returned ${returned} of ${assigned}`} />
+  return <Progress value={done} className="h-2" title={`Used ${used}, given back ${returned}, out of ${assigned}`} />
 }
 
 /** Record consumption or a return against an assignment line. */
@@ -46,7 +46,11 @@ export function AssignmentActionDialog({
   const [busy, setBusy] = useState(false)
   const locationField = fieldsFor(config, "consumption").find((f) => f.key === "location")
 
-  useEffect(() => {
+  // Start with a clean form each time the dialog opens.
+  const openKey = open ? `${initial?.assignmentId ?? ""}|${initial?.itemId ?? ""}` : ""
+  const [seenKey, setSeenKey] = useState("")
+  if (openKey !== seenKey) {
+    setSeenKey(openKey)
     if (open) {
       setAssignmentId(initial?.assignmentId ?? "")
       setItemId(initial?.itemId ?? "")
@@ -54,7 +58,7 @@ export function AssignmentActionDialog({
       setLocation("")
       setError(null)
     }
-  }, [open, initial?.assignmentId, initial?.itemId])
+  }
 
   const usable = assignments.filter((a) => a.lines.some((l) => l.remaining > 0))
   const a = assignments.find((x) => x.id === assignmentId)
@@ -62,20 +66,20 @@ export function AssignmentActionDialog({
 
   async function submit() {
     setError(null)
-    if (!a) return setError("Choose an assignment")
-    if (!line) return setError("Choose an item")
+    if (!a) return setError("Pick what was given out.")
+    if (!line) return setError("Pick an item.")
     const n = Number(qty)
-    if (!Number.isInteger(n) || n <= 0) return setError("Enter a positive whole number")
-    if (n > line.remaining) return setError(`Only ${line.remaining} ${line.unit} remaining`)
+    if (!Number.isInteger(n) || n <= 0) return setError("Type a whole number, like 5.")
+    if (n > line.remaining) return setError(`Only ${line.remaining} ${line.unit} left. Type ${line.remaining} or less.`)
     if (mode === "usage" && !location.trim()) return setError(`${locationField?.label ?? "Location"} is required`)
     setBusy(true)
     try {
       if (mode === "usage") {
         await siteApi.post("consumption", { assignmentId: a.id, itemId: line.itemId, qty: n, location })
-        toast.success(`Recorded ${n} ${line.unit} of ${line.itemName} used`, { description: `Remaining: ${line.remaining - n} ${line.unit}` })
+        toast.success(`Written down: ${n} ${line.unit} of ${line.itemName} used`, { description: `${line.remaining - n} ${line.unit} left` })
       } else {
         const res = await siteApi.post<{ stockSiteName: string }>("returns", { source: "assignment", refId: a.id, itemId: line.itemId, qty: n })
-        toast.success(`Returned ${n} ${line.unit} of ${line.itemName}`, { description: `Stock in ${res.stockSiteName} went up by ${n}.` })
+        toast.success(`Gave back ${n} ${line.unit} of ${line.itemName}`, { description: `Stock in ${res.stockSiteName} went up by ${n}.` })
       }
       onOpenChange(false)
       onDone()
@@ -90,14 +94,14 @@ export function AssignmentActionDialog({
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{mode === "usage" ? "Record usage" : "Return unused material"}</DialogTitle>
+          <DialogTitle>{mode === "usage" ? "Write down what was used" : "Give back unused items"}</DialogTitle>
           <DialogDescription>
-            {mode === "usage" ? "Log how much of the issued material was actually used." : "Unused items go back into stock immediately."}
+            {mode === "usage" ? "Say how much you really used." : "Unused items go straight back into stock."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
           <div className="space-y-1.5">
-            <Label>Assignment</Label>
+            <Label>What you were given</Label>
             <Select
               value={assignmentId || undefined}
               onValueChange={(v) => {
@@ -106,7 +110,7 @@ export function AssignmentActionDialog({
               }}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={usable.length ? "Choose assignment" : "Nothing left to record"} />
+                <SelectValue placeholder={usable.length ? "Pick one" : "Nothing left"} />
               </SelectTrigger>
               <SelectContent>
                 {usable.map((x) => (
@@ -121,7 +125,7 @@ export function AssignmentActionDialog({
             <Label>Item</Label>
             <Select value={itemId || undefined} onValueChange={setItemId} disabled={!a}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose item" />
+                <SelectValue placeholder="Pick an item" />
               </SelectTrigger>
               <SelectContent>
                 {a?.lines.map((l) => (
@@ -155,7 +159,7 @@ export function AssignmentActionDialog({
             {mode === "usage" && (
               <div className="space-y-1.5">
                 <Label>{locationField?.label ?? "Site / Location"}</Label>
-                <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Saswad – Ward 3" />
+                <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Where was it used?" />
               </div>
             )}
           </div>
@@ -172,7 +176,7 @@ export function AssignmentActionDialog({
           </Button>
           <Button onClick={submit} disabled={busy}>
             {busy && <Spinner />}
-            {mode === "usage" ? "Record usage" : "Return to stock"}
+            {mode === "usage" ? "Save" : "Give back"}
           </Button>
         </DialogFooter>
       </DialogContent>

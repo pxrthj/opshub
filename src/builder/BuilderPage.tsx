@@ -20,22 +20,7 @@ import {
   type Edge,
 } from "@xyflow/react"
 import { toast } from "sonner"
-import {
-  ArrowLeft,
-  Cable,
-  CheckCircle2,
-  ChevronDown,
-  Eye,
-  GripVertical,
-  History,
-  Lock,
-  Plus,
-  Rocket,
-  Save,
-  Sparkles,
-  Undo2,
-  Zap,
-} from "lucide-react"
+import { ArrowLeft, CheckCircle2, ChevronDown, Eye, GripVertical, History, Lock, Plus, Rocket, Save, Sparkles, Undo2 } from "lucide-react"
 import { api, ApiError } from "@/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -53,13 +38,13 @@ import { AccessDenied } from "@/components/AccessDenied"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { ThemeScope } from "@/components/ThemeScope"
 import { useHub } from "@/context/HubContext"
+import { fieldListErrors } from "@/lib/fields"
 import { buildConfigFromCanvas, connectionError, diffConfigs, summarizeDiff, validateCanvas } from "@/lib/siteConfig"
 import type { BuilderState, CanvasEdge, CanvasNode, ModuleId, SiteConfig } from "@/lib/types"
 import { errorMessage, toastError } from "@/lib/useAsync"
 import { cn, formatDateTime } from "@/lib/utils"
 import { MODULE_DEFINITIONS, getModuleDef, requirementLabel } from "@/modules/definitions"
 import { NotFound } from "@/pages/NotFound"
-import { fieldListErrors } from "./FieldEditor"
 import { ModuleNode, type ModuleFlowNode } from "./ModuleNode"
 import { PRESETS, instantiatePreset } from "./presets"
 import { SettingsPanel } from "./SettingsPanel"
@@ -100,13 +85,13 @@ export function BuilderPage() {
 
   if (state.status === "loading")
     return (
-      <div className="flex flex-1 items-center justify-center text-slate-500">
-        <Spinner className="mr-2 size-5" /> Loading builder…
+      <div className="flex flex-1 items-center justify-center text-muted-foreground">
+        <Spinner className="mr-2 size-5" /> Opening the editor…
       </div>
     )
   if (state.status === "error")
     return state.code === 403 ? (
-      <AccessDenied message={`${state.message}. The builder is only available to Admins of this unit.`} />
+      <AccessDenied message={`${state.message}. Only Admins of this office can edit it.`} />
     ) : (
       <NotFound message={state.message} />
     )
@@ -153,11 +138,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
   const selected = nodes.find((n) => n.selected)
   const selectedCanvasNode = selected ? (canvasNodes.find((n) => n.id === selected.id) ?? null) : null
 
-  // ------------------------------------------------------------ Wiring Mode
-  const [wireMode, setWireMode] = useState(false)
-  const [wireSourceId, setWireSourceId] = useState<string | null>(null)
-  const [wireStyle, setWireStyle] = useState<"orthogonal" | "bezier">("orthogonal")
-
+  // ------------------------------------------------------------ linking features
   const connectNodes = useCallback(
     (sourceId: string, targetId: string) => {
       const s = nodes.find((n) => n.id === sourceId)
@@ -165,11 +146,11 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       if (!s || !t) return false
       const err = connectionError(s.data.moduleId, t.data.moduleId, s.id, t.id, canvasEdges)
       if (err) {
-        toast.error("Wire connection not allowed", { description: err })
+        toast.error("These can't be linked", { description: err })
         return false
       }
       setEdges((eds) => addEdge({ source: sourceId, target: targetId, id: `e_${sourceId}_${targetId}` }, eds))
-      toast.success(`⚡ Wired ${getModuleDef(s.data.moduleId).short} ➔ ${getModuleDef(t.data.moduleId).short}`)
+      toast.success(`Linked ${getModuleDef(s.data.moduleId).short} to ${getModuleDef(t.data.moduleId).short}`)
       return true
     },
     [nodes, canvasEdges, setEdges],
@@ -178,125 +159,25 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
   const disconnectEdge = useCallback(
     (edgeId: string) => {
       setEdges((eds) => eds.filter((e) => e.id !== edgeId))
-      toast.info("Wire disconnected")
+      toast.info("Link removed")
     },
     [setEdges],
   )
 
-  const startWire = useCallback(
-    (nodeId: string) => {
-      setWireMode(true)
-      setWireSourceId(nodeId)
-      const node = nodes.find((n) => n.id === nodeId)
-      const name = node ? getModuleDef(node.data.moduleId).name : "Module"
-      toast.info(`⚡ Wire Tool: ${name}`, {
-        description: "Click any destination module to place the wire (or Esc to cancel).",
-      })
-    },
-    [nodes],
-  )
-
-  const cancelWire = useCallback(() => {
-    setWireSourceId(null)
-    setWireMode(false)
-    toast.info("Wire mode closed")
-  }, [])
-
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
-      if (tag === "input" || tag === "textarea") return
-
-      if (e.key === "w" || e.key === "W") {
-        setWireMode((prev) => {
-          const next = !prev
-          if (!next) setWireSourceId(null)
-          toast.info(next ? "⚡ Wire Tool Active: Click source, then target" : "Wire Tool turned off")
-          return next
-        })
-      } else if (e.key === "Escape") {
-        if (wireSourceId) {
-          setWireSourceId(null)
-          toast.info("Wire source cancelled")
-        } else if (wireMode) {
-          setWireMode(false)
-          toast.info("Wire Mode closed")
-        }
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [wireSourceId, wireMode])
-
-  const compatibleTargetIds = useMemo(() => {
-    if (!wireSourceId) return new Set<string>()
-    const s = nodes.find((n) => n.id === wireSourceId)
-    if (!s) return new Set<string>()
-    const set = new Set<string>()
-    for (const t of nodes) {
-      if (t.id === wireSourceId) continue
-      if (connectionError(s.data.moduleId, t.data.moduleId, s.id, t.id, canvasEdges) === null) {
-        set.add(t.id)
-      }
-    }
-    return set
-  }, [wireSourceId, nodes, canvasEdges])
-
-  const onNodeClick = useCallback(
-    (_e: React.MouseEvent, clickedNode: ModuleFlowNode) => {
-      if (!wireMode) return
-
-      if (!wireSourceId) {
-        const def = getModuleDef(clickedNode.data.moduleId)
-        if (def.outputs.length === 0) {
-          toast.error(`${def.name} has no outputs to wire from`)
-          return
-        }
-        setWireSourceId(clickedNode.id)
-        toast.info(`⚡ Wire source: ${def.name}`, { description: "Click destination module to connect." })
-        return
-      }
-
-      if (wireSourceId === clickedNode.id) {
-        setWireSourceId(null)
-        toast.info("Wire source cleared")
-        return
-      }
-
-      const ok = connectNodes(wireSourceId, clickedNode.id)
-      if (ok) {
-        setWireSourceId(null)
-      }
-    },
-    [wireMode, wireSourceId, connectNodes],
-  )
-
   const displayNodes = useMemo(
-    () =>
-      nodes.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          accent,
-          issues: issues.filter((i) => i.nodeId === n.id).map((i) => i.message),
-          isWireSource: wireSourceId === n.id,
-          isWireTarget: !!wireSourceId && compatibleTargetIds.has(n.id),
-          wireMode,
-          onStartWire: startWire,
-        },
-      })),
-    [nodes, issues, accent, wireSourceId, compatibleTargetIds, wireMode, startWire],
+    () => nodes.map((n) => ({ ...n, data: { ...n.data, accent, issues: issues.filter((i) => i.nodeId === n.id).map((i) => i.message) } })),
+    [nodes, issues, accent],
   )
   const displayEdges = useMemo(
     () =>
       edges.map((e) => ({
         ...e,
-        type: wireStyle === "orthogonal" ? "smoothstep" : "default",
+        type: "smoothstep",
         animated: true,
-        style: { stroke: e.selected ? "#0f172a" : accent, strokeWidth: wireStyle === "orthogonal" ? 2.5 : 2 },
+        style: { stroke: e.selected ? "var(--foreground)" : accent, strokeWidth: 2 },
         markerEnd: { type: MarkerType.ArrowClosed, color: accent },
       })),
-    [edges, accent, wireStyle],
+    [edges, accent],
   )
 
   // ------------------------------------------------------------ canvas interactions
@@ -320,7 +201,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
     (moduleId: ModuleId, position?: { x: number; y: number }) => {
       const def = getModuleDef(moduleId)
       if (nodes.some((n) => n.data.moduleId === moduleId)) {
-        toast.error(`${def.name} is already on the canvas`, { description: "Each module can be used once per site." })
+        toast.error(`${def.name} is already on the board`, { description: "Each feature can be used once per office." })
         return
       }
       const pos = position ?? { x: 80 + (nodes.length % 4) * 70, y: 380 + (nodes.length % 3) * 40 }
@@ -328,7 +209,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       setNodes((ns) => [...ns.map((n) => ({ ...n, selected: false })), { id, type: "module", position: pos, data: { moduleId, issues: [], accent }, selected: true }])
       const missing = def.requires.filter((r) => !(Array.isArray(r) ? r.some((x) => onCanvas.has(x)) : onCanvas.has(r)))
       toast.info(`Added ${def.name}`, {
-        description: missing.length ? `Connect after ${missing.map(requirementLabel).join(" or ")}.` : "Connect the handles to wire it in.",
+        description: missing.length ? `Link it after ${missing.map(requirementLabel).join(" or ")}.` : "Now link it to the feature before it.",
       })
     },
     [nodes, setNodes, accent, onCanvas],
@@ -346,7 +227,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
     setNodes(toFlowNodes(inst.nodes, accent))
     setEdges(toFlowEdges(inst.edges))
     setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50)
-    toast.success(`Preset “${p.name}” applied`, { description: `${inst.nodes.length} connected modules placed on the canvas.` })
+    toast.success(`Template “${p.name}” is on the board`, { description: `${inst.nodes.length} linked features were added.` })
   }
 
   // ------------------------------------------------------------ validation / persistence
@@ -354,18 +235,18 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
     if (issues.length) {
       const first = issues[0]
       setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === first.nodeId })))
-      toast.error(`Can't ${action} — requirements missing`, {
+      toast.error(`Can't ${action} yet. Something is missing.`, {
         description: issues.map((i) => i.message).join(" "),
         duration: 7000,
       })
       return false
     }
     if (fieldErrors.length) {
-      toast.error(`Can't ${action} — fix the field settings`, { description: fieldErrors.slice(0, 3).join(" · ") })
+      toast.error(`Can't ${action} yet. Please fix the form fields.`, { description: fieldErrors.slice(0, 3).join(" · ") })
       return false
     }
     if (!built.name.trim()) {
-      toast.error(`Can't ${action} — site name is required`)
+      toast.error(`Can't ${action} yet. Give the office a name.`)
       return false
     }
     return true
@@ -378,10 +259,10 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       const next = await api.put<BuilderState>(built.siteId, "builder/draft", { config: built })
       setBuilder(next)
       setSavedPrint(fingerprint(built))
-      if (!silent) toast.success("Draft saved", { description: "Not live yet — Preview it or Publish when ready." })
+      if (!silent) toast.success("Saved", { description: "Not live yet. Preview it, or make it live when you are ready." })
       return true
     } catch (e) {
-      toastError(e, "Couldn't save draft")
+      toastError(e, "We couldn't save. Please try again.")
       return false
     } finally {
       setBusy(null)
@@ -404,13 +285,13 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       setSavedPrint(fingerprint(built))
       setNote("")
       await refreshSites()
-      toast.success(`Published v${res.published} — live now`, {
+      toast.success(`Version ${res.published} is live`, {
         description: res.summary,
-        action: { label: "Open site", onClick: () => navigate(`/s/${built.slug}`) },
+        action: { label: "Open office", onClick: () => navigate(`/s/${built.slug}`) },
         duration: 8000,
       })
     } catch (e) {
-      toastError(e, "Publish failed")
+      toastError(e, "We couldn't make it live. Please try again.")
       throw e
     } finally {
       setBusy(null)
@@ -425,7 +306,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       setNodes(toFlowNodes(next.live.canvas.nodes, next.live.theme.primary))
       setEdges(toFlowEdges(next.live.canvas.edges))
       setSavedPrint(fingerprint(buildConfigFromCanvas(next.live, next.live.canvas.nodes, next.live.canvas.edges)))
-      toast.success(`Draft discarded — back to live v${next.liveVersion}`)
+      toast.success(`Back to the live version (${next.liveVersion})`)
       bumpData()
     } catch (e) {
       toastError(e)
@@ -441,84 +322,44 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
     <ThemeScope theme={config.theme}>
       <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
         {/* ------------------------------------------------ toolbar */}
-        <div className="flex flex-wrap items-center gap-2 border-b bg-white px-4 py-2">
-          <Button variant="ghost" size="icon-sm" asChild aria-label="Back to builder list">
+        <div className="flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2">
+          <Button variant="ghost" size="icon-sm" asChild aria-label="Back to the list of offices">
             <Link to="/builder">
               <ArrowLeft />
             </Link>
           </Button>
           <span className="size-3 rounded-full" style={{ background: accent }} />
           <div className="mr-2">
-            <p className="text-sm leading-tight font-semibold">Builder · {config.name || "Untitled"}</p>
-            <p className="text-xs text-slate-500">
-              Live v{builder.liveVersion}
-              {builder.draftSavedAt && ` · draft saved ${formatDateTime(builder.draftSavedAt)} by ${builder.draftSavedBy}`}
+            <p className="text-sm leading-tight font-semibold">{config.name || "Untitled office"}</p>
+            <p className="text-xs text-muted-foreground">
+              Live version {builder.liveVersion}
+              {builder.draftSavedAt && ` · saved ${formatDateTime(builder.draftSavedAt)} by ${builder.draftSavedBy}`}
             </p>
           </div>
           {dirty ? (
-            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
-              Unsaved changes
+            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
+              Not saved yet
             </Badge>
           ) : builder.draft ? (
-            <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">
-              Draft saved
+            <Badge variant="secondary">
+              Saved, not live
             </Badge>
           ) : (
-            <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700">
-              Matches live
+            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">
+              Same as live
             </Badge>
           )}
-          {issues.length > 0 && <Badge variant="destructive">{issues.length} issue{issues.length > 1 ? "s" : ""}</Badge>}
-
-          {/* Wire Mode & Style Controls */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-0.5">
-            <Button
-              variant={wireMode ? "default" : "ghost"}
-              size="sm"
-              onClick={() => {
-                setWireMode((v) => {
-                  const next = !v
-                  if (!next) setWireSourceId(null)
-                  toast.info(next ? "⚡ Wire Tool Active: Click source block, then destination block" : "Wire Tool turned off")
-                  return next
-                })
-              }}
-              className={cn(
-                "h-8 gap-1.5 text-xs font-semibold transition-all",
-                wireMode
-                  ? "bg-amber-600 text-white shadow-sm ring-2 ring-amber-400 hover:bg-amber-700"
-                  : "text-slate-700 hover:bg-white hover:text-slate-900",
-              )}
-              title="Wire Tool (Shortcut: W) — click source, then target to connect"
-            >
-              <Zap className={cn("size-3.5", wireMode ? "animate-pulse fill-current text-white" : "text-amber-500")} />
-              {wireMode ? "Wire Mode Active (W)" : "Wire Tool (W)"}
-            </Button>
-            <div className="h-4 w-px bg-slate-200" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setWireStyle((s) => (s === "orthogonal" ? "bezier" : "orthogonal"))
-                toast.info(`Wires set to ${wireStyle === "orthogonal" ? "Smooth Curved" : "Orthogonal (Stepped)"}`)
-              }}
-              className="h-8 gap-1 px-2 text-xs text-slate-600 hover:bg-white hover:text-slate-900"
-              title="Toggle wire routing style (Orthogonal vs Smooth Curve)"
-            >
-              <Cable className="size-3.5 text-slate-500" />
-              <span>{wireStyle === "orthogonal" ? "Orthogonal" : "Curved"}</span>
-            </Button>
-          </div>
+          {issues.length > 0 && <Badge variant="destructive">{issues.length} thing{issues.length > 1 ? "s" : ""} to fix</Badge>}
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <Sparkles /> Presets <ChevronDown />
+                  <Sparkles /> Start from a template <ChevronDown />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Quick-start templates</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Ready-made setups</DropdownMenuLabel>
                 {PRESETS.map((p) => (
                   <DropdownMenuItem key={p.id} className="flex-col items-start gap-0.5 py-2" onClick={() => (nodes.length ? setPresetToApply(p) : applyPreset(p))}>
                     <span className="font-medium">{p.name}</span>
@@ -529,7 +370,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setDiscardOpen(true)}>
-                      <Undo2 /> Discard draft & reset to live
+                      <Undo2 /> Throw away my changes
                     </DropdownMenuItem>
                   </>
                 )}
@@ -541,25 +382,25 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               </Link>
             </Button>
             <Button variant="outline" size="sm" onClick={() => saveDraft()} disabled={!!busy}>
-              {busy === "save" ? <Spinner /> : <Save />} Save Draft
+              {busy === "save" ? <Spinner /> : <Save />} Save
             </Button>
             <Button variant="outline" size="sm" onClick={preview} disabled={!!busy}>
               {busy === "preview" ? <Spinner /> : <Eye />} Preview
             </Button>
-            <Button size="sm" onClick={() => ensureValid("publish") && setPublishOpen(true)} disabled={!!busy}>
-              {busy === "publish" ? <Spinner /> : <Rocket />} Publish
+            <Button size="sm" onClick={() => ensureValid("make it live") && setPublishOpen(true)} disabled={!!busy}>
+              {busy === "publish" ? <Spinner /> : <Rocket />} Make live
             </Button>
           </div>
         </div>
 
         <div className="flex min-h-0 flex-1">
           {/* ------------------------------------------------ palette */}
-          <aside className="relative w-64 shrink-0 overflow-y-auto border-r bg-slate-50/80 p-3">
-            <p className="mb-1 text-sm font-medium">Blocks</p>
-            <p className="mb-3 text-xs text-muted-foreground">Drag onto the board, then connect handles.</p>
+          <aside className="relative w-64 shrink-0 overflow-y-auto border-r bg-muted/40 p-3">
+            <p className="mb-1 text-sm font-medium">Features</p>
+            <p className="mb-3 text-xs text-muted-foreground">Drag a feature onto the board, or press +. Then link them in order.</p>
             <Card size="sm" className="mb-4 gap-1.5 px-3">
               <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                <Lock className="size-3" /> Always included
+                <Lock className="size-3" /> Always on
               </p>
               {MODULE_DEFINITIONS.filter((m) => m.core).map((m) => (
                 <div key={m.id} className="flex items-center gap-2 text-xs">
@@ -588,16 +429,16 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
                         )}
                         title={m.description}
                       >
-                        <GripVertical className="size-3.5 shrink-0 text-slate-300" />
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md" style={{ background: used ? "#e2e8f0" : `${accent}18`, color: used ? "#64748b" : accent }}>
+                        <GripVertical className="size-3.5 shrink-0 text-muted-foreground/50" />
+                        <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", used && "bg-muted text-muted-foreground")} style={used ? undefined : { background: `${accent}18`, color: accent }}>
                           <m.icon className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm leading-tight font-medium">{m.name}</p>
-                          <p className="truncate text-xs text-slate-500">{m.requires.length ? `needs ${m.requires.map(requirementLabel).join(" + ")}` : "no requirements"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{m.requires.length ? `needs ${m.requires.map(requirementLabel).join(" + ")}` : "can go first"}</p>
                         </div>
                         {used ? (
-                          <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                          <CheckCircle2 className="size-4 shrink-0 text-emerald-700" />
                         ) : (
                           <Button size="icon-xs" variant="ghost" className="opacity-0 group-hover:opacity-100" onClick={() => addModule(m.id)} aria-label={`Add ${m.name}`}>
                             <Plus />
@@ -612,35 +453,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
           </aside>
 
           {/* ------------------------------------------------ canvas */}
-          <div ref={wrapper} className={cn("relative min-w-0 flex-1", wireMode && "cursor-crosshair")} onDragOver={(e) => (e.preventDefault(), (e.dataTransfer.dropEffect = "move"))} onDrop={onDrop}>
-            {/* Wire Tool Active Banner */}
-            {wireMode && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 rounded-full border border-amber-300 bg-amber-50/95 px-4 py-2 shadow-lg backdrop-blur ring-2 ring-amber-400/40 animate-in fade-in zoom-in-95 duration-150">
-                <span className="flex size-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs">
-                  <Zap className="size-3.5 fill-current animate-pulse" />
-                </span>
-                <div className="text-xs">
-                  {!wireSourceId ? (
-                    <span className="font-semibold text-amber-900">
-                      Wire Tool Active: <span className="font-normal text-amber-800">Click any block to start wire.</span>
-                    </span>
-                  ) : (
-                    <span className="font-semibold text-amber-900">
-                      Wiring from <span className="underline">{nodes.find((n) => n.id === wireSourceId)?.data.moduleId ? getModuleDef(nodes.find((n) => n.id === wireSourceId)!.data.moduleId).name : "Module"}</span>:{" "}
-                      <span className="font-normal text-amber-800">Click any compatible green block to connect.</span>
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={cancelWire}
-                  className="rounded-full bg-amber-200/70 hover:bg-amber-300 px-2 py-0.5 text-[11px] font-semibold text-amber-900 transition-colors"
-                >
-                  Cancel (Esc)
-                </button>
-              </div>
-            )}
-
+          <div ref={wrapper} className="relative min-w-0 flex-1" onDragOver={(e) => (e.preventDefault(), (e.dataTransfer.dropEffect = "move"))} onDrop={onDrop}>
             <ReactFlow
               nodes={displayNodes}
               edges={displayEdges}
@@ -648,8 +461,7 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
-              onNodeClick={onNodeClick}
-              connectionLineType={wireStyle === "orthogonal" ? ConnectionLineType.SmoothStep : ConnectionLineType.Bezier}
+              connectionLineType={ConnectionLineType.SmoothStep}
               deleteKeyCode={["Backspace", "Delete"]}
               fitView
               fitViewOptions={{ padding: 0.25 }}
@@ -657,27 +469,25 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               maxZoom={1.6}
               proOptions={{ hideAttribution: true }}
             >
-              <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#cbd5e1" />
+              <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="var(--border)" />
               <Controls showInteractive={false} />
-              <MiniMap pannable zoomable nodeColor={(n) => ((n.data as { issues?: string[] }).issues?.length ? "#dc2626" : accent)} className="!rounded-lg !border" />
+              <MiniMap pannable zoomable nodeColor={(n) => ((n.data as { issues?: string[] }).issues?.length ? "var(--destructive)" : accent)} className="!rounded-lg !border" />
             </ReactFlow>
             {nodes.length === 0 && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="rounded-xl border border-dashed bg-white/80 px-6 py-5 text-center backdrop-blur">
-                  <p className="font-medium text-slate-800">Empty board</p>
-                  <p className="mt-1 text-sm text-slate-500">Drag blocks in from the left, or pick a preset.</p>
+                <div className="rounded-xl border border-dashed bg-background/80 px-6 py-5 text-center backdrop-blur">
+                  <p className="font-medium">Nothing here yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Drag features in from the left, or start from a template.</p>
                 </div>
               </div>
             )}
-            <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-2 rounded-md bg-white/90 px-2.5 py-1.5 text-xs text-slate-500 shadow-sm ring-1 ring-slate-200">
-              <span>Press <Kbd>W</Kbd> for Wire Tool</span>
-              <span>·</span>
-              <span>Select a wire or block and press <Kbd>Del</Kbd> to remove it</span>
+            <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-2 rounded-md bg-background/90 px-2.5 py-1.5 text-xs text-muted-foreground shadow-sm ring-1 ring-border">
+              <span>Click a box or an arrow and press <Kbd>Delete</Kbd> to remove it</span>
             </div>
           </div>
 
           {/* ------------------------------------------------ settings */}
-          <aside className="relative w-80 shrink-0 overflow-y-auto border-l bg-slate-50/80">
+          <aside className="relative w-80 shrink-0 overflow-y-auto border-l bg-muted/40">
             <SettingsPanel
               config={config}
               setConfig={setConfig}
@@ -690,7 +500,6 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
               canvasEdges={canvasEdges}
               onConnectNodes={connectNodes}
               onDisconnectEdge={disconnectEdge}
-              onStartWire={startWire}
             />
           </aside>
         </div>
@@ -699,37 +508,37 @@ function BuilderWorkspace({ initial }: { initial: BuilderState }) {
       <ConfirmDialog
         open={!!presetToApply}
         onOpenChange={(o) => !o && setPresetToApply(null)}
-        title={`Replace canvas with “${presetToApply?.name}”?`}
-        description="The current modules and connections on the canvas will be replaced. Nothing is live until you Publish."
-        confirmLabel="Apply preset"
+        title={`Replace the board with “${presetToApply?.name}”?`}
+        description="What is on the board now will be replaced. Nothing changes for your team until you make it live."
+        confirmLabel="Use this template"
         onConfirm={() => applyPreset(presetToApply!)}
       />
       <ConfirmDialog
         open={discardOpen}
         onOpenChange={setDiscardOpen}
-        title="Discard draft?"
-        description={`The canvas resets to live v${builder.liveVersion}. Unpublished changes are lost.`}
-        confirmLabel="Discard draft"
+        title="Throw away your changes?"
+        description={`The board goes back to the live version (${builder.liveVersion}). Changes you have not made live are lost.`}
+        confirmLabel="Throw away"
         destructive
         onConfirm={discardDraft}
       />
       <ConfirmDialog
         open={publishOpen}
         onOpenChange={setPublishOpen}
-        title={`Publish ${config.name} as v${Math.max(...builder.versions.map((v) => v.version)) + 1}?`}
+        title={`Make ${config.name} live as version ${Math.max(...builder.versions.map((v) => v.version)) + 1}?`}
         description={
           <div className="space-y-2">
-            <p>Everyone on {config.name} will see this version immediately. You can roll back from Deploy History.</p>
+            <p>Everyone in {config.name} will see this right away. You can go back to an older version any time from History.</p>
             <div className="rounded-md bg-muted px-3 py-2 text-xs text-foreground">
-              <b>Changes vs live v{builder.liveVersion}:</b> {diffSummary}
+              <b>What changes:</b> {diffSummary}
             </div>
           </div>
         }
-        confirmLabel="Publish"
+        confirmLabel="Make live"
         onConfirm={publish}
       >
         <div className="space-y-1.5">
-          <Label>Change note (optional)</Label>
+          <Label>Note for the history (optional)</Label>
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={diffSummary} />
         </div>
       </ConfirmDialog>

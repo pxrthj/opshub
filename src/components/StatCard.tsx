@@ -19,10 +19,10 @@ export function StatCard({
 }) {
   const tones = {
     primary: "bg-primary/10 text-primary",
-    warning: "bg-amber-100 text-amber-700",
-    danger: "bg-red-100 text-red-700",
-    success: "bg-emerald-100 text-emerald-700",
-    muted: "bg-slate-100 text-slate-600",
+    warning: "bg-amber-100 text-amber-800",
+    danger: "bg-red-100 text-red-800",
+    success: "bg-emerald-100 text-emerald-800",
+    muted: "bg-muted text-muted-foreground",
   }
   return (
     <Card
@@ -31,8 +31,8 @@ export function StatCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
-          <p className="mt-1.5 text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{value}</p>
           {hint && <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>}
         </div>
         <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", tones[tone])}>

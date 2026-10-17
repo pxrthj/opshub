@@ -109,9 +109,9 @@ export function validateCanvas(nodes: CanvasNode[], edges: CanvasEdge[]): Canvas
     const up = ancestors(node.id, nodes, edges)
     for (const req of def.requires) {
       if (!requirementSatisfied(req, present)) {
-        issues.push({ nodeId: node.id, message: `Add ${requirementLabel(req)} to the board.` })
+        issues.push({ nodeId: node.id, message: `Add ${requirementLabel(req)} to the board first.` })
       } else if (!requirementSatisfied(req, up)) {
-        issues.push({ nodeId: node.id, message: `Connect after ${requirementLabel(req)}.` })
+        issues.push({ nodeId: node.id, message: `Link it after ${requirementLabel(req)}.` })
       }
     }
   }
@@ -142,16 +142,16 @@ export function connectionError(
 ): string | null {
   const s = getModuleDef(sourceModule)
   const t = getModuleDef(targetModule)
-  if (sourceId === targetId) return "Cannot connect a block to itself."
-  if (edges.some((e) => e.source === sourceId && e.target === targetId)) return "Already connected."
-  if (t.inputs.length === 0) return `${t.name} does not receive input.`
-  if (s.outputs.length === 0) return `${s.name} does not send output.`
+  if (sourceId === targetId) return "A feature cannot be linked to itself."
+  if (edges.some((e) => e.source === sourceId && e.target === targetId)) return "These are already linked."
+  if (t.inputs.length === 0) return `${t.name} comes first, so nothing can be linked into it.`
+  if (s.outputs.length === 0) return `${s.name} comes last, so it cannot be linked onward.`
   const shared = s.outputs.filter((o) => t.inputs.includes(o))
   if (shared.length === 0) {
     const needs = t.requires.length ? t.requires.map(requirementLabel).join(" or ") : t.inputs.map((i) => PORT_LABELS[i]).join(" / ")
-    return `Cannot connect directly. ${t.name} needs ${needs} first.`
+    return `${t.name} cannot follow ${s.name} directly. It needs ${needs} first.`
   }
-  if (createsCycle(sourceId, targetId, edges)) return "This connection would create an infinite loop."
+  if (createsCycle(sourceId, targetId, edges)) return "This would make the steps go round in a circle."
   return null
 }
 
@@ -184,11 +184,11 @@ export function summarizeDiff(d: ConfigDiff): string {
   const parts: string[] = []
   if (d.added.length) parts.push(`Added ${d.added.map((m) => getModuleDef(m).name).join(", ")}`)
   if (d.removed.length) parts.push(`Removed ${d.removed.map((m) => getModuleDef(m).name).join(", ")}`)
-  if (d.fieldsChanged.length) parts.push(`Edited fields in ${d.fieldsChanged.map((m) => getModuleDef(m).short).join(", ")}`)
-  if (d.workflowChanged) parts.push("Workflow options changed")
-  if (d.themeChanged) parts.push("Theme updated")
-  if (d.nameChanged) parts.push("Renamed site")
-  return parts.join("; ") || "No functional changes"
+  if (d.fieldsChanged.length) parts.push(`Changed the form fields of ${d.fieldsChanged.map((m) => getModuleDef(m).short).join(", ")}`)
+  if (d.workflowChanged) parts.push("Options changed")
+  if (d.themeChanged) parts.push("Look changed")
+  if (d.nameChanged) parts.push("Office renamed")
+  return parts.join("; ") || "Nothing changed"
 }
 
 export function fieldsFor(config: SiteConfig, moduleId: ModuleId): FieldDef[] {

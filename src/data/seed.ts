@@ -91,7 +91,7 @@ const centralStores = buildConfigFromCanvas(
     siteId: SITE_IDS.central,
     slug: "central-stores",
     name: "Central Stores",
-    description: "Top tier of the supply chain. Holds master inventory for meters, cables, transformers and supplies Distribution Centres.",
+    description: "Keeps the main stock of meters, cables and spares, and supplies the other offices.",
     theme: { primary: "#1e40af", accent: "#dbeafe", background: "#f4f7fd", radius: 0.4, sidebar: "solid" },
     workflow: {
       stockSourceSiteId: null,
@@ -112,7 +112,7 @@ const serviceCentre = buildConfigFromCanvas(
     siteId: SITE_IDS.service,
     slug: "service-centre",
     name: "Service Centre",
-    description: "Bottom tier of the supply chain. Requests products only from Distribution Centres and repairs faulty smart meters.",
+    description: "Repairs broken meters and asks Distribution for what it needs.",
     theme: { primary: "#ea580c", accent: "#ffedd5", background: "#fffaf5", radius: 0.9, sidebar: "light" },
     workflow: {
       stockSourceSiteId: SITE_IDS.distribution,
@@ -138,7 +138,7 @@ const distribution = buildConfigFromCanvas(
     siteId: SITE_IDS.distribution,
     slug: "distribution",
     name: "Distribution",
-    description: "Mid-tier of the supply chain. Requests products from Central Stores and fulfills product requests from Service Centres and field teams.",
+    description: "Gives out stock to field teams and the Service Centre, and orders more from Central Stores.",
     theme: { primary: "#15803d", accent: "#dcfce7", background: "#f5fbf6", radius: 0.65, sidebar: "tinted" },
     workflow: {
       stockSourceSiteId: SITE_IDS.central,
@@ -176,7 +176,7 @@ function siteRecord(config: SiteConfig): SiteRecord {
     draftSavedAt: null,
     draftSavedBy: null,
     events: [
-      { id: "ev_" + config.siteId + "_1", action: "publish", version: 1, fromVersion: 0, at: daysAgo(30, 9), author: "Aarti Deshmukh", note: "Initial publish" },
+      { id: "ev_" + config.siteId + "_1", action: "publish", version: 1, fromVersion: 0, at: daysAgo(30, 9), author: "Aarti Deshmukh", note: "First version" },
     ],
     versions: [
       {
@@ -184,7 +184,7 @@ function siteRecord(config: SiteConfig): SiteRecord {
         config,
         publishedAt: daysAgo(30, 9),
         author: "Aarti Deshmukh",
-        summary: `Initial setup: ${config.modules.filter((m) => !CORE_MODULES.includes(m)).length} modules`,
+        summary: `First version with ${config.modules.filter((m) => !CORE_MODULES.includes(m)).length} features`,
       },
     ],
   }
@@ -667,13 +667,44 @@ export function emptySiteData(): SiteData {
   return { inventory: [], requests: [], assignments: [], consumption: [], returns: [], repairs: [] }
 }
 
+/**
+ * Gives every material request an asking office and a supplying office, and records the hand-off
+ * between the two managers: the asker's own manager sends it on, then the supplier's manager decides.
+ * Requests listed in `stayWithOwnManager` have not been sent on yet.
+ */
+function routeRequests(
+  reqs: MaterialRequest[],
+  from: { id: string; name: string; manager: string },
+  to: { id: string; name: string; manager: string },
+  stayWithOwnManager: string[] = [],
+): MaterialRequest[] {
+  return reqs.map((r) => {
+    const c: MaterialRequest = JSON.parse(JSON.stringify(r))
+    if (c.type !== "material") return c
+    c.originSiteId ??= from.id
+    c.originSiteName ??= from.name
+    c.targetSiteId ??= to.id
+    c.targetSiteName ??= to.name
+    if (!stayWithOwnManager.includes(c.id)) {
+      c.forwardedAt ??= new Date(new Date(c.createdAt).getTime() + 2 * 3600_000).toISOString()
+      c.forwardedBy ??= from.manager
+    }
+    // The supplying office's manager is the one who decided, not the asker's own manager.
+    if (c.status !== "Pending" && c.decidedBy === from.manager) c.decidedBy = to.manager
+    return c
+  })
+}
+
 export function createSeedDatabase(): Database {
   const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
-  const centralReqs = [DIST_REQUESTS[0], DIST_REQUESTS[1], DIST_REQUESTS[2]]
-  const distIncoming = [
-    SERVICE_REQUESTS.find((r) => r.id === "rq_sc1")!,
-    SERVICE_REQUESTS.find((r) => r.id === "rq_sc2")!,
-  ]
+  const central = { id: SITE_IDS.central, name: "Central Stores", manager: "Meena Kulkarni" }
+  const distributionOffice = { id: SITE_IDS.distribution, name: "Distribution", manager: "Rahul Patil" }
+  const serviceOffice = { id: SITE_IDS.service, name: "Service Centre", manager: "Anjali Joshi" }
+  // rq_d8 and rq_d10 are still with Distribution's own manager, so the "send on" step can be tried.
+  const distReqs = routeRequests(DIST_REQUESTS, distributionOffice, central, ["rq_d8", "rq_d10"])
+  const serviceReqs = routeRequests(SERVICE_REQUESTS, serviceOffice, distributionOffice)
+  const centralReqs = distReqs.filter((r) => r.forwardedAt)
+  const distIncoming = serviceReqs.filter((r) => r.forwardedAt)
   return {
     schema: 5,
     users: clone(SEED_USERS),
@@ -691,7 +722,7 @@ export function createSeedDatabase(): Database {
       },
       [SITE_IDS.service]: {
         ...emptySiteData(),
-        requests: clone(SERVICE_REQUESTS),
+        requests: clone(serviceReqs),
         repairs: clone(SERVICE_REPAIRS),
         returns: clone(SERVICE_RETURNS),
         assignments: clone(SERVICE_ASSIGNMENTS),
@@ -699,7 +730,7 @@ export function createSeedDatabase(): Database {
       [SITE_IDS.distribution]: {
         ...emptySiteData(),
         inventory: clone(DISTRIBUTION_INVENTORY),
-        requests: clone([...DIST_REQUESTS, ...distIncoming]),
+        requests: clone([...distReqs, ...distIncoming]),
         assignments: clone(DIST_ASSIGNMENTS),
         consumption: clone(DIST_CONSUMPTION),
       },

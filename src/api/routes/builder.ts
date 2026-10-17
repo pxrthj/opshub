@@ -30,7 +30,7 @@ function validateIncoming(ctx: Ctx, incoming: SiteConfig): SiteConfig {
   const ids = new Set(nodes.map((n) => n.id))
   const edges = incoming.canvas.edges.filter((e) => ids.has(e.source) && ids.has(e.target))
   const dupes = nodes.map((n) => n.moduleId).filter((m, i, arr) => arr.indexOf(m) !== i)
-  if (dupes.length) throw unprocessable(`Each module can only be used once (${dupes.join(", ")})`)
+  if (dupes.length) throw unprocessable(`Each feature can only be used once (${dupes.join(", ")})`)
 
   const issues = validateCanvas(nodes, edges)
   if (issues.length) throw unprocessable(`Fix the workflow first: ${issues.map((i) => i.message).join(" ")}`)
@@ -98,7 +98,7 @@ register(
     minRole: "Admin",
     handler: (ctx) => {
       const incoming = ctx.body.config ?? ctx.site.draft
-      if (!incoming) throw conflict("Nothing to publish — save a draft first")
+      if (!incoming) throw conflict("There is nothing to make live yet. Save your changes first.")
       const cfg = validateIncoming(ctx, incoming)
       const site = ctx.site
       const diff = diffConfigs(site.live, cfg)

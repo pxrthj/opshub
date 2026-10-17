@@ -47,12 +47,12 @@ export function DeployHistoryPage() {
 
   if (state.status === "loading")
     return (
-      <div className="flex flex-1 items-center justify-center text-slate-500">
-        <Spinner className="mr-2 size-5" /> Loading history…
+      <div className="flex flex-1 items-center justify-center text-muted-foreground">
+        <Spinner className="mr-2 size-5" /> Loading…
       </div>
     )
   if (state.status === "error")
-    return state.code === 403 ? <AccessDenied message={`${state.message}. Deploy history is only available to Admins.`} /> : <NotFound message={state.message} />
+    return state.code === 403 ? <AccessDenied message={`${state.message}. Only Admins can see the history.`} /> : <NotFound message={state.message} />
 
   const data = state.data
   const live = data.live
@@ -62,11 +62,11 @@ export function DeployHistoryPage() {
       const next = await api.post<BuilderState>(live.siteId, `builder/rollback/${target!.version}`)
       setState({ status: "ok", data: next })
       await refreshSites()
-      toast.success(`v${target!.version} is live again`, {
-        description: `${live.name} now runs the v${target!.version} config.`,
+      toast.success(`Version ${target!.version} is live again`, {
+        description: `${live.name} is back to how it was in version ${target!.version}.`,
       })
     } catch (e) {
-      toastError(e, "Rollback failed")
+      toastError(e, "We couldn't go back to that version. Please try again.")
       throw e
     }
   }
@@ -76,23 +76,23 @@ export function DeployHistoryPage() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
         <Button variant="ghost" size="sm" asChild className="mb-3 -ml-2">
           <Link to={`/builder/${live.siteId}`}>
-            <ArrowLeft /> Back to builder
+            <ArrowLeft /> Back to the editor
           </Link>
         </Button>
         <PageHeader
-          title={`Version history · ${live.name}`}
+          title={`History · ${live.name}`}
           icon={<History />}
-          description={<>Each publish is saved as a version. Live now: <b>v{data.liveVersion}</b>.</>}
+          description={<>Every time you make a change live, it is saved as a version. Live now: <b>version {data.liveVersion}</b>.</>}
           actions={
             <>
               <Button variant="outline" asChild>
                 <Link to={`/s/${live.slug}`}>
-                  <ExternalLink /> Open live site
+                  <ExternalLink /> Open office
                 </Link>
               </Button>
               <Button asChild>
                 <Link to={`/builder/${live.siteId}`}>
-                  <Workflow /> Builder
+                  <Workflow /> Edit
                 </Link>
               </Button>
             </>
@@ -103,11 +103,11 @@ export function DeployHistoryPage() {
             <Info />
             <AlertDescription>
               <p>
-                There are unpublished changes (saved {data.draftSavedAt && formatDateTime(data.draftSavedAt)} by {data.draftSavedBy}).{" "}
+                You have changes that are not live yet (saved {data.draftSavedAt && formatDateTime(data.draftSavedAt)} by {data.draftSavedBy}).{" "}
                 <Link to={`/preview/${live.slug}`} className="font-medium underline">
                   Preview them
                 </Link>
-                . Rolling back discards them.
+                . Going back to an older version throws them away.
               </p>
             </AlertDescription>
           </Alert>
@@ -118,10 +118,10 @@ export function DeployHistoryPage() {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="pl-4">Version</TableHead>
-                  <TableHead>Published</TableHead>
-                  <TableHead>Author</TableHead>
-                  <TableHead>Change summary</TableHead>
-                  <TableHead>Modules</TableHead>
+                  <TableHead>Made live</TableHead>
+                  <TableHead>By</TableHead>
+                  <TableHead>What changed</TableHead>
+                  <TableHead>Features</TableHead>
                   <TableHead className="w-32" />
                 </TableRow>
               </TableHeader>
@@ -132,8 +132,8 @@ export function DeployHistoryPage() {
                     <TableRow key={v.version} className={isLive ? "bg-primary/5" : undefined}>
                       <TableCell className="pl-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">v{v.version}</span>
-                          {isLive && <Badge className="bg-emerald-600 text-white">Live</Badge>}
+                          <span className="font-semibold">Version {v.version}</span>
+                          {isLive && <Badge>Live</Badge>}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{formatDateTime(v.publishedAt)}</TableCell>
@@ -153,7 +153,7 @@ export function DeployHistoryPage() {
                       <TableCell className="pr-3 text-right">
                         {!isLive && (
                           <Button size="sm" variant="outline" onClick={() => setTarget(v)}>
-                            <RotateCcw /> Rollback
+                            <RotateCcw /> Go back to this
                           </Button>
                         )}
                       </TableCell>
@@ -172,10 +172,10 @@ export function DeployHistoryPage() {
                 {data.events.map((e) => (
                   <li key={e.id} className="relative">
                     <span className="absolute top-0.5 -left-[29px] flex size-5 items-center justify-center rounded-full bg-card ring-1 ring-border">
-                      {e.action === "publish" ? <Rocket className="size-3 text-primary" /> : <RotateCcw className="size-3 text-amber-600" />}
+                      {e.action === "publish" ? <Rocket className="size-3 text-primary" /> : <RotateCcw className="size-3 text-muted-foreground" />}
                     </span>
                     <p className="text-sm font-medium">
-                      {e.action === "publish" ? `Published v${e.version}` : `Rolled back to v${e.version}`}
+                      {e.action === "publish" ? `Made version ${e.version} live` : `Went back to version ${e.version}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {e.author} · {formatDateTime(e.at)}
@@ -185,7 +185,7 @@ export function DeployHistoryPage() {
                 ))}
               </ol>
               <p className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
-                <GitCommitVertical className="size-3" /> Versions are immutable snapshots of the full site config.
+                <GitCommitVertical className="size-3" /> Old versions are never changed, so you can always go back.
               </p>
             </CardContent>
           </Card>
@@ -193,18 +193,18 @@ export function DeployHistoryPage() {
         <ConfirmDialog
           open={!!target}
           onOpenChange={(o) => !o && setTarget(null)}
-          title={`Roll back ${live.name} to v${target?.version}?`}
+          title={`Go back to version ${target?.version}?`}
           description={
             <div className="space-y-2">
-              <p>v{target?.version} becomes live immediately for everyone on this unit. Data (stock, requests…) is not changed — only menus, pages, fields and theme.</p>
+              <p>Version {target?.version} goes live right away for everyone in {live.name}. Your stock and requests are not touched. Only the menu, pages, form fields and look change.</p>
               {target && (
                 <div className="rounded-md bg-muted px-3 py-2 text-xs text-foreground">
-                  <b>Effect vs current live v{data.liveVersion}:</b> {summarizeDiff(diffConfigs(live, target.config))}
+                  <b>What changes:</b> {summarizeDiff(diffConfigs(live, target.config))}
                 </div>
               )}
             </div>
           }
-          confirmLabel={`Make v${target?.version} live`}
+          confirmLabel={`Go back to version ${target?.version}`}
           destructive
           onConfirm={rollback}
         />

@@ -1,4 +1,5 @@
 import { normalizeValues, validateValues } from "@/lib/fields"
+import { isSentOn, isSupplied, managerAction } from "@/lib/requestFlow"
 import { roleAtLeast } from "@/lib/roles"
 import { fieldsFor } from "@/lib/siteConfig"
 import type {
@@ -46,15 +47,40 @@ function assertOwnInventory(ctx: Ctx) {
 }
 
 function findRequest(ctx: Ctx) {
-  // Check local site first
   let req = data(ctx).requests.find((r) => r.id === ctx.params.id)
-  if (req) return req
-  // Check cross-site requests targeted at or originating from this site
-  for (const sData of Object.values(ctx.db.data)) {
-    const found = (sData.requests ?? []).find((r) => r.id === ctx.params.id)
-    if (found) return found
+  if (!req) {
+    for (const sData of Object.values(ctx.db.data)) {
+      req = (sData.requests ?? []).find((r) => r.id === ctx.params.id)
+      if (req) break
+    }
   }
-  throw notFound("Request not found")
+  if (!req) throw notFound("Request not found")
+  // Only the office that asked and the office that supplies the stock may see or change a request.
+  const involved = (req.originSiteId ?? ctx.siteId) === ctx.siteId || req.targetSiteId === ctx.siteId
+  if (!involved) throw notFound("Request not found")
+  return req
+}
+
+/** Copies the fields that change over a request's life onto every office's copy of it. */
+function syncRequest(ctx: Ctx, req: MaterialRequest) {
+  for (const sData of Object.values(ctx.db.data)) {
+    for (const r of sData.requests ?? []) {
+      if (r.id !== req.id || r === req) continue
+      r.status = req.status
+      r.decidedBy = req.decidedBy
+      r.decidedAt = req.decidedAt
+      r.decisionComment = req.decisionComment
+      r.assignmentId = req.assignmentId
+      r.repairJobId = req.repairJobId
+      r.forwardedAt = req.forwardedAt
+      r.forwardedBy = req.forwardedBy
+      r.forwardNote = req.forwardNote
+    }
+  }
+}
+
+function otherOffice(req: MaterialRequest) {
+  return req.targetSiteName ?? "the other office"
 }
 
 register(
@@ -79,11 +105,13 @@ register(
     minRole: "Member",
     module: ["inventory", "request"],
     handler: (ctx) => {
-      const sourceId = stockSiteOf(ctx.config)
+      // ?own=1 asks for the stock this office physically holds (used when it supplies another office).
+      const own = ctx.query.own === "1"
+      const sourceId = own ? ctx.siteId : stockSiteOf(ctx.config)
       const source = ctx.db.sites[sourceId]
       return {
         items: [...stockData(ctx.db, sourceId).inventory].sort((a, b) => a.name.localeCompare(b.name)),
-        linked: isLinkedInventory(ctx.config),
+        linked: !own && isLinkedInventory(ctx.config),
         sourceSiteId: sourceId,
         sourceName: source?.live.name ?? sourceId,
         fields: isLinkedInventory(ctx.config) && source ? fieldsFor(source.live, "inventory") : fieldsFor(ctx.config, "inventory"),
@@ -179,7 +207,8 @@ register(
     method: "GET",
     path: "/api/:siteId/requests",
     minRole: "Member",
-    module: "request",
+    // Approving offices (like Central Stores) have no Requests page of their own but must see requests sent to them.
+    module: ["request", "approval"],
     handler: (ctx) => {
       const siteId = ctx.siteId
       const d = data(ctx)
@@ -194,15 +223,12 @@ register(
         }
       }
 
-      // 2. If manager or admin, include incoming requests targeted at this site from other units
+      // 2. Managers also see requests another office's manager has sent on to this office
       if (isManager(ctx)) {
         for (const [sId, sData] of Object.entries(ctx.db.data)) {
           if (sId === siteId) continue
           for (const r of sData.requests ?? []) {
-            const isTargeted = r.targetSiteId === siteId
-            const isDefaultStockSource =
-              !r.targetSiteId && r.type === "material" && ctx.db.sites[sId]?.live.workflow.stockSourceSiteId === siteId
-            if (isTargeted || isDefaultStockSource) {
+            if (r.targetSiteId === siteId && isSentOn(r)) {
               if (!seen.has(r.id)) {
                 seen.add(r.id)
                 list.push(r)
@@ -278,16 +304,8 @@ register(
         if (!req.purpose) req.purpose = `Repair ${req.repair.meterId}`
       }
 
+      // The request stays in the asker's own office. Their manager decides whether to send it on.
       d.requests.unshift(req)
-
-      // Also deliver request into target supplier site's queue so supplier manager receives it immediately
-      if (targetSiteId !== ctx.siteId && ctx.db.data[targetSiteId]) {
-        if (!ctx.db.data[targetSiteId].requests) ctx.db.data[targetSiteId].requests = []
-        if (!ctx.db.data[targetSiteId].requests.some((r) => r.id === req.id)) {
-          ctx.db.data[targetSiteId].requests.unshift(req)
-        }
-      }
-
       return req
     },
   },
@@ -299,6 +317,10 @@ register(
     handler: (ctx) => {
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
+      const action = managerAction(req, ctx.siteId)
+      if (action === "send-on")
+        throw forbidden(`Send ${req.code} to ${otherOffice(req)} first. Only their managers can approve it.`)
+      if (action !== "decide") throw forbidden(`${req.code} is not waiting for a decision from ${ctx.config.name}.`)
       req.status = "Approved"
       req.decidedBy = ctx.user!.name
       req.decidedAt = new Date().toISOString()
@@ -309,7 +331,10 @@ register(
       const originSiteId = req.originSiteId || ctx.siteId
 
       let assignmentCode: string | undefined
-      if (req.type === "material" && ctx.enabled.has("assignment") && ctx.config.workflow.autoAssignOnApproval) {
+      // An office that supplies stock to another office gives it out as soon as it approves, even if it
+      // has no "Giving Out Stock" feature of its own. Otherwise the asking office's own setup applies.
+      const givesStock = isSupplied(req) ? ctx.enabled.has("inventory") : ctx.enabled.has("assignment")
+      if (req.type === "material" && givesStock && ctx.config.workflow.autoAssignOnApproval) {
         // Throws (and whole approval is rolled back) if any line is short.
         const a = assignMaterialTransaction(ctx.db, {
           siteId: originSiteId,
@@ -340,20 +365,7 @@ register(
         repairCode = job.code
       }
 
-      // Synchronize updated request state to all sites in db.data
-      for (const sData of Object.values(ctx.db.data)) {
-        for (const r of sData.requests ?? []) {
-          if (r.id === req.id) {
-            r.status = req.status
-            r.decidedBy = req.decidedBy
-            r.decidedAt = req.decidedAt
-            r.decisionComment = req.decisionComment
-            r.assignmentId = req.assignmentId
-            r.repairJobId = req.repairJobId
-          }
-        }
-      }
-
+      syncRequest(ctx, req)
       return { request: req, assignmentCode, repairCode }
     },
   },
@@ -365,6 +377,9 @@ register(
     handler: (ctx) => {
       const req = findRequest(ctx)
       if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
+      const action = managerAction(req, ctx.siteId)
+      if (action === "waiting-for-other-office") throw forbidden(`${otherOffice(req)} is deciding on ${req.code}.`)
+      if (action !== "decide" && action !== "send-on") throw forbidden(`${req.code} is not waiting for a decision from ${ctx.config.name}.`)
       const comment = String(ctx.body.comment ?? "").trim()
       if (ctx.config.workflow.requireRejectComment && !comment) throw badRequest("A comment is required when rejecting")
       req.status = "Rejected"
@@ -372,18 +387,33 @@ register(
       req.decidedAt = new Date().toISOString()
       req.decisionComment = comment || undefined
 
-      // Synchronize updated request state to all sites in db.data
-      for (const sData of Object.values(ctx.db.data)) {
-        for (const r of sData.requests ?? []) {
-          if (r.id === req.id) {
-            r.status = req.status
-            r.decidedBy = req.decidedBy
-            r.decidedAt = req.decidedAt
-            r.decisionComment = req.decisionComment
-          }
-        }
-      }
+      syncRequest(ctx, req)
+      return req
+    },
+  },
+  {
+    // The asker's own manager hands the request to the manager of the office that holds the stock.
+    method: "POST",
+    path: "/api/:siteId/requests/:id/forward",
+    minRole: "Manager",
+    module: "approval",
+    handler: (ctx) => {
+      const req = findRequest(ctx)
+      if (req.status !== "Pending") throw conflict(`${req.code} is already ${req.status}`)
+      const action = managerAction(req, ctx.siteId)
+      if (action === "waiting-for-other-office") throw conflict(`${req.code} was already sent to ${otherOffice(req)}`)
+      if (action !== "send-on") throw forbidden(`${req.code} does not need to be sent to another office.`)
+      const target = ctx.db.data[req.targetSiteId!]
+      if (!target) throw notFound(`${otherOffice(req)} could not be found`)
 
+      req.forwardedAt = new Date().toISOString()
+      req.forwardedBy = ctx.user!.name
+      req.forwardNote = String(ctx.body.note ?? "").trim() || undefined
+
+      // Now (and only now) the supplying office's managers can see it.
+      if (!target.requests) target.requests = []
+      if (!target.requests.some((r) => r.id === req.id)) target.requests.unshift(JSON.parse(JSON.stringify(req)))
+      syncRequest(ctx, req)
       return req
     },
   },
@@ -405,15 +435,7 @@ register(
         actor: ctx.user!,
       })
 
-      for (const sData of Object.values(ctx.db.data)) {
-        for (const r of sData.requests ?? []) {
-          if (r.id === req.id) {
-            r.status = req.status
-            r.assignmentId = req.assignmentId
-          }
-        }
-      }
-
+      syncRequest(ctx, req)
       return a
     },
   },

@@ -33,9 +33,9 @@ export function readableOn(hex: string) {
 }
 
 export const DEFAULT_THEME: SiteTheme = {
-  primary: "#4f46e5",
-  accent: "#eef2ff",
-  background: "#f8fafc",
+  primary: "#171717",
+  accent: "#f5f5f5",
+  background: "#fafafa",
   radius: 0.625,
   sidebar: "light",
 }

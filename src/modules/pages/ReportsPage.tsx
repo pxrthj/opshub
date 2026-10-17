@@ -57,8 +57,8 @@ export function ReportsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const datasets = [
-    { id: "inventory", label: "Inventory register", desc: `All stock items with calculated totals${linked ? ` (${inv?.sourceName})` : ""}.` },
-    has("request") && { id: "requests", label: "Requests", desc: "Every request with status and decision." },
+    { id: "inventory", label: "Stock list", desc: `Every item with its total value${linked ? ` (${inv?.sourceName})` : ""}.` },
+    has("request") && { id: "requests", label: "Requests", desc: "Every request and its answer." },
     has("assignment") && { id: "assignments", label: "Assignments & consumption", desc: "Issued, used, returned and remaining per line." },
     has("pcb-repair") && { id: "repairs", label: "Repair log", desc: "PCB repair jobs with status and parts." },
   ].filter(Boolean) as { id: string; label: string; desc: string }[]
@@ -76,7 +76,7 @@ export function ReportsPage() {
       })
       toast.success("Excel file downloaded", { description: `${sets.map((s) => `${s.label} (${s.rows.length} rows)`).join(", ")}` })
     } catch (e) {
-      toastError(e, "Export failed")
+      toastError(e, "We couldn't make the Excel file. Please try again.")
     } finally {
       setExporting(null)
     }
@@ -86,14 +86,14 @@ export function ReportsPage() {
     if (!file) return
     setParsing(true)
     try {
-      if (!/\.xlsx$/i.test(file.name)) throw new Error("Please choose an .xlsx file")
+      if (!/\.xlsx$/i.test(file.name)) throw new Error("Please choose an Excel file that ends in .xlsx")
       const result = await parseInventoryFile(file)
       if (result.missingColumns.includes("name")) throw new Error('Could not find an "Item" column in the first row')
-      if (!result.rows.length) throw new Error("No data rows found below the header")
+      if (!result.rows.length) throw new Error("The file has no rows under the column names")
       setParsed({ ...result, fileName: file.name })
-      toast.info(`Read ${result.rows.length} rows from ${file.name}`, { description: "Review the preview, then confirm the import." })
+      toast.info(`Read ${result.rows.length} rows from ${file.name}`, { description: "Check the preview, then confirm." })
     } catch (e) {
-      toast.error("Couldn't read that file", { description: errorMessage(e) })
+      toast.error("We couldn't read that file", { description: errorMessage(e) })
     } finally {
       setParsing(false)
       if (fileRef.current) fileRef.current.value = ""
@@ -112,12 +112,12 @@ export function ReportsPage() {
 
   return (
     <div>
-      <PageHeader title="Excel reports" icon={<FileSpreadsheet />} description="Download data as Excel, or upload a stock sheet." />
+      <PageHeader title="Excel files" icon={<FileSpreadsheet />} description="Download information to Excel, or load a stock list from Excel." />
 
       {!canExport && (
         <Alert className="mb-5">
           <Info />
-          <AlertDescription>Downloads need a Manager. Uploads need an Admin.</AlertDescription>
+          <AlertDescription>Managers can download. Admins can also upload.</AlertDescription>
         </Alert>
       )}
 
@@ -178,7 +178,7 @@ export function ReportsPage() {
                 <EmptyMedia variant="icon">
                   <FileUp />
                 </EmptyMedia>
-                <EmptyTitle>{canImport ? "Drop an .xlsx file here" : "Upload locked"}</EmptyTitle>
+                <EmptyTitle>{canImport ? "Drop an .xlsx file here" : "Uploading is turned off"}</EmptyTitle>
                 <EmptyDescription>
                   {linked ? `Stock is kept in ${inv?.sourceName}. Upload it there.` : canImport ? "or choose a file" : "Only Admins can upload."}
                 </EmptyDescription>
@@ -230,10 +230,10 @@ export function ReportsPage() {
                     <TableHead>Item</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit price</TableHead>
+                    <TableHead className="text-right">How many</TableHead>
+                    <TableHead className="text-right">Price each</TableHead>
                     <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Result</TableHead>
+                    <TableHead>What happens</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -255,9 +255,9 @@ export function ReportsPage() {
                         {p.error ? (
                           <span className="font-medium text-red-600">{p.error}</span>
                         ) : p.existing ? (
-                          <span className="text-sky-700">Update</span>
+                          <span className="text-muted-foreground">Changed</span>
                         ) : (
-                          <span className="text-emerald-700">New item</span>
+                          <span className="text-emerald-700">New</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -273,18 +273,18 @@ export function ReportsPage() {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Import ${preview.length} rows into ${config.name}?`}
-        description={`${creates} new items will be added and ${updates} existing items overwritten (qty, price, reorder level). This changes live stock.`}
+        title={`Load ${preview.length} rows into ${config.name}?`}
+        description={`${creates} new items will be added and ${updates} existing items will be changed (quantity, price and warning level). This changes your real stock.`}
         confirmLabel="Import now"
         onConfirm={async () => {
           try {
             const res = await siteApi.post<{ created: number; updated: number }>("inventory/import", { rows: parsed!.rows })
-            toast.success("Inventory imported", { description: `${res.created} added · ${res.updated} updated` })
+            toast.success("Stock loaded", { description: `${res.created} added, ${res.updated} changed` })
             setParsed(null)
             reload()
             notifyChange()
           } catch (e) {
-            toastError(e, "Import rejected")
+            toastError(e, "We couldn't load the file. Nothing was changed.")
             throw e
           }
         }}

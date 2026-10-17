@@ -5,7 +5,7 @@ import type { Database } from "@/lib/types"
 // In the real backend this becomes Postgres tables that all carry a site_id column.
 
 export const CURRENT_SCHEMA = 5
-const DB_KEY = "opshub.db.v5"
+const DB_KEY = "opshub.db.v7"
 
 export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value))
@@ -19,6 +19,8 @@ export function loadDb(): Database {
       localStorage.removeItem("opshub.db.v2")
       localStorage.removeItem("opshub.db.v3")
       localStorage.removeItem("opshub.db.v4")
+      localStorage.removeItem("opshub.db.v5")
+      localStorage.removeItem("opshub.db.v6")
     } catch {
       // ignore
     }

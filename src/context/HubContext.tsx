@@ -32,7 +32,6 @@ export function HubProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   useEffect(() => {
-    setLoading(true)
     refreshSites()
   }, [refreshSites, dataVersion])
 

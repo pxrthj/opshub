@@ -43,7 +43,7 @@ export function UsersPage() {
     [users, q],
   )
 
-  if (!hubLoading && !isAnyAdmin) return <AccessDenied message="User Management is only available to Admins." />
+  if (!hubLoading && !isAnyAdmin) return <AccessDenied message="Only Admins can manage people." />
 
   const adminOn = (siteId: string) => user?.roles[siteId] === "Admin"
 
@@ -59,17 +59,17 @@ export function UsersPage() {
   async function save() {
     if (!draft) return
     setFormError(null)
-    if (!draft.name.trim()) return setFormError("Name is required")
-    if (!draft.id && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(draft.email.trim())) return setFormError("Enter a valid email")
-    if (!draft.id && draft.password.length < 4) return setFormError("Password must be at least 4 characters")
+    if (!draft.name.trim()) return setFormError("Please type a name.")
+    if (!draft.id && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(draft.email.trim())) return setFormError("Please type a real email address.")
+    if (!draft.id && draft.password.length < 4) return setFormError("The password needs at least 4 characters.")
     setBusy(true)
     try {
       if (draft.id) {
         await api.raw.put(`/api/hub/users/${draft.id}`, { name: draft.name, title: draft.title, password: draft.password || undefined, roles: draft.roles })
-        toast.success(`Updated ${draft.name}`)
+        toast.success(`${draft.name} was updated`)
       } else {
         await api.raw.post("/api/hub/users", draft)
-        toast.success(`Created ${draft.name}`, { description: `They can now sign in as ${draft.email}` })
+        toast.success(`${draft.name} was added`, { description: `They can sign in with ${draft.email}` })
       }
       setDraft(null)
       reload()
@@ -86,8 +86,8 @@ export function UsersPage() {
   return (
     <div>
       <PageHeader
-        title="Users"
-        description="Everyone who can sign in, and their access to each office."
+        title="People"
+        description="Everyone who can sign in, and what they can do in each office."
         icon={<Users />}
         actions={
           <Button onClick={openNew}>
@@ -98,21 +98,21 @@ export function UsersPage() {
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-sm">
           <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-slate-400" />
-          <Input className="pl-8" placeholder="Search name, email or title" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="pl-8" placeholder="Search by name, email or job" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <span className="text-sm text-slate-500">{filtered.length} users</span>
       </div>
       {loading && !users ? (
         <TableSkeleton />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Users} title="No users match" description="Try a different search." />
+        <EmptyState icon={Users} title="No one found" description="Try a different search." />
       ) : (
         <Card className="py-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">User</TableHead>
-                <TableHead>Title</TableHead>
+                <TableHead className="pl-4">Person</TableHead>
+                <TableHead>Job</TableHead>
                 {sites.map((s) => (
                   <TableHead key={s.config.siteId}>
                     <span className="inline-flex items-center gap-1.5">
@@ -143,7 +143,7 @@ export function UsersPage() {
                             {r}
                           </Badge>
                         ) : (
-                          <span className="text-xs text-slate-400">No access</span>
+                          <span className="text-xs text-muted-foreground">No access</span>
                         )}
                       </TableCell>
                     )
@@ -163,8 +163,8 @@ export function UsersPage() {
       <Dialog open={!!draft} onOpenChange={(o) => !o && !busy && setDraft(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{draft?.id ? "Edit user" : "Add user"}</DialogTitle>
-            <DialogDescription>Choose their access to each office.</DialogDescription>
+            <DialogTitle>{draft?.id ? "Change this person" : "Add a person"}</DialogTitle>
+            <DialogDescription>Choose what they can do in each office.</DialogDescription>
           </DialogHeader>
           {draft && (
             <div className="grid gap-4">
@@ -174,8 +174,8 @@ export function UsersPage() {
                   <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Title</Label>
-                  <Input value={draft.title} placeholder="e.g. Lineman" onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+                  <Label>Job</Label>
+                  <Input value={draft.title} placeholder="For example: Storekeeper" onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Email *</Label>
@@ -183,11 +183,11 @@ export function UsersPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>{draft.id ? "New password" : "Password *"}</Label>
-                  <Input type="password" value={draft.password} placeholder={draft.id ? "Leave blank to keep" : ""} onChange={(e) => setDraft({ ...draft, password: e.target.value })} />
+                  <Input type="password" value={draft.password} placeholder={draft.id ? "Leave empty to keep the old one" : ""} onChange={(e) => setDraft({ ...draft, password: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Access per office</Label>
+                <Label>What they can do in each office</Label>
                 {sites.map((s) => {
                   const id = s.config.siteId
                   const editable = adminOn(id)
@@ -232,7 +232,7 @@ export function UsersPage() {
             </Button>
             <Button onClick={save} disabled={busy}>
               {busy && <Spinner />}
-              {draft?.id ? "Save changes" : "Create user"}
+              {draft?.id ? "Save" : "Add person"}
             </Button>
           </DialogFooter>
         </DialogContent>

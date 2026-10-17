@@ -4,22 +4,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { FieldErrors } from "@/lib/fields"
+import { formatFieldValue } from "@/lib/format"
 import { computeFormula } from "@/lib/formula"
 import type { FieldDef } from "@/lib/types"
 import { cn } from "@/lib/utils"
-
-export function formatFieldValue(f: FieldDef, v: unknown): string {
-  if (v === undefined || v === null || v === "") return "—"
-  if (f.type === "calculated" || f.type === "number") {
-    const raw = Number(v)
-    if (!Number.isFinite(raw)) return "—"
-    const n = raw === 0 ? 0 : raw // avoid "-0"
-    const money = /price|cost|total|value|₹/i.test(f.key + f.label)
-    return money ? "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : n.toLocaleString("en-IN", { maximumFractionDigits: 2 })
-  }
-  if (f.type === "date") return new Date(String(v)).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-  return String(v)
-}
 
 /**
  * Generic form renderer: draws any FieldDef[] from a site's config.

@@ -29,8 +29,8 @@ export function Logo({
         className={cn("object-contain transition-transform duration-200 hover:scale-105", iconSizes[size])}
       />
       {!compact && (
-        <span className={cn("font-extrabold text-slate-900 transition-colors", textSizes[size])}>
-          PLE<span className="text-sky-500">X</span>US
+        <span className={cn("font-extrabold text-foreground", textSizes[size])}>
+          PLE<span className="text-primary">X</span>US
         </span>
       )}
     </div>

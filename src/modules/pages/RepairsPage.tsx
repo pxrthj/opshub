@@ -20,7 +20,8 @@ import { fieldsFor } from "@/lib/siteConfig"
 import type { RepairJob, RepairStatus } from "@/lib/types"
 import { toastError, useAsync } from "@/lib/useAsync"
 import { formatDate } from "@/lib/utils"
-import { DynamicForm, formatFieldValue } from "@/renderer/DynamicForm"
+import { DynamicForm } from "@/renderer/DynamicForm"
+import { formatFieldValue } from "@/lib/format"
 
 const STATUSES: RepairStatus[] = ["Received", "In Repair", "Fixed", "Scrapped"]
 
@@ -52,10 +53,10 @@ export function RepairsPage() {
     try {
       if (editing.job) {
         await siteApi.put(`repairs/${editing.job.id}`, editing.values)
-        toast.success(`${editing.job.code} updated`, { description: `Status: ${editing.values.status}` })
+        toast.success(`${editing.job.code} was updated`, { description: `Now: ${editing.values.status}` })
       } else {
         const job = await siteApi.post<RepairJob>("repairs", editing.values)
-        toast.success(`Repair job ${job.code} logged`, { description: `${job.meterId} — status Received` })
+        toast.success(`Repair ${job.code} was added`, { description: `${job.meterId} is marked as received.` })
       }
       setEditing(null)
       reload()
@@ -72,7 +73,7 @@ export function RepairsPage() {
       <PageHeader
         title="Meter repairs"
         icon={<CircuitBoard />}
-        description="Track broken meters until they are fixed."
+        description="Follow each broken meter until it is fixed."
         actions={
           <Button
             onClick={() => {
@@ -99,19 +100,19 @@ export function RepairsPage() {
         </Tabs>
         <div className="relative w-full max-w-xs">
           <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="bg-card pl-8" placeholder="Search meter ID, fault, technician" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="bg-card pl-8" placeholder="Search by meter number, fault or name" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
       {loading && !data ? (
         <TableSkeleton />
       ) : list.length === 0 ? (
-        <EmptyState icon={CircuitBoard} title="No repair jobs" description="Log a broken meter to start." />
+        <EmptyState icon={CircuitBoard} title="No repairs yet" description="Add a broken meter to start." />
       ) : (
         <Card className="py-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
-                <TableHead className="pl-4">Job</TableHead>
+                <TableHead className="pl-4">Repair</TableHead>
                 {tableFields.map((f) => (
                   <TableHead key={f.key}>{f.label}</TableHead>
                 ))}
@@ -130,7 +131,7 @@ export function RepairsPage() {
                   </TableCell>
                   {tableFields.map((f) => (
                     <TableCell key={f.key} className={f.key === "meterId" ? "text-sm font-medium" : "max-w-[200px] text-sm whitespace-normal"}>
-                      {f.key === "technician" && !r.technician ? <span className="text-muted-foreground italic">Unassigned</span> : formatFieldValue(f, r[f.key])}
+                      {f.key === "technician" && !r.technician ? <span className="text-muted-foreground italic">Nobody yet</span> : formatFieldValue(f, r[f.key])}
                     </TableCell>
                   ))}
                   <TableCell className="max-w-[160px] text-sm whitespace-normal text-muted-foreground">{r.partsUsed || "—"}</TableCell>
@@ -145,7 +146,7 @@ export function RepairsPage() {
                       size="icon-sm"
                       variant="ghost"
                       disabled={r.returned}
-                      title={r.returned ? "Returned to stock — closed" : "Update job"}
+                      title={r.returned ? "Put back into stock. This repair is closed." : "Update this repair"}
                       onClick={() => {
                         setErrors({})
                         setEditing({ job: r, values: { ...r } })
@@ -164,8 +165,8 @@ export function RepairsPage() {
       <Dialog open={!!editing} onOpenChange={(o) => !o && !busy && setEditing(null)}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{editing?.job ? `Update ${editing.job.code}` : "Log faulty meter"}</DialogTitle>
-            <DialogDescription>{editing?.job ? "Move the job through the repair stages." : "A new job starts in the Received stage."}</DialogDescription>
+            <DialogTitle>{editing?.job ? `Update ${editing.job.code}` : "Add a broken meter"}</DialogTitle>
+            <DialogDescription>{editing?.job ? "Change where this repair is up to." : "It starts as received."}</DialogDescription>
           </DialogHeader>
           {editing && (
             <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">

@@ -31,8 +31,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    refreshUser().finally(() => setReady(true))
-  }, [refreshUser])
+    let cancelled = false
+    ;(async () => {
+      if (!readSession()) {
+        if (!cancelled) setReady(true)
+        return
+      }
+      try {
+        const me = await api.raw.get<PublicUser>("/api/auth/me")
+        if (!cancelled) setUser(me)
+      } catch {
+        writeSession(null)
+        if (!cancelled) setUser(null)
+      } finally {
+        if (!cancelled) setReady(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     const u = await api.raw.post<PublicUser>("/api/auth/login", { email, password })

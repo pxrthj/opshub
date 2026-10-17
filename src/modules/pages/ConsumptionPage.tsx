@@ -25,12 +25,12 @@ export function ConsumptionPage() {
   return (
     <div>
       <PageHeader
-        title="Usage log"
+        title="What was used"
         icon={<Gauge />}
-        description="Material used on site, and what is left."
+        description="What has been used, where, and what is left."
         actions={
           <Button onClick={() => setOpen(true)} disabled={!lines.some((x) => x.l.remaining > 0)}>
-            <Plus /> Record usage
+            <Plus /> Write down use
           </Button>
         }
       />
@@ -45,17 +45,17 @@ export function ConsumptionPage() {
             </div>
           ) : !records?.length ? (
             <div className="p-4">
-              <EmptyState icon={Gauge} title="No usage recorded yet" description="Record how much material was used." />
+              <EmptyState icon={Gauge} title="Nothing written down yet" description="Write down how much you used." />
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="pl-4">Date</TableHead>
-                  <TableHead>Assignment</TableHead>
+                  <TableHead>Given out as</TableHead>
                   <TableHead>Item</TableHead>
-                  <TableHead className="text-right">Qty used</TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead className="text-right">Used</TableHead>
+                  <TableHead>Where</TableHead>
                   <TableHead>By</TableHead>
                 </TableRow>
               </TableHeader>
@@ -76,10 +76,10 @@ export function ConsumptionPage() {
         </Card>
         <Card className="gap-0 py-0">
           <CardHeader className="border-b py-3">
-            <CardTitle className="text-base">Balance per assignment</CardTitle>
+            <CardTitle className="text-base">What is left</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 py-4">
-            {lines.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No assignments.</p>}
+            {lines.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nothing has been given out.</p>}
             {lines.map(({ a, l }) => (
               <div key={a.id + l.itemId}>
                 <div className="mb-1 flex justify-between gap-2 text-sm">

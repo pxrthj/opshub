@@ -27,17 +27,19 @@ export function SiteRenderer({ mode }: { mode: "live" | "preview" }) {
   const { slug = "", "*": rest = "" } = useParams()
   const preview = mode === "preview"
   const { dataVersion, refreshSites } = useHub()
-  const [state, setState] = useState<{ status: "loading" } | { status: "ok"; data: Loaded } | { status: "error"; code: number; message: string }>({ status: "loading" })
+  type LoadState = { status: "loading" } | { status: "ok"; data: Loaded } | { status: "error"; code: number; message: string }
+  const [loaded, setState] = useState<LoadState>({ status: "loading" })
+  // Switching to another office shows the spinner; refreshing the same one keeps the page on screen.
+  const state = useMemo<LoadState>(() => (loaded.status === "ok" && loaded.data.config.slug !== slug ? { status: "loading" } : loaded), [loaded, slug])
   const [changeTick, setChangeTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    setState((s) => (s.status === "ok" && s.data.config.slug === slug ? s : { status: "loading" }))
     ;(async () => {
       try {
         const resolved = await api.raw.get<{ siteId: string }>(`/api/hub/resolve/${encodeURIComponent(slug)}`)
         const data = await api.get<Loaded>(resolved.siteId, "config", { preview })
-        if (preview && data.role !== "Admin") throw new ApiError(403, "Preview mode is only available to Admins of this site.")
+        if (preview && data.role !== "Admin") throw new ApiError(403, "Only Admins can preview changes.")
         if (!cancelled) setState({ status: "ok", data })
       } catch (e) {
         if (!cancelled) setState({ status: "error", code: e instanceof ApiError ? e.status : 500, message: errorMessage(e) })
@@ -113,7 +115,7 @@ function PageOutlet({ segment }: { segment: string }) {
     const known = MODULE_DEFINITIONS.find((m) => m.page?.path === segment)
     return (
       <NotFound
-        message={known ? `${known.name} is not enabled on ${config.name}. An Admin can add it in the Builder.` : `There is no "${segment}" page on ${config.name}.`}
+        message={known ? `${known.name} is not switched on in ${config.name}. An Admin can switch it on by editing the office.` : `${config.name} has no page called "${segment}".`}
         backTo={basePath}
         backLabel={`Back to ${config.name}`}
       />
@@ -122,38 +124,38 @@ function PageOutlet({ segment }: { segment: string }) {
   if (!roleAtLeast(role, page.minRole))
     return (
       <AccessDenied
-        message={`${page.label} needs the ${page.minRole} role on ${config.name}. Your role here is ${role}.`}
+        message={`You need to be a ${page.minRole} (or higher) in ${config.name} to open ${page.label}. You are a ${role}.`}
         backTo={basePath}
         backLabel={`Back to ${config.name}`}
       />
     )
   const Component = PAGE_COMPONENTS[page.moduleId]
-  if (!Component) return <NotFound message="This module has no page." backTo={basePath} />
+  if (!Component) return <NotFound message="This feature has no page." backTo={basePath} />
   return <Component key={`${config.siteId}-${page.id}`} />
 }
 
 function PreviewBanner({ config, hasDraft }: { config: SiteConfig; hasDraft: boolean }) {
   const navigate = useNavigate()
   return (
-    <div className="sticky top-14 z-30 flex flex-wrap items-center gap-3 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900">
-      <span className="flex items-center gap-1.5 rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white uppercase">
-        <Eye className="size-3.5" /> Preview mode
+    <div className="sticky top-14 z-30 flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+      <span className="flex items-center gap-1.5 font-medium">
+        <Eye className="size-4" /> Preview
       </span>
       <span>
         {hasDraft ? (
           <>
-            You're viewing the <b>unpublished draft</b> of {config.name}. Users still see the live version.
+            You're viewing the <b>preview</b> of {config.name}. Your team still sees the live version.
           </>
         ) : (
-          <>No draft saved — this is the live config of {config.name}.</>
+          <>Nothing has been changed yet. This is how {config.name} looks now.</>
         )}
       </span>
       <div className="ml-auto flex gap-2">
-        <Button size="sm" variant="outline" className="border-amber-400 bg-white/70" asChild>
-          <Link to={`/s/${config.slug}`}>View live site</Link>
+        <Button size="sm" variant="outline" asChild>
+          <Link to={`/s/${config.slug}`}>Open live version</Link>
         </Button>
-        <Button size="sm" className="bg-amber-600 text-white hover:bg-amber-700" onClick={() => navigate(`/builder/${config.siteId}`)}>
-          <Workflow /> Back to builder
+        <Button size="sm" onClick={() => navigate(`/builder/${config.siteId}`)}>
+          <Workflow /> Back to editing
         </Button>
       </div>
     </div>

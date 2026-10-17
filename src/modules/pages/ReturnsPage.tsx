@@ -34,7 +34,7 @@ export function ReturnsPage() {
       reload()
       notifyChange()
     } catch (e) {
-      toastError(e, "Return failed")
+      toastError(e, "We couldn't put it back. Please try again.")
     } finally {
       setBusyId(null)
     }
@@ -48,13 +48,13 @@ export function ReturnsPage() {
   return (
     <div>
       <PageHeader
-        title="Returns"
+        title="Giving back"
         icon={<Undo2 />}
-        description="Give back unused or repaired items."
+        description="Put unused or fixed items back into stock."
         actions={
           hasAssign && (
             <Button onClick={() => setOpen(true)}>
-              <Plus /> Return unused material
+              <Plus /> Give back unused items
             </Button>
           )
         }
@@ -69,7 +69,7 @@ export function ReturnsPage() {
           </CardHeader>
           <CardContent>
             {readyRepairs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No fixed meters waiting. Mark a repair job as Fixed on the PCB Repair page.</p>
+              <p className="text-sm text-muted-foreground">No fixed meters are waiting. Mark a repair as Fixed on the repairs page first.</p>
             ) : (
               <div className="grid gap-2 md:grid-cols-2">
                 {readyRepairs.map((r) => (
@@ -81,7 +81,7 @@ export function ReturnsPage() {
                       </p>
                     </div>
                     <Button size="sm" onClick={() => returnRepair(r)} disabled={busyId === r.id}>
-                      {busyId === r.id ? <Spinner /> : <Undo2 />} Return to stock
+                      {busyId === r.id ? <Spinner /> : <Undo2 />} Put back in stock
                     </Button>
                   </div>
                 ))}
@@ -94,18 +94,18 @@ export function ReturnsPage() {
       {loading && !returns ? (
         <TableSkeleton />
       ) : !returns?.length ? (
-        <EmptyState icon={Undo2} title="No returns yet" description="Returned items will show up here." />
+        <EmptyState icon={Undo2} title="Nothing given back yet" description="Items you put back will show up here." />
       ) : (
         <Card className="py-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
                 <TableHead className="pl-4">Date</TableHead>
-                <TableHead>Source</TableHead>
+                <TableHead>From</TableHead>
                 <TableHead>Item</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">How many</TableHead>
                 <TableHead>Condition</TableHead>
-                <TableHead>Returned by</TableHead>
+                <TableHead>Given back by</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

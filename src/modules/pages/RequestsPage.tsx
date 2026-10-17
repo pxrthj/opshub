@@ -22,14 +22,11 @@ import { fieldsFor } from "@/lib/siteConfig"
 import type { FieldDef, InventoryItem, MaterialRequest, RequestStatus } from "@/lib/types"
 import { errorMessage, toastError, useAsync } from "@/lib/useAsync"
 import { cn, formatDateTime } from "@/lib/utils"
-import { DynamicForm, formatFieldValue } from "@/renderer/DynamicForm"
+import { DynamicForm } from "@/renderer/DynamicForm"
+import { formatFieldValue, requestSummary } from "@/lib/format"
+import { requestStatusLabel } from "@/lib/requestFlow"
 
 const STATUSES: ("All" | RequestStatus)[] = ["All", "Pending", "Approved", "Assigned", "Rejected"]
-
-export function requestSummary(r: MaterialRequest) {
-  if (r.type === "repair") return `${r.repair?.meterId} — ${r.repair?.fault}`
-  return r.lines.map((l) => `${l.itemName} × ${l.qty.toLocaleString("en-IN")}`).join(", ")
-}
 
 type Line = { itemId: string; qty: string }
 
@@ -71,23 +68,23 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
     let body: Record<string, unknown> = { ...values, type }
     if (type === "material") {
       const clean = lines.filter((l) => l.itemId || l.qty)
-      if (!clean.length) return setFormError("Add at least one item")
+      if (!clean.length) return setFormError("Add at least one item.")
       for (const [i, l] of clean.entries()) {
-        if (!l.itemId) return setFormError(`Line ${i + 1}: choose an item`)
+        if (!l.itemId) return setFormError(`Row ${i + 1}: pick an item.`)
         const n = Number(l.qty)
-        if (!Number.isInteger(n) || n <= 0) return setFormError(`Line ${i + 1}: quantity must be a positive whole number`)
-        if (n > wf.maxQtyPerLine) return setFormError(`Line ${i + 1}: max ${wf.maxQtyPerLine} per line`)
+        if (!Number.isInteger(n) || n <= 0) return setFormError(`Row ${i + 1}: type a whole number, like 5.`)
+        if (n > wf.maxQtyPerLine) return setFormError(`Row ${i + 1}: you can ask for at most ${wf.maxQtyPerLine} of one item.`)
       }
       body = { ...body, lines: clean.map((l) => ({ itemId: l.itemId, qty: Number(l.qty) })) }
     } else {
       if (!repair.meterId.trim()) return setFormError("Meter ID is required")
-      if (!repair.fault) return setFormError("Choose the fault")
+      if (!repair.fault) return setFormError("Pick what is wrong with the meter.")
       body = { ...body, repair, purpose: `Repair ${repair.meterId.trim().toUpperCase()}` }
     }
     setBusy(true)
     try {
       await siteApi.post<MaterialRequest>("requests", body)
-      toast.success("Request sent", { description: "A manager will review it." })
+      toast.success("Your request was sent", { description: wf.stockSourceSiteId && type === "material" ? "Your manager will look at it first." : "A manager will look at it soon." })
       reset()
       onOpenChange(false)
       onCreated()
@@ -106,7 +103,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
         <DialogHeader>
           <DialogTitle>New request</DialogTitle>
           <DialogDescription>
-            {type === "material" ? `Items are issued from ${inv?.sourceName ?? "stores"} once a Manager approves.` : "Raise a repair job for a faulty meter."}
+            {type === "material" ? wf.stockSourceSiteId ? `Your manager will check this first. If it is fine, they send it on to ${inv?.sourceName ?? "the store"}, whose manager decides.` : "A manager will look at this and decide." : "Send in a meter that is not working."}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
@@ -124,7 +121,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
           )}
           {type === "material" ? (
             <div className="space-y-2">
-              <Label>Items *</Label>
+              <Label>What do you need? *</Label>
               {lines.map((l, idx) => {
                 const item = stock.find((s) => s.id === l.itemId)
                 const over = item && Number(l.qty) > item.qty
@@ -132,7 +129,7 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
                   <div key={idx} className="flex items-start gap-2">
                     <Select value={l.itemId || undefined} onValueChange={(v) => setLines(lines.map((x, i) => (i === idx ? { ...x, itemId: v } : x)))}>
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder={inv ? "Choose item" : "Loading items…"} />
+                        <SelectValue placeholder={inv ? "Pick an item" : "Loading…"} />
                       </SelectTrigger>
                       <SelectContent>
                         {stock.map((s) => (
@@ -146,30 +143,30 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
                       <Input
                         type="number"
                         min={1}
-                        placeholder="Qty"
+                        placeholder="How many"
                         value={l.qty}
                         onChange={(e) => setLines(lines.map((x, i) => (i === idx ? { ...x, qty: e.target.value } : x)))}
                       />
-                      {item && <p className={cn("mt-1 text-xs", over ? "text-amber-600" : "text-muted-foreground")}>{over ? "More than in stock" : item.unit}</p>}
+                      {item && <p className={cn("mt-1 text-xs", over ? "text-amber-600" : "text-muted-foreground")}>{over ? "More than we have in stock" : item.unit}</p>}
                     </div>
-                    <Button variant="ghost" size="icon" disabled={lines.length === 1} onClick={() => setLines(lines.filter((_, i) => i !== idx))} aria-label="Remove line">
+                    <Button variant="ghost" size="icon" disabled={lines.length === 1} onClick={() => setLines(lines.filter((_, i) => i !== idx))} aria-label="Remove this row">
                       <Trash2 />
                     </Button>
                   </div>
                 )
               })}
               <Button variant="outline" size="sm" onClick={() => setLines([...lines, { itemId: "", qty: "" }])}>
-                <Plus /> Add line
+                <Plus /> Add another item
               </Button>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Meter ID *</Label>
+                <Label>Meter number *</Label>
                 <Input placeholder="e.g. SM-PN-212345" value={repair.meterId} onChange={(e) => setRepair({ ...repair, meterId: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Meter type *</Label>
+                <Label>Type of meter *</Label>
                 <Select value={repair.meterType} onValueChange={(v) => setRepair({ ...repair, meterType: v })}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -184,10 +181,10 @@ export function NewRequestDialog({ open, onOpenChange, onCreated }: { open: bool
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Fault *</Label>
+                <Label>What is wrong? *</Label>
                 <Select value={repair.fault || undefined} onValueChange={(v) => setRepair({ ...repair, fault: v })}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose fault" />
+                    <SelectValue placeholder="Pick one" />
                   </SelectTrigger>
                   <SelectContent>
                     {faults.map((m) => (
@@ -240,7 +237,7 @@ export function RequestsPage() {
       <PageHeader
         title="Requests"
         icon={<ClipboardList />}
-        description={isManager ? "All requests in this office." : "Ask for material and track your requests."}
+        description={isManager ? "Everything people in this office have asked for." : "Ask for what you need and see how it is going."}
         actions={
           canRequest && (
             <Button onClick={() => setOpen(true)}>
@@ -252,7 +249,7 @@ export function RequestsPage() {
       {!hasApproval && (
         <Alert className="mb-4">
           <Info />
-          <AlertDescription>Approvals are switched off here, so requests will keep waiting until an Admin turns them on.</AlertDescription>
+          <AlertDescription>Nobody can approve requests in this office yet, so they will stay waiting. Ask an Admin to switch approvals on.</AlertDescription>
         </Alert>
       )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -280,7 +277,7 @@ export function RequestsPage() {
         <EmptyState
           icon={ClipboardList}
           title={data?.length ? `No ${statusLabel(status).toLowerCase()} requests` : "No requests yet"}
-          description={canRequest ? "Ask for material or a repair." : undefined}
+          description={canRequest ? "Press the button above to ask for something." : undefined}
           action={
             canRequest && (
               <Button onClick={() => setOpen(true)}>
@@ -295,14 +292,14 @@ export function RequestsPage() {
             <TableHeader>
               <TableRow className="bg-muted/40">
                 <TableHead className="pl-4">Request</TableHead>
-                <TableHead>Items / Job</TableHead>
-                <TableHead>Purpose</TableHead>
+                <TableHead>What</TableHead>
+                <TableHead>What for</TableHead>
                 {extraFields.map((f) => (
                   <TableHead key={f.key}>{f.label}</TableHead>
                 ))}
-                {isManager && <TableHead>Raised by</TableHead>}
+                {isManager && <TableHead>Asked by</TableHead>}
                 <TableHead>Status</TableHead>
-                <TableHead>Decision</TableHead>
+                <TableHead>Answer</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -312,12 +309,12 @@ export function RequestsPage() {
                     <div className="text-xs font-semibold">{r.code}</div>
                     <div className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</div>
                     {r.targetSiteName && r.targetSiteId !== config.siteId && (
-                      <span className="mt-0.5 inline-block rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                      <span className="mt-0.5 inline-block rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">
                         To: {r.targetSiteName}
                       </span>
                     )}
                     {r.originSiteName && r.originSiteId !== config.siteId && (
-                      <span className="mt-0.5 inline-block rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-700">
+                      <span className="mt-0.5 inline-block rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-700">
                         From: {r.originSiteName}
                       </span>
                     )}
@@ -336,7 +333,7 @@ export function RequestsPage() {
                   ))}
                   {isManager && <TableCell>{r.requestedByName}</TableCell>}
                   <TableCell>
-                    <StatusBadge status={r.status} />
+                    <StatusBadge status={r.status} label={requestStatusLabel(r) ?? undefined} />
                   </TableCell>
                   <TableCell className="max-w-[240px] text-xs whitespace-normal text-muted-foreground">
                     {r.decidedBy ? (

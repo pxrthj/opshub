@@ -103,7 +103,7 @@ export function AnalyticsPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <ChartCard
             title="Stock by category"
-            description={`Units on hand · ${data.stockSourceName}`}
+            description={`How many we have · ${data.stockSourceName}`}
             table={<SimpleTable head={["Category", "Qty", "Value"]} rows={data.stockByCategory.map((c) => [c.category, c.qty.toLocaleString("en-IN"), formatINR(c.value)])} />}
           >
             <ResponsiveContainer width="100%" height="100%">
@@ -113,16 +113,16 @@ export function AnalyticsPage() {
                 <YAxis tick={AXIS} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => v.toLocaleString("en-IN")} />
                 <Tooltip
                   cursor={{ fill: "rgba(100,116,139,0.08)" }}
-                  formatter={(v, _n, item) => [`${Number(v).toLocaleString("en-IN")} units · ${formatINR((item.payload as { value: number }).value)}`, "On hand"]}
+                  formatter={(v, _n, item) => [`${Number(v).toLocaleString("en-IN")} units · ${formatINR((item.payload as { value: number }).value)}`, "In stock"]}
                 />
-                <Bar isAnimationActive={false} dataKey="qty" name="Qty on hand" fill={colorA} radius={[4, 4, 0, 0]} maxBarSize={44} />
+                <Bar isAnimationActive={false} dataKey="qty" name="In stock" fill={colorA} radius={[4, 4, 0, 0]} maxBarSize={44} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
           <ChartCard
             title={data.timeline.title}
-            description="Last 6 weeks"
+            description="The last 6 weeks"
             table={<SimpleTable head={["Week of", data.timeline.seriesA, data.timeline.seriesB]} rows={data.timeline.points.map((p) => [p.label, p.a, p.b])} />}
           >
             <ResponsiveContainer width="100%" height="100%">
@@ -140,7 +140,7 @@ export function AnalyticsPage() {
 
           <ChartCard
             title={data.statusSplit.title}
-            description="Current counts"
+            description="Right now"
             table={<SimpleTable head={["Status", "Count"]} rows={data.statusSplit.data.map((d) => [d.name, d.value])} />}
           >
             <ResponsiveContainer width="100%" height="100%">
@@ -149,20 +149,20 @@ export function AnalyticsPage() {
                 <XAxis type="number" tick={AXIS} tickLine={false} axisLine={false} allowDecimals={false} />
                 <YAxis type="category" dataKey="name" tick={AXIS} tickLine={false} axisLine={false} width={90} />
                 <Tooltip cursor={{ fill: "rgba(100,116,139,0.08)" }} />
-                <Bar isAnimationActive={false} dataKey="value" name="Count" fill={colorA} radius={[0, 4, 4, 0]} maxBarSize={32} label={{ position: "right", fontSize: 12, fill: "#334155" }} />
+                <Bar isAnimationActive={false} dataKey="value" name="Count" fill={colorA} radius={[0, 4, 4, 0]} maxBarSize={32} label={{ position: "right", fontSize: 12, fill: "var(--muted-foreground)" }} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
           <Card>
             <CardHeader>
-              <CardTitle>Key figures</CardTitle>
-              <CardDescription>From this office's data</CardDescription>
+              <CardTitle>The numbers</CardTitle>
+              <CardDescription>For this office</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3">
               {[
                 ["Categories", data.stockByCategory.length],
-                ["Units on hand", data.stockByCategory.reduce((s, c) => s + c.qty, 0).toLocaleString("en-IN")],
+                ["Items in stock", data.stockByCategory.reduce((s, c) => s + c.qty, 0).toLocaleString("en-IN")],
                 ["Stock value", formatINR(data.stockByCategory.reduce((s, c) => s + c.value, 0))],
                 [data.timeline.seriesA + " (6 wks)", data.timeline.points.reduce((s, p) => s + p.a, 0)],
                 [data.timeline.seriesB + " (6 wks)", data.timeline.points.reduce((s, p) => s + p.b, 0)],

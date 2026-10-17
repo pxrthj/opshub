@@ -1,4 +1,4 @@
-import { computeFormula } from "./formula"
+import { computeFormula, validateFormula } from "./formula"
 import type { FieldDef } from "./types"
 
 // Generic, config-driven validation for any record described by FieldDef[].
@@ -56,4 +56,22 @@ export function slugKey(label: string) {
   if (!words.length) return ""
   const key = words.map((w, i) => (i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join("")
   return /^[0-9]/.test(key) ? "f" + key : key
+}
+
+/** Formula errors for a field list — used by the builder to block saving. */
+export function fieldListErrors(fields: FieldDef[]): string[] {
+  const errs: string[] = []
+  const keys = new Set<string>()
+  for (const f of fields) {
+    if (!f.label.trim()) errs.push("Every field needs a name")
+    if (!f.key) errs.push(`"${f.label}" needs a different name`)
+    else if (keys.has(f.key)) errs.push(`Two fields have the same name ("${f.label}")`)
+    keys.add(f.key)
+    if (f.type === "calculated") {
+      const e = validateFormula(f.formula ?? "", numericFieldKeys(fields, f.key))
+      if (e) errs.push(`${f.label}: ${e}`)
+    }
+    if (f.type === "select" && !(f.options ?? []).length) errs.push(`${f.label}: add at least one choice`)
+  }
+  return errs
 }

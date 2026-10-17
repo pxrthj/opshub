@@ -1,4 +1,5 @@
 import { SEED_USERS } from "@/data/seed"
+import { managerAction, needsMyManager } from "@/lib/requestFlow"
 import { ROLES, roleAtLeast } from "@/lib/roles"
 import type {
   AppNotification,
@@ -50,18 +51,8 @@ export function computeStats(db: Database, siteId: string): SiteStats {
   const hasInv = cfg.modules.includes("inventory")
   const inv = hasInv ? (db.data[stockId]?.inventory ?? []) : []
   const requests = data.requests ?? []
-  const incomingPending = Object.entries(db.data).flatMap(([sId, sData]) => {
-    if (sId === siteId) return []
-    return (sData.requests ?? []).filter(
-      (r) =>
-        r.status === "Pending" &&
-        (r.targetSiteId === siteId || (!r.targetSiteId && r.type === "material" && db.sites[sId]?.live.workflow.stockSourceSiteId === siteId)),
-    )
-  })
-  const allPendingIds = new Set([
-    ...requests.filter((r) => r.status === "Pending").map((r) => r.id),
-    ...incomingPending.map((r) => r.id),
-  ])
+  // Only requests that need a manager of THIS office right now (not ones waiting on another office).
+  const waitingForMe = requests.filter((r) => needsMyManager(r, siteId))
   const assignments = data.assignments ?? []
   const repairs = data.repairs ?? []
   const consumption = data.consumption ?? []
@@ -69,7 +60,7 @@ export function computeStats(db: Database, siteId: string): SiteStats {
 
   return {
     siteId,
-    pendingRequests: allPendingIds.size,
+    pendingRequests: waitingForMe.length,
     lowStock: inv.filter((i) => i.qty < i.reorderLevel).length,
     totalItems: inv.length,
     stockValue: inv.reduce((s, i) => s + i.qty * i.unitPrice, 0),
@@ -261,13 +252,14 @@ register(
         // 2. MANAGER NOTIFICATIONS
         if (roleAtLeast(effectiveRole, "Manager")) {
           if (data.requests && has("approval")) {
-            const pending = data.requests.filter((r) => r.status === "Pending")
+            const pending = data.requests.filter((r) => needsMyManager(r, siteId))
             for (const req of pending) {
+              const sendOn = managerAction(req, siteId) === "send-on"
               notifications.push({
                 id: `pend-${req.id}`,
                 priority: "urgent",
                 category: "approval",
-                title: `Approval Needed: ${req.code}`,
+                title: sendOn ? `Please send on: ${req.code}` : `Please decide: ${req.code}`,
                 message: `${req.requestedByName} requested ${req.lines.map((l) => `${l.qty}x ${l.itemName}`).join(", ") || req.purpose}.`,
                 siteId,
                 siteName: cfg.name,
@@ -569,6 +561,9 @@ register(
             decidedBy: req.decidedBy,
             decidedAt: req.decidedAt,
             decisionComment: req.decisionComment,
+            forwardedAt: req.forwardedAt,
+            forwardedBy: req.forwardedBy,
+            forwardNote: req.forwardNote,
             items: (req.lines ?? []).map((l) => ({
               itemId: l.itemId,
               itemName: l.itemName,

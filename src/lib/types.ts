@@ -175,6 +175,10 @@ export interface MaterialRequest {
   originSiteName?: string
   targetSiteId?: string
   targetSiteName?: string
+  /** Set when the requester's own manager sent the request on to the supplying office. */
+  forwardedAt?: string
+  forwardedBy?: string
+  forwardNote?: string
   [custom: string]: unknown
 }
 
@@ -391,6 +395,9 @@ export interface GoodsMovementTrail {
   decidedBy?: string
   decidedAt?: string
   decisionComment?: string
+  forwardedAt?: string
+  forwardedBy?: string
+  forwardNote?: string
   items: Array<{
     itemId: string
     itemName: string

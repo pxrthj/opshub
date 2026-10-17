@@ -1,15 +1,14 @@
 import { useState, type FormEvent } from "react"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
-import { AlertCircle, RotateCcw } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { toast } from "sonner"
-import { resetDb } from "@/api/db"
 import { Alert, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Logo } from "@/components/Logo"
 import { useAuth } from "@/context/AuthContext"
 import { DEMO_PASSWORD } from "@/data/seed"
@@ -18,45 +17,42 @@ import { errorMessage } from "@/lib/useAsync"
 interface Account {
   email: string
   name: string
-  note?: string
+  role: string
 }
 
-const LEVELS = ["Admin", "Manager", "Member"] as const
-
-// One row per office, one sign-in per level. Every account uses the same password.
-const OFFICE_ACCOUNTS: { office: string; people: Account[] }[] = [
+// Sample people, grouped by office. Everyone uses the same password.
+const SAMPLE_PEOPLE: { group: string; people: Account[] }[] = [
   {
-    office: "Central Stores",
+    group: "Everywhere",
+    people: [{ email: "admin@plexus.demo", name: "Aarti Deshmukh", role: "Admin in every office" }],
+  },
+  {
+    group: "Central Stores",
     people: [
-      { email: "stores.admin@plexus.demo", name: "Anil Joshi" },
-      { email: "stores.manager@plexus.demo", name: "Meena Kulkarni" },
-      { email: "stores.member@plexus.demo", name: "Pooja Gaikwad" },
+      { email: "stores.admin@plexus.demo", name: "Anil Joshi", role: "Admin" },
+      { email: "stores.manager@plexus.demo", name: "Meena Kulkarni", role: "Manager" },
+      { email: "stores.member@plexus.demo", name: "Pooja Gaikwad", role: "Member" },
     ],
   },
   {
-    office: "Distribution",
+    group: "Distribution",
     people: [
-      { email: "dist.admin@plexus.demo", name: "Priya Nair" },
-      { email: "dist.manager@plexus.demo", name: "Rahul Patil" },
-      { email: "dist.member@plexus.demo", name: "Sunil Jadhav" },
+      { email: "dist.admin@plexus.demo", name: "Priya Nair", role: "Admin" },
+      { email: "dist.manager@plexus.demo", name: "Rahul Patil", role: "Manager" },
+      { email: "dist.member@plexus.demo", name: "Sunil Jadhav", role: "Member" },
     ],
   },
   {
-    office: "Service Centre",
+    group: "Service Centre",
     people: [
-      { email: "service.admin@plexus.demo", name: "Kavita Rao" },
-      { email: "service.manager@plexus.demo", name: "Anjali Joshi" },
-      { email: "service.member@plexus.demo", name: "Vikas Shinde" },
+      { email: "service.admin@plexus.demo", name: "Kavita Rao", role: "Admin" },
+      { email: "service.manager@plexus.demo", name: "Anjali Joshi", role: "Manager" },
+      { email: "service.member@plexus.demo", name: "Vikas Shinde", role: "Member" },
     ],
   },
 ]
 
-// People who work across more than one office.
-const SPECIAL_ACCOUNTS: Account[] = [
-  { email: "admin@plexus.demo", name: "Aarti Deshmukh", note: "Admin · all offices" },
-  { email: "ganesh@plexus.demo", name: "Ganesh More", note: "Member · Distribution + Service Centre" },
-  { email: "logistics@plexus.demo", name: "Suresh Pawar", note: "Member · Central Stores + Distribution" },
-]
+const ALL_PEOPLE = SAMPLE_PEOPLE.flatMap((g) => g.people)
 
 export function LoginPage() {
   const { user, login, ready } = useAuth()
@@ -76,7 +72,7 @@ export function LoginPage() {
     e.preventDefault()
     setError(null)
     if (!email.trim() || !password) {
-      setError("Enter your email and password.")
+      setError("Please type your email and password.")
       return
     }
     setBusy(true)
@@ -98,7 +94,7 @@ export function LoginPage() {
     setBusyAccount(a.email)
     try {
       await login(a.email, DEMO_PASSWORD)
-      toast.success(`Signed in as ${a.name}`)
+      toast.success(`Welcome, ${a.name}`)
       navigate(next, { replace: true })
     } catch (err) {
       setError(errorMessage(err))
@@ -107,27 +103,7 @@ export function LoginPage() {
     }
   }
 
-  function handleReset() {
-    resetDb()
-    setError(null)
-    toast.success("Data reset to the starting sample data")
-  }
-
   const disabled = busy || !!busyAccount
-  const accountButton = (a: Account, label: string) => (
-    <Button
-      type="button"
-      size="sm"
-      variant="ghost"
-      className="h-auto px-2 py-1 font-normal whitespace-normal"
-      disabled={disabled}
-      onClick={() => quickSignIn(a)}
-      title={a.email}
-    >
-      {busyAccount === a.email && <Spinner />}
-      {label}
-    </Button>
-  )
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
@@ -136,7 +112,7 @@ export function LoginPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Sign in</CardTitle>
-            <CardDescription>Multi-site operations for the electricity utility</CardDescription>
+            <CardDescription>Use your email and password.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
@@ -163,45 +139,26 @@ export function LoginPage() {
         </Card>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Sample accounts — click a name to sign in</p>
-            <Button type="button" variant="link" size="sm" className="h-auto px-0 text-xs text-muted-foreground" onClick={handleReset}>
-              <RotateCcw /> Reset data
-            </Button>
-          </div>
-          <Card className="py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">Office</TableHead>
-                  {LEVELS.map((l) => (
-                    <TableHead key={l}>{l}</TableHead>
+          <Label htmlFor="sample">Just looking around? Sign in as a sample person</Label>
+          <Select value="" disabled={disabled} onValueChange={(email) => quickSignIn(ALL_PEOPLE.find((p) => p.email === email)!)}>
+            <SelectTrigger id="sample" className="w-full bg-card">
+              {busyAccount ? <Spinner /> : null}
+              <SelectValue placeholder="Choose a person" />
+            </SelectTrigger>
+            <SelectContent>
+              {SAMPLE_PEOPLE.map((g) => (
+                <SelectGroup key={g.group}>
+                  <SelectLabel>{g.group}</SelectLabel>
+                  {g.people.map((p) => (
+                    <SelectItem key={p.email} value={p.email}>
+                      {p.name} · {p.role}
+                    </SelectItem>
                   ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {OFFICE_ACCOUNTS.map((row) => (
-                  <TableRow key={row.office}>
-                    <TableCell className="pl-4 font-medium">{row.office}</TableCell>
-                    {row.people.map((p) => (
-                      <TableCell key={p.email} className="px-1">
-                        {accountButton(p, p.name.split(" ")[0])}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-          <Card className="gap-0 py-1">
-            {SPECIAL_ACCOUNTS.map((a) => (
-              <div key={a.email} className="flex items-center justify-between gap-3 px-2">
-                {accountButton(a, a.name)}
-                <span className="pr-2 text-xs text-muted-foreground">{a.note}</span>
-              </div>
-            ))}
-          </Card>
-          <p className="text-xs text-muted-foreground">Password for every account: {DEMO_PASSWORD}</p>
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Every sample person uses the password {DEMO_PASSWORD}.</p>
         </div>
       </div>
     </div>

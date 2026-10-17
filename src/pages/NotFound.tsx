@@ -10,7 +10,7 @@ export function NotFound({ message = "We couldn't find that page.", backTo = "/"
         <EmptyMedia variant="icon">
           <Compass />
         </EmptyMedia>
-        <EmptyTitle>Page not found</EmptyTitle>
+        <EmptyTitle>We can't find that page</EmptyTitle>
         <EmptyDescription>{message}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>

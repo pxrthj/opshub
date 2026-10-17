@@ -28,9 +28,9 @@ export function MyMaterialsPage() {
   return (
     <div>
       <PageHeader
-        title="My material"
+        title="My items"
         icon={<HardHat />}
-        description="Material handed to you."
+        description="What you were given, and how much is left."
         actions={
           config.modules.includes("request") && (
             <Button variant="outline" asChild>
@@ -58,7 +58,7 @@ export function MyMaterialsPage() {
       {loading && !data ? (
         <CardsSkeleton count={3} />
       ) : !data?.length ? (
-        <EmptyState icon={HardHat} title="Nothing issued to you yet" description="It shows up here once your request is approved." />
+        <EmptyState icon={HardHat} title="Nothing yet" description="Your items show up here once a manager approves your request." />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {data.map((a) => (
@@ -90,12 +90,12 @@ export function MyMaterialsPage() {
                       <div className="mt-1.5 flex gap-1.5">
                         {hasUsage && (
                           <Button size="xs" variant="outline" onClick={() => setDialog({ mode: "usage", assignmentId: a.id, itemId: l.itemId })}>
-                            <Gauge /> Record usage
+                            <Gauge /> Write down use
                           </Button>
                         )}
                         {hasReturns && (
                           <Button size="xs" variant="outline" onClick={() => setDialog({ mode: "return", assignmentId: a.id, itemId: l.itemId })}>
-                            <Undo2 /> Return unused
+                            <Undo2 /> Give back
                           </Button>
                         )}
                       </div>

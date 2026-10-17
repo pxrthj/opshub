@@ -17,7 +17,7 @@ export function ModuleCatalogue() {
 
   return (
     <div>
-      <PageHeader title="Modules" description="The building blocks an office is made of." icon={<Blocks />} />
+      <PageHeader title="Features" description="Everything an office can switch on." icon={<Blocks />} />
       <ToggleGroup
         type="single"
         variant="outline"
@@ -56,13 +56,13 @@ export function ModuleCatalogue() {
               <CardContent className="space-y-3">
                 <CardDescription>{m.description}</CardDescription>
                 <dl className="grid grid-cols-[88px_1fr] gap-x-2 gap-y-1.5 text-xs">
-                  <dt className="text-muted-foreground">Needs</dt>
+                  <dt className="text-muted-foreground">Needs first</dt>
                   <dd className="font-medium">{m.requires.length ? m.requires.map(requirementLabel).join(" + ") : "Nothing"}</dd>
-                  <dt className="text-muted-foreground">Takes in</dt>
+                  <dt className="text-muted-foreground">Uses</dt>
                   <dd>{m.inputs.length ? m.inputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</dd>
-                  <dt className="text-muted-foreground">Gives out</dt>
+                  <dt className="text-muted-foreground">Provides</dt>
                   <dd>{m.outputs.length ? m.outputs.map((p) => PORT_LABELS[p]).join(", ") : "—"}</dd>
-                  <dt className="text-muted-foreground">Used by</dt>
+                  <dt className="text-muted-foreground">Used in</dt>
                   <dd className="flex flex-wrap gap-1">
                     {usedBy.length ? (
                       usedBy.map((s) => (
