@@ -3,6 +3,7 @@ import { isSentOn, isSupplied, managerAction, needsMyManager } from "@/lib/reque
 import { ROLES, roleAtLeast } from "@/lib/roles"
 import { fieldsFor } from "@/lib/siteConfig"
 import type {
+  AuditChangeType,
   AnalyticsData,
   ConsumptionRecord,
   DashboardActivityItem,
@@ -14,6 +15,7 @@ import type {
   ImportRow,
   InventoryItem,
   MaterialRequest,
+  ProductAuditRecord,
   RepairJob,
   RepairStatus,
   ReturnRecord,
@@ -28,6 +30,44 @@ import { register, type Ctx } from "../router"
 import { assignMaterialTransaction, nextCode, siteCodePrefix, stockData } from "../transactions"
 import { assignmentView, byNewest, isLinkedInventory, stockSiteOf, weekBuckets } from "./helpers"
 import { computeStats, publicUser } from "./hub"
+
+// ---------------------------------------------------------------- audit helpers
+
+function pushAudit(
+  ctx: Ctx,
+  item: InventoryItem,
+  changeType: AuditChangeType,
+  field: ProductAuditRecord["field"],
+  oldValue: string | number | null,
+  newValue: string | number | null,
+  reason = "",
+  refCode?: string,
+) {
+  const stockSiteId = stockSiteOf(ctx.config)
+  const d = stockData(ctx.db, stockSiteId)
+  if (!d.productAudits) d.productAudits = []
+  const actor = ctx.user!
+  d.productAudits.unshift({
+    id: uid("aud"),
+    itemId: item.id,
+    itemName: item.name as string,
+    category: item.category as string,
+    unit: item.unit as string,
+    field,
+    changeType,
+    oldValue,
+    newValue,
+    diff: oldValue != null && newValue != null && typeof newValue === "number" && typeof oldValue === "number"
+      ? (newValue - oldValue > 0 ? "+" : "") + (newValue - oldValue)
+      : undefined,
+    reason,
+    refCode,
+    actorId: actor.id,
+    actorName: actor.name,
+    actorRole: ctx.role,
+    timestamp: new Date().toISOString(),
+  } satisfies ProductAuditRecord)
+}
 
 // Site-scoped routes: /api/:siteId/<resource>. The router has already verified that the
 // caller holds a role on :siteId, that the role is high enough and that the module is enabled.
@@ -138,6 +178,7 @@ register(
         throw conflict(`"${values.name}" already exists — edit the existing item instead`)
       const item = { ...values, id: uid("itm"), updatedAt: new Date().toISOString() } as InventoryItem
       inv.push(item)
+      pushAudit(ctx, item, "create", "created", null, null, "New item added to inventory")
       return item
     },
   },
@@ -151,10 +192,21 @@ register(
       const inv = data(ctx).inventory
       const item = inv.find((i) => i.id === ctx.params.id)
       if (!item) throw notFound("Item not found")
+      const oldQty = Number(item.qty)
+      const oldPrice = Number(item.unitPrice)
+      const oldThreshold = Number(item.reorderLevel)
       const values = cleanInventory(ctx, { ...item, ...ctx.body })
       if (inv.some((i) => i.id !== item.id && i.name.toLowerCase() === String(values.name).toLowerCase()))
         throw conflict(`Another item is already called "${values.name}"`)
       Object.assign(item, values, { updatedAt: new Date().toISOString() })
+      // Log individual field changes
+      const reason = String(ctx.body.reason ?? "")
+      if (Number(values.qty) !== oldQty)
+        pushAudit(ctx, item, "quantity", "qty", oldQty, Number(values.qty), reason)
+      if (Number(values.unitPrice) !== oldPrice)
+        pushAudit(ctx, item, "price", "unitPrice", oldPrice, Number(values.unitPrice), reason)
+      if (Number(values.reorderLevel) !== oldThreshold)
+        pushAudit(ctx, item, "threshold", "reorderLevel", oldThreshold, Number(values.reorderLevel), reason)
       return item
     },
   },
@@ -166,10 +218,36 @@ register(
     handler: (ctx) => {
       assertOwnInventory(ctx)
       const d = data(ctx)
-      const before = d.inventory.length
+      const item = d.inventory.find((i) => i.id === ctx.params.id)
+      if (!item) throw notFound("Item not found")
+      pushAudit(ctx, item, "delete", "deleted", null, null, "Item removed from inventory")
       d.inventory = d.inventory.filter((i) => i.id !== ctx.params.id)
-      if (d.inventory.length === before) throw notFound("Item not found")
       return { ok: true }
+    },
+  },
+  {
+    method: "GET",
+    path: "/api/:siteId/audit-log",
+    minRole: "Manager",
+    module: ["audit-log", "inventory"],
+    handler: (ctx) => {
+      const stockSiteId = stockSiteOf(ctx.config)
+      const d = stockData(ctx.db, stockSiteId)
+      const audits = d.productAudits ?? []
+      const { changeType, itemId, category, dateFrom, dateTo, search } = ctx.query as Record<string, string>
+      let result = [...audits]
+      if (changeType && changeType !== "all") result = result.filter((a) => a.changeType === changeType)
+      if (itemId) result = result.filter((a) => a.itemId === itemId)
+      if (category) result = result.filter((a) => a.category === category)
+      if (dateFrom) result = result.filter((a) => a.timestamp >= dateFrom)
+      if (dateTo) result = result.filter((a) => a.timestamp <= dateTo + "T23:59:59Z")
+      if (search) {
+        const t = search.toLowerCase()
+        result = result.filter(
+          (a) => a.itemName.toLowerCase().includes(t) || a.actorName.toLowerCase().includes(t) || a.reason.toLowerCase().includes(t),
+        )
+      }
+      return { audits: result }
     },
   },
   {
@@ -198,11 +276,17 @@ register(
         const values = normalizeValues(fieldsFor(ctx.config, "inventory"), { ...r })
         const existing = inv.find((i) => i.name.toLowerCase() === String(r.name).trim().toLowerCase())
         if (existing) {
+          const oldQty = Number(existing.qty)
           Object.assign(existing, { ...values, name: existing.name, updatedAt: now })
           updated++
+          if (Number(values.qty) !== oldQty) {
+            pushAudit(ctx, existing, "quantity", "qty", oldQty, Number(values.qty), "Bulk inventory import update")
+          }
         } else {
-          inv.push({ ...values, id: uid("itm"), updatedAt: now } as InventoryItem)
+          const newItem = { ...values, id: uid("itm"), updatedAt: now } as InventoryItem
+          inv.push(newItem)
           created++
+          pushAudit(ctx, newItem, "create", "created", null, Number(newItem.qty), "Bulk inventory import addition")
         }
       }
       return { created, updated }
@@ -539,8 +623,10 @@ register(
         if (job.returned) throw conflict(`${job.code} was already returned to stock`)
         const item = store.inventory.find((i) => i.name.toLowerCase() === job.meterType.toLowerCase())
         if (!item) throw conflict(`"${job.meterType}" is not an item in ${ctx.db.sites[stockSiteId].live.name}`)
+        const oldQty = item.qty
         item.qty += 1
         item.updatedAt = now
+        pushAudit(ctx, item, "return", "qty", oldQty, item.qty, `Repaired meter returned to stock (${job.code})`, job.code)
         job.returned = true
         job.updatedAt = now
         rec = { id: uid("rt"), source: "repair", refId: job.id, refCode: job.code, itemId: item.id, itemName: item.name, qty: 1, condition: "Repaired", stockSiteId, date: now, returnedBy: ctx.user!.name }
@@ -556,8 +642,10 @@ register(
         if (qty > line.remaining) throw badRequest(`Only ${line.remaining} ${line.unit} unused for ${line.itemName}`)
         const item = store.inventory.find((i) => i.id === line.itemId)
         if (!item) throw conflict(`${line.itemName} no longer exists in stores`)
+        const oldQty = item.qty
         item.qty += qty
         item.updatedAt = now
+        pushAudit(ctx, item, "return", "qty", oldQty, item.qty, `Unused material returned from ${a.code}`, a.code)
         rec = { id: uid("rt"), source: "assignment", refId: a.id, refCode: a.code, itemId: item.id, itemName: item.name, qty, condition: "Unused", stockSiteId, date: now, returnedBy: ctx.user!.name }
       }
       d.returns.unshift(rec)
