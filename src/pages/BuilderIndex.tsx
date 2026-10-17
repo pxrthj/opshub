@@ -1,8 +1,7 @@
-import { Link } from "react-router-dom"
+import { Link, Navigate } from "react-router-dom"
 import { Building2, History, Workflow } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { AccessDenied } from "@/components/AccessDenied"
 import { PageHeader } from "@/components/PageHeader"
 import { useHub } from "@/context/HubContext"
 import { getModuleDef } from "@/modules/definitions"
@@ -10,7 +9,7 @@ import { getModuleDef } from "@/modules/definitions"
 /** /builder — pick which site to build (Admin sites only). */
 export function BuilderIndex() {
   const { sites, isAnyAdmin, loading } = useHub()
-  if (!loading && !isAnyAdmin) return <AccessDenied message="Only Admins can edit offices." />
+  if (!loading && !isAnyAdmin) return <Navigate to="/" replace />
   const adminSites = sites.filter((s) => s.role === "Admin")
   return (
     <div>

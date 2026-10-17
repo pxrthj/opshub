@@ -1,5 +1,21 @@
 import { useEffect, useMemo, useState } from "react"
-import { Download, Package, Search, Truck, Wrench } from "lucide-react"
+import { Navigate } from "react-router-dom"
+import {
+  Activity,
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  Download,
+  Layers,
+  Network,
+  Package,
+  Search,
+  Share2,
+  Table2,
+  Truck,
+  Wrench,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/api"
 import { Button } from "@/components/ui/button"
@@ -9,15 +25,30 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EmptyState } from "@/components/EmptyState"
 import { PageHeader } from "@/components/PageHeader"
 import { StatCard } from "@/components/StatCard"
 import { StatusBadge } from "@/components/StatusBadge"
 import { TableSkeleton } from "@/components/TableSkeleton"
 import { useAuth } from "@/context/AuthContext"
-import { exportWorkbook } from "@/lib/excel"
-import type { ExportDataset, GoodsMovementStats, GoodsMovementTrail, MovementStage } from "@/lib/types"
+import { useHub } from "@/context/HubContext"
+import type {
+  GoodsMovementStats,
+  GoodsMovementTrail,
+  MovementStage,
+  SupplyChainData,
+} from "@/lib/types"
 import { formatDate, formatDateTime } from "@/lib/utils"
+
+// Feature 2 Subcomponents
+import { NetworkFlowMap } from "@/components/supply-chain/NetworkFlowMap"
+import { PipelineFunnelView } from "@/components/supply-chain/PipelineFunnelView"
+import { RequestJourneyTimeline } from "@/components/supply-chain/RequestJourneyTimeline"
+import { BottleneckHighlights } from "@/components/supply-chain/BottleneckHighlights"
+import { SiteComparisonSection } from "@/components/supply-chain/SiteComparisonSection"
+import { StockMovementChart } from "@/components/supply-chain/StockMovementChart"
+import { exportSupplyChainExcel } from "@/components/supply-chain/SupplyChainExport"
 
 /** Plain wording for the stored stage names. */
 const STAGE_LABEL: Record<MovementStage, string> = {
@@ -30,7 +61,7 @@ const STAGE_LABEL: Record<MovementStage, string> = {
 }
 
 const STAGE_FILTERS: { value: string; label: string }[] = [
-  { value: "all", label: "Everything" },
+  { value: "all", label: "All stages" },
   ...(Object.keys(STAGE_LABEL) as MovementStage[]).map((s) => ({ value: s, label: STAGE_LABEL[s] })),
 ]
 
@@ -48,7 +79,9 @@ const EMPTY_STATS: GoodsMovementStats = {
 }
 
 function itemsText(t: GoodsMovementTrail) {
-  return t.type === "material" ? t.items.map((i) => `${i.qty} ${i.unit} ${i.itemName}`).join(", ") : `${t.repair?.meterId} (${t.repair?.meterType})`
+  return t.type === "material"
+    ? t.items.map((i) => `${i.qty} ${i.unit} ${i.itemName}`).join(", ")
+    : `${t.repair?.meterId} (${t.repair?.meterType ?? "Meter"})`
 }
 
 function Step({ title, when, children }: { title: string; when?: string; children: React.ReactNode }) {
@@ -67,25 +100,34 @@ function Step({ title, when, children }: { title: string; when?: string; childre
 
 export function GoodsMovementPage() {
   const { user } = useAuth()
+  const { isAnyAdmin, loading: hubLoading } = useHub()
+
   const [loading, setLoading] = useState(true)
-  const [trails, setTrails] = useState<GoodsMovementTrail[]>([])
-  const [stats, setStats] = useState<GoodsMovementStats>(EMPTY_STATS)
+  const [data, setData] = useState<SupplyChainData | null>(null)
+  const [activeTab, setActiveTab] = useState("network")
+
+  // Filters for trail table
   const [search, setSearch] = useState("")
   const [office, setOffice] = useState("all")
   const [stage, setStage] = useState("all")
   const [active, setActive] = useState<GoodsMovementTrail | null>(null)
+  const [timelineRequestId, setTimelineRequestId] = useState<string>("")
   const [exporting, setExporting] = useState(false)
+
+  // Global admin gate: redirect to home if not authorized
+  if (!hubLoading && !isAnyAdmin) {
+    return <Navigate to="/" replace />
+  }
 
   useEffect(() => {
     let cancelled = false
     api.raw
-      .get<{ trails: GoodsMovementTrail[]; stats: GoodsMovementStats }>("/api/hub/goods-movement")
+      .get<SupplyChainData>("/api/hub/goods-movement")
       .then((res) => {
         if (cancelled) return
-        setTrails(res.trails)
-        setStats(res.stats)
+        setData(res)
       })
-      .catch(() => toast.error("We couldn't load the stock trail. Please try again."))
+      .catch(() => toast.error("We couldn't load the supply chain tracker. Please try again."))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -94,15 +136,24 @@ export function GoodsMovementPage() {
     }
   }, [])
 
+  const trails = data?.trails ?? []
+  const stats = data?.stats ?? EMPTY_STATS
+  const siteMetrics = data?.siteMetrics ?? []
+  const bottlenecks = data?.bottlenecks ?? []
+  const edges = data?.edges ?? []
+
   const offices = useMemo(() => [...new Map(trails.map((t) => [t.siteId, t.siteName])).entries()], [trails])
 
+  // Filtered trail list for Table view
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return trails.filter((t) => {
-      if (office !== "all" && t.siteId !== office) return false
+      if (office !== "all" && t.siteId !== office && t.sourceSiteId !== office) return false
       if (stage !== "all" && t.stage !== stage) return false
       if (!q) return true
-      return [t.code, t.requestedByName, t.purpose, t.siteName, itemsText(t), t.assignment?.code ?? ""].some((v) => v.toLowerCase().includes(q))
+      return [t.code, t.requestedByName, t.purpose, t.siteName, itemsText(t), t.assignment?.code ?? ""].some((v) =>
+        v.toLowerCase().includes(q)
+      )
     })
   }, [trails, search, office, stage])
 
@@ -113,44 +164,37 @@ export function GoodsMovementPage() {
     setStage("all")
   }
 
+  // Drill down helpers
+  const handleFilterSite = (siteId: string) => {
+    setOffice(siteId)
+    setActiveTab("movement")
+  }
+
+  const handleStageClick = (stageId: string) => {
+    if (stageId === "requested") setStage("all")
+    else if (stageId === "forwarded") {
+      setSearch("")
+      setStage("all")
+    } else if (stageId === "approved") setStage("Approved & Dispatched")
+    else if (stageId === "dispatched") setStage("Approved & Dispatched")
+    else if (stageId === "consumed") setStage("Fully Consumed")
+    setActiveTab("movement")
+  }
+
+  const handleSelectTrailForTimeline = (trail: GoodsMovementTrail) => {
+    setTimelineRequestId(trail.id)
+    setActiveTab("timeline")
+  }
+
+  // Export full multi-sheet workbook
   const handleExport = async () => {
+    if (!data) return
     setExporting(true)
     try {
-      const ds: ExportDataset = {
-        id: "stock_trail",
-        label: "Stock trail",
-        columns: [
-          { header: "Request", key: "code", width: 16 },
-          { header: "Office", key: "office", width: 22 },
-          { header: "Asked by", key: "requester", width: 18 },
-          { header: "Date", key: "date", width: 20 },
-          { header: "What", key: "items", width: 40 },
-          { header: "Where it stands", key: "stage", width: 24 },
-          { header: "Decided by", key: "decidedBy", width: 18 },
-          { header: "Used", key: "used", width: 10 },
-          { header: "Given back", key: "back", width: 12 },
-        ],
-        rows: filtered.map((t) => ({
-          code: t.code,
-          office: t.siteName,
-          requester: t.requestedByName,
-          date: formatDateTime(t.requestedAt),
-          items: itemsText(t),
-          stage: STAGE_LABEL[t.stage],
-          decidedBy: t.decidedBy || "—",
-          used: t.totalConsumed,
-          back: t.totalReturned,
-        })),
-      }
-      await exportWorkbook([ds], {
-        filename: `Stock_trail_${new Date().toISOString().slice(0, 10)}.xlsx`,
-        siteName: "All offices",
-        author: user?.name || "Admin",
-        color: "#171717",
-      })
-      toast.success("Excel file downloaded")
+      await exportSupplyChainExcel(data, { author: user?.name || "Global Admin" })
+      toast.success("Excel report downloaded with 4 detailed sheets")
     } catch {
-      toast.error("We couldn't create the Excel file. Please try again.")
+      toast.error("Failed to generate Excel export. Please try again.")
     } finally {
       setExporting(false)
     }
@@ -159,105 +203,293 @@ export function GoodsMovementPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Stock trail"
-        description="Follow every request from the moment it was asked to the moment the stock was used or given back."
-        icon={<Truck />}
+        title="Supply Chain Tracker"
+        description="Comprehensive central admin visibility across all sites, hierarchy corridors, pipelines, and bottlenecks."
+        icon={<Network className="size-6 text-primary" />}
         actions={
-          <Button onClick={handleExport} disabled={exporting || filtered.length === 0}>
-            <Download /> {exporting ? "Preparing…" : "Download to Excel"}
+          <Button onClick={handleExport} disabled={exporting || loading || trails.length === 0}>
+            <Download className="mr-1.5 size-4" /> {exporting ? "Generating Excel…" : "Download Full Report"}
           </Button>
         }
       />
 
+      {/* Global Supply Chain KPI Stat Cards with Clickable Drilldown */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Requests" value={stats.totalTracked} icon={Package} />
-        <StatCard label="Waiting for a decision" value={stats.pendingApprovals} icon={Package} tone="warning" />
-        <StatCard label="Given out" value={stats.totalUnitsDispatched.toLocaleString()} hint="items" icon={Truck} />
-        <StatCard label="Used or given back" value={(stats.totalUnitsConsumed + stats.totalUnitsReturned).toLocaleString()} hint="items" icon={Package} tone="success" />
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search by name, item or request number" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <div
+          onClick={() => {
+            clearFilters()
+            setActiveTab("movement")
+          }}
+          className="cursor-pointer"
+        >
+          <StatCard
+            label="Total Tracked Requests"
+            value={stats.totalTracked}
+            hint="Across all offices"
+            icon={Package}
+          />
         </div>
-        <Select value={office} onValueChange={setOffice}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="All offices" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All offices</SelectItem>
-            {offices.map(([id, name]) => (
-              <SelectItem key={id} value={id}>
-                {name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Everything" />
-          </SelectTrigger>
-          <SelectContent>
-            {STAGE_FILTERS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        <div
+          onClick={() => {
+            setStage("Awaiting Approval")
+            setActiveTab("bottlenecks")
+          }}
+          className="cursor-pointer"
+        >
+          <StatCard
+            label="Pending Decisions"
+            value={stats.pendingApprovals}
+            hint="Awaiting manager sign-off"
+            icon={Clock}
+            tone="warning"
+          />
+        </div>
+
+        <div
+          onClick={() => {
+            setStage("Approved & Dispatched")
+            setActiveTab("movement")
+          }}
+          className="cursor-pointer"
+        >
+          <StatCard
+            label="Units Dispatched"
+            value={stats.totalUnitsDispatched.toLocaleString()}
+            hint="Given out to field staff"
+            icon={Truck}
+          />
+        </div>
+
+        <div
+          onClick={() => {
+            setActiveTab("comparison")
+          }}
+          className="cursor-pointer"
+        >
+          <StatCard
+            label="Units Consumed / Restocked"
+            value={(stats.totalUnitsConsumed + stats.totalUnitsReturned).toLocaleString()}
+            hint={`${stats.totalUnitsConsumed} used · ${stats.totalUnitsReturned} returned`}
+            icon={CheckCircle2}
+            tone="success"
+          />
+        </div>
       </div>
 
-      {loading ? (
-        <TableSkeleton rows={6} />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Package}
-          title="Nothing found"
-          description="Try a different search or filter."
-          action={
-            filtersOn && (
-              <Button variant="outline" onClick={clearFilters}>
-                Clear search
-              </Button>
-            )
-          }
-        />
-      ) : (
-        <Card className="overflow-hidden py-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Request</TableHead>
-                <TableHead>Office</TableHead>
-                <TableHead>Asked by</TableHead>
-                <TableHead>What</TableHead>
-                <TableHead>Where it stands</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((t) => (
-                <TableRow key={t.id} className="cursor-pointer" onClick={() => setActive(t)}>
-                  <TableCell>
-                    <p className="font-medium">{t.code}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(t.requestedAt)}</p>
-                  </TableCell>
-                  <TableCell>{t.siteName}</TableCell>
-                  <TableCell>{t.requestedByName}</TableCell>
-                  <TableCell className="max-w-64 whitespace-normal">
-                    {t.type === "repair" && <Wrench className="mr-1 inline size-3.5 text-muted-foreground" />}
-                    {itemsText(t)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{STAGE_LABEL[t.stage]}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
+      {/* Navigation Tabs for Central Admin Views */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto p-1.5 gap-1 bg-muted/60">
+          <TabsTrigger value="network" className="text-xs py-2 gap-1.5">
+            <Share2 className="size-3.5" /> Network Map
+          </TabsTrigger>
+          <TabsTrigger value="funnel" className="text-xs py-2 gap-1.5">
+            <Layers className="size-3.5" /> Pipeline Funnel
+          </TabsTrigger>
+          <TabsTrigger value="bottlenecks" className="text-xs py-2 gap-1.5">
+            <Clock className="size-3.5" /> Bottlenecks
+          </TabsTrigger>
+          <TabsTrigger value="comparison" className="text-xs py-2 gap-1.5">
+            <BarChart3 className="size-3.5" /> Site Comparison
+          </TabsTrigger>
+          <TabsTrigger value="timeline" className="text-xs py-2 gap-1.5">
+            <Activity className="size-3.5" /> Request Journey
+          </TabsTrigger>
+          <TabsTrigger value="movement" className="text-xs py-2 gap-1.5">
+            <Table2 className="size-3.5" /> Movement Logs
+          </TabsTrigger>
+        </TabsList>
 
+        {/* Tab 1: Network Flow Map */}
+        <TabsContent value="network" className="mt-4">
+          {loading ? (
+            <TableSkeleton rows={8} />
+          ) : (
+            <NetworkFlowMap
+              metrics={siteMetrics}
+              edgesData={edges}
+              trails={trails}
+              onFilterSite={handleFilterSite}
+              onSelectTrail={handleSelectTrailForTimeline}
+            />
+          )}
+        </TabsContent>
+
+        {/* Tab 2: Pipeline Funnel View */}
+        <TabsContent value="funnel" className="mt-4">
+          {loading ? (
+            <TableSkeleton rows={8} />
+          ) : (
+            <PipelineFunnelView
+              trails={trails}
+              siteMetrics={siteMetrics}
+              onStageClick={handleStageClick}
+              onSiteClick={handleFilterSite}
+            />
+          )}
+        </TabsContent>
+
+        {/* Tab 3: Bottleneck Highlights & Latency */}
+        <TabsContent value="bottlenecks" className="mt-4">
+          {loading ? (
+            <TableSkeleton rows={8} />
+          ) : (
+            <BottleneckHighlights
+              bottlenecks={bottlenecks}
+              siteMetrics={siteMetrics}
+              trails={trails}
+              onSelectRequest={handleSelectTrailForTimeline}
+              onFilterSite={handleFilterSite}
+            />
+          )}
+        </TabsContent>
+
+        {/* Tab 4: Per-site Comparison Table & Bar Chart */}
+        <TabsContent value="comparison" className="mt-4">
+          {loading ? (
+            <TableSkeleton rows={8} />
+          ) : (
+            <SiteComparisonSection siteMetrics={siteMetrics} onFilterSite={handleFilterSite} />
+          )}
+        </TabsContent>
+
+        {/* Tab 5: Request Journey Timeline */}
+        <TabsContent value="timeline" className="mt-4">
+          {loading ? (
+            <TableSkeleton rows={8} />
+          ) : (
+            <RequestJourneyTimeline
+              trails={trails}
+              selectedRequestId={timelineRequestId}
+              onSelectRequest={(t) => setTimelineRequestId(t.id)}
+            />
+          )}
+        </TabsContent>
+
+        {/* Tab 6: Stock Movement Logs & Time Chart */}
+        <TabsContent value="movement" className="mt-4 space-y-6">
+          {/* Movement Over Time Chart */}
+          <StockMovementChart trails={trails} edges={edges} />
+
+          {/* Filter Bar */}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by code, person, item, or site..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 text-xs"
+              />
+            </div>
+
+            <Select value={office} onValueChange={setOffice}>
+              <SelectTrigger className="w-full sm:w-48 text-xs">
+                <SelectValue placeholder="All offices" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All offices</SelectItem>
+                {offices.map(([id, name]) => (
+                  <SelectItem key={id} value={id}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={stage} onValueChange={setStage}>
+              <SelectTrigger className="w-full sm:w-48 text-xs">
+                <SelectValue placeholder="All stages" />
+              </SelectTrigger>
+              <SelectContent>
+                {STAGE_FILTERS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {filtersOn && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">
+                <X className="mr-1 size-3.5" /> Clear
+              </Button>
+            )}
+          </div>
+
+          {/* Request Records Table */}
+          {loading ? (
+            <TableSkeleton rows={6} />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="No records found"
+              description="Try adjusting your search criteria or resetting filters."
+              action={
+                filtersOn && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                )
+              }
+            />
+          ) : (
+            <Card className="overflow-hidden py-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Request</TableHead>
+                    <TableHead>Origin Site</TableHead>
+                    <TableHead>Supplying Site</TableHead>
+                    <TableHead>Asked by</TableHead>
+                    <TableHead>What</TableHead>
+                    <TableHead>Stage</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((t) => (
+                    <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40 transition-colors">
+                      <TableCell onClick={() => setActive(t)}>
+                        <p className="font-semibold text-primary">{t.code}</p>
+                        <p className="text-[11px] text-muted-foreground">{formatDate(t.requestedAt)}</p>
+                      </TableCell>
+                      <TableCell onClick={() => setActive(t)} className="font-medium">
+                        {t.siteName}
+                      </TableCell>
+                      <TableCell onClick={() => setActive(t)} className="text-muted-foreground text-xs">
+                        {t.sourceSiteName}
+                      </TableCell>
+                      <TableCell onClick={() => setActive(t)}>{t.requestedByName}</TableCell>
+                      <TableCell onClick={() => setActive(t)} className="max-w-64 whitespace-normal text-xs">
+                        {t.type === "repair" && <Wrench className="mr-1 inline size-3.5 text-amber-500" />}
+                        {itemsText(t)}
+                      </TableCell>
+                      <TableCell onClick={() => setActive(t)}>
+                        <Badge variant="secondary" className="text-xs">
+                          {STAGE_LABEL[t.stage] ?? t.stage}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => handleSelectTrailForTimeline(t)}
+                        >
+                          Journey
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Detail Slideout Modal for Individual Request */}
       <Dialog open={!!active} onOpenChange={(open) => !open && setActive(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           {active && (
@@ -277,14 +509,23 @@ export function GoodsMovementPage() {
                 {active.forwardedAt && (
                   <Step title={`Sent on to ${active.sourceSiteName}`} when={formatDateTime(active.forwardedAt)}>
                     <p>
-                      {active.forwardedBy ?? `A manager at ${active.siteName}`} ({active.siteName}) passed it to the manager of {active.sourceSiteName}.
+                      {active.forwardedBy ?? `A manager at ${active.siteName}`} passed it to the manager of {active.sourceSiteName}.
                     </p>
-                    {active.forwardNote && <p>“{active.forwardNote}”</p>}
+                    {active.forwardNote && <p className="italic">"{active.forwardNote}"</p>}
                   </Step>
                 )}
-                <Step title={active.status === "Rejected" ? "Turned down" : active.status === "Pending" ? "Waiting for a decision" : "Approved"} when={active.decidedAt ? formatDateTime(active.decidedAt) : undefined}>
+                <Step
+                  title={
+                    active.status === "Rejected"
+                      ? "Turned down"
+                      : active.status === "Pending"
+                      ? "Waiting for a decision"
+                      : "Approved"
+                  }
+                  when={active.decidedAt ? formatDateTime(active.decidedAt) : undefined}
+                >
                   {active.decidedBy ? <p>Decided by {active.decidedBy}.</p> : <p>No one has decided yet.</p>}
-                  {active.decisionComment && <p>“{active.decisionComment}”</p>}
+                  {active.decisionComment && <p className="italic">"{active.decisionComment}"</p>}
                   <StatusBadge status={active.status} />
                 </Step>
                 {active.assignment && (
@@ -313,6 +554,20 @@ export function GoodsMovementPage() {
                   </Step>
                 )}
               </ol>
+
+              <div className="mt-4 pt-4 border-t flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    handleSelectTrailForTimeline(active)
+                    setActive(null)
+                  }}
+                  className="text-xs"
+                >
+                  Inspect in Journey Timeline
+                </Button>
+              </div>
             </>
           )}
         </DialogContent>
